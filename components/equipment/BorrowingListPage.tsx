@@ -9,27 +9,30 @@ interface BorrowingListPageProps {
     onNewRequest: () => void;
     onChangeStatus: (id: string, newStatus: BorrowStatus) => void;
     onCancelRequest: (id: string) => void;
+    onBackToLanding: () => void;
+    showToast: (message: string, type: 'success' | 'error') => void;
 }
 
-const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNewRequest, onChangeStatus, onCancelRequest }) => {
+const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNewRequest, onChangeStatus, onCancelRequest, onBackToLanding, showToast }) => {
     const [isAdmin, setIsAdmin] = useState(false);
     
     const handleAdminLogin = () => {
         const password = prompt('กรุณาใส่รหัสผ่านแอดมิน:');
         if (password && ADMIN_PASSWORDS.includes(password)) {
             setIsAdmin(true);
+            showToast('เข้าสู่โหมดแอดมินสำเร็จ', 'success');
         } else if (password) {
-            alert('รหัสผ่านไม่ถูกต้อง');
+            showToast('รหัสผ่านไม่ถูกต้อง', 'error');
         }
     };
 
     const getStatusClass = (status: BorrowStatus) => {
         switch(status) {
-            case BorrowStatus.Pending: return 'bg-yellow-100 text-yellow-800';
-            case BorrowStatus.Borrowing: return 'bg-blue-100 text-blue-800';
-            case BorrowStatus.Returned: return 'bg-green-100 text-green-800';
-            case BorrowStatus.Overdue: return 'bg-red-100 text-red-800';
-            default: return 'bg-gray-100 text-gray-800';
+            case BorrowStatus.Pending: return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+            case BorrowStatus.Borrowing: return 'bg-blue-100 text-blue-800 border-blue-200';
+            case BorrowStatus.Returned: return 'bg-green-100 text-green-800 border-green-200';
+            case BorrowStatus.Overdue: return 'bg-red-100 text-red-800 border-red-200';
+            default: return 'bg-gray-100 text-gray-800 border-gray-200';
         }
     };
 
@@ -44,42 +47,56 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
 
         return (
             <div className="flex gap-2 mt-2">
-                {req.status === BorrowStatus.Pending && <Button variant="primary" onClick={() => handleStatusChange(BorrowStatus.Borrowing)}>อนุมัติให้ยืม</Button>}
-                {req.status === BorrowStatus.Borrowing && <Button variant="secondary" onClick={() => handleStatusChange(BorrowStatus.Returned)}>รับคืนแล้ว</Button>}
-                {req.status === BorrowStatus.Overdue && <Button variant="secondary" onClick={() => handleStatusChange(BorrowStatus.Returned)}>รับคืนแล้ว</Button>}
+                {req.status === BorrowStatus.Pending && <Button size="sm" variant="primary" onClick={() => handleStatusChange(BorrowStatus.Borrowing)}>อนุมัติให้ยืม</Button>}
+                {req.status === BorrowStatus.Borrowing && <Button size="sm" variant="secondary" onClick={() => handleStatusChange(BorrowStatus.Returned)}>รับคืนแล้ว</Button>}
+                {req.status === BorrowStatus.Overdue && <Button size="sm" variant="secondary" onClick={() => handleStatusChange(BorrowStatus.Returned)}>รับคืนแล้ว</Button>}
             </div>
         );
     }
     
     return (
-        <div className="bg-white p-6 rounded-lg shadow-md animate-fade-in">
-            <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
-                <div>
-                    <h2 className="text-2xl font-bold text-gray-800">รายการยืม-คืนอุปกรณ์</h2>
-                    <p className="text-gray-500">จัดการคำขอยืมและติดตามสถานะอุปกรณ์</p>
+        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-xl animate-fade-in">
+             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-5 border-b border-gray-200 gap-4">
+                <div className="flex items-center gap-4">
+                     <div>
+                        <h2 className="text-2xl font-bold text-[#0D448D]">ระบบยืม-คืนอุปกรณ์</h2>
+                        <p className="text-gray-500 mt-1">จัดการคำขอยืมและติดตามสถานะอุปกรณ์ทั้งหมด</p>
+                     </div>
+                     {isAdmin && (
+                        <span className="px-3 py-1 text-xs font-bold text-white bg-green-600 rounded-full shadow-md">
+                            โหมดแอดมิน
+                        </span>
+                    )}
                 </div>
-                <div className="flex gap-2">
-                    <Button onClick={onNewRequest} variant="primary">สร้างคำขอยืมใหม่</Button>
-                    {!isAdmin && <Button onClick={handleAdminLogin} variant="secondary">แอดมิน</Button>}
+                <div className="flex items-center gap-2">
+                     <Button onClick={onBackToLanding} variant="secondary">← กลับหน้าหลัก</Button>
+                     {!isAdmin && <Button onClick={handleAdminLogin}>🔑 แอดมิน</Button>}
                 </div>
             </div>
+            
+             <div className="flex justify-end mb-6">
+                 <Button onClick={onNewRequest} variant="primary">
+                    + สร้างคำขอยืมใหม่
+                </Button>
+             </div>
+
 
             <div className="space-y-4">
-                {borrowings.length === 0 ? <p className="text-center text-gray-500 py-8">ยังไม่มีรายการยืม</p> : null}
+                {borrowings.length === 0 ? <p className="text-center text-gray-500 py-16 bg-gray-50 rounded-lg">ยังไม่มีรายการยืม</p> : null}
                 {borrowings.map(req => (
-                    <div key={req.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <div className="flex justify-between items-start">
+                    <div key={req.id} className={`bg-white p-4 rounded-xl border-l-4 ${getStatusClass(req.status).split(' ')[2].replace('border-','border-l-')}`}>
+                        <div className="flex justify-between items-start flex-wrap gap-2">
                              <div>
                                 <p className="font-semibold text-gray-800">ผู้ยืม: {req.borrowerName} ({req.department})</p>
                                 <p className="text-sm text-gray-600">วันที่ยืม: {new Date(req.borrowDate).toLocaleDateString('th-TH')} - คืน: {new Date(req.returnDate).toLocaleDateString('th-TH')}</p>
-                                <p className="text-sm text-gray-500 mt-2">อุปกรณ์: {req.equipmentList}</p>
+                                <p className="text-sm text-gray-500 mt-2 bg-gray-50 p-2 rounded-md">อุปกรณ์: {req.equipmentList}</p>
                              </div>
-                            <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusClass(req.status)}`}>{req.status}</span>
+                            <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${getStatusClass(req.status)}`}>{req.status}</span>
                         </div>
                         <div className="flex justify-end mt-2">
                            <StatusActions req={req} />
                            {req.status === BorrowStatus.Pending && !isAdmin && (
-                               <Button variant="danger" onClick={() => {
+                               <Button size="sm" variant="danger" onClick={() => {
                                    if(confirm('คุณต้องการยกเลิกคำขอนี้ใช่หรือไม่?')) {
                                        onCancelRequest(req.id);
                                    }

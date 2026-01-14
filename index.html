@@ -12,6 +12,20 @@
       body {
         font-family: 'Sarabun', sans-serif;
       }
+      /* Custom styles for better UX */
+      .text-shadow-md {
+        text-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      }
+      .text-shadow {
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in {
+        animation: fadeIn 0.4s ease-out forwards;
+      }
     </style>
   <script type="importmap">
 {
@@ -26,7 +40,7 @@
 }
 </script>
 </head>
-  <body class="bg-gray-100">
+  <body>
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
   </body>

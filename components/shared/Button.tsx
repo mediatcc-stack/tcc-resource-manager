@@ -4,11 +4,17 @@ import LoadingSpinner from './LoadingSpinner';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'nav' | 'stats';
+  size?: 'sm' | 'md';
   loading?: boolean;
 }
 
-const Button: React.FC<ButtonProps> = ({ children, variant = 'primary', loading = false, className = '', ...props }) => {
-  const baseClasses = 'px-5 py-2.5 text-sm font-semibold rounded-lg shadow-sm transition-transform duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:transform-none';
+const Button: React.FC<ButtonProps> = ({ children, variant = 'primary', size = 'md', loading = false, className = '', ...props }) => {
+  const baseClasses = 'font-semibold rounded-lg shadow-sm transition-transform duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:transform-none';
+
+  const sizeClasses = {
+    md: 'px-5 py-2.5 text-sm',
+    sm: 'px-3 py-1.5 text-xs',
+  };
 
   const variantClasses = {
     primary: 'bg-[#0D448D] text-white hover:bg-[#043986] focus:ring-[#0D448D] hover:-translate-y-0.5',
@@ -18,16 +24,11 @@ const Button: React.FC<ButtonProps> = ({ children, variant = 'primary', loading 
     stats: 'px-4 py-2 text-sm border-2 border-[#0D448D] bg-white text-[#0D448D] hover:bg-blue-50 font-semibold rounded-lg',
   };
 
-  const activeClasses = {
-    nav: 'bg-[#0D448D] text-white hover:bg-[#0D448D]',
-    stats: 'bg-[#0D448D] text-white',
-  }
-
   const disabled = props.disabled || loading;
 
   return (
     <button
-      className={`${baseClasses} ${variantClasses[variant]} ${className}`}
+      className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}
       {...props}
       disabled={disabled}
     >

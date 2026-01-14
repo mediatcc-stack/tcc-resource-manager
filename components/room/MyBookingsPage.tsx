@@ -2,105 +2,151 @@
 import React, { useState, useMemo } from 'react';
 import { Booking } from '../../types';
 import Button from '../shared/Button';
-import { ADMIN_PASSWORDS } from '../../constants';
+import { ROOMS } from '../../constants';
 
 interface MyBookingsPageProps {
   bookings: Booking[];
   onCancelBooking: (id: string) => void;
   onCancelBookingGroup: (groupId: string) => void;
+  onBack: () => void;
 }
 
-const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooking, onCancelBookingGroup }) => {
-  const [filterPhone, setFilterPhone] = useState('');
-  const [isAdmin, setIsAdmin] = useState(false);
+const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooking, onCancelBookingGroup, onBack }) => {
+  const [nameFilter, setNameFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [roomFilter, setRoomFilter] = useState('all');
 
-  const handleAdminLogin = () => {
-    const password = prompt('กรุณาใส่รหัสผ่านแอดมิน:');
-    if (password && ADMIN_PASSWORDS.includes(password)) {
-      setIsAdmin(true);
-      setFilterPhone('');
-    } else if (password) {
-      alert('รหัสผ่านไม่ถูกต้อง');
+  const filteredBookings = useMemo(() => {
+    return bookings
+      .filter(b => {
+        const nameMatch = nameFilter ? b.bookerName.toLowerCase().includes(nameFilter.toLowerCase()) : true;
+        const dateMatch = dateFilter ? b.date === dateFilter : true;
+        const roomMatch = roomFilter !== 'all' ? b.roomName === roomFilter : true;
+        return nameMatch && dateMatch && roomMatch;
+      })
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || b.startTime.localeCompare(a.startTime));
+  }, [bookings, nameFilter, dateFilter, roomFilter]);
+
+  const clearFilters = () => {
+    setNameFilter('');
+    setDateFilter('');
+    setRoomFilter('all');
+  };
+  
+  const inputClasses = "block w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
+
+  const getStatusInfo = (status: Booking['status']) => {
+    switch(status) {
+        case 'จองแล้ว': return { text: 'จองแล้ว', bg: 'bg-blue-100', text_color: 'text-blue-800', border: 'border-blue-500' };
+        case 'ยกเลิก': return { text: 'ยกเลิก', bg: 'bg-red-100', text_color: 'text-red-800', border: 'border-red-500' };
+        case 'หมดเวลา': return { text: 'เสร็จสิ้น', bg: 'bg-gray-100', text_color: 'text-gray-800', border: 'border-gray-400' };
+        default: return { text: status, bg: 'bg-gray-100', text_color: 'text-gray-800', border: 'border-gray-400' };
     }
   };
 
-  const filteredBookings = useMemo(() => {
-    const sorted = [...bookings].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    if (isAdmin) {
-      return sorted;
-    }
-    if (!filterPhone) {
-      return [];
-    }
-    return sorted.filter(b => b.phone.includes(filterPhone));
-  }, [bookings, filterPhone, isAdmin]);
-  
-  const getStatusClass = (status: Booking['status']) => {
-    switch(status) {
-        case 'จองแล้ว': return 'bg-green-100 text-green-800';
-        case 'ยกเลิก': return 'bg-red-100 text-red-800';
-        case 'หมดเวลา': return 'bg-gray-100 text-gray-800';
-        default: return 'bg-gray-100 text-gray-800';
-    }
+  const BookingCard: React.FC<{booking: Booking}> = ({ booking }) => {
+    const statusInfo = getStatusInfo(booking.status);
+    return (
+        <div className={`bg-white p-5 rounded-xl shadow-md border-l-4 ${statusInfo.border} transition-shadow hover:shadow-lg`}>
+            <div className="grid grid-cols-1 sm:grid-cols-6 gap-x-4 gap-y-3">
+                <div className="sm:col-span-3">
+                    <h4 className="font-bold text-lg text-[#0D448D]">{booking.roomName}</h4>
+                    <p className="text-sm text-gray-600 mt-1">ผู้จอง: <span className="font-medium">{booking.bookerName} ({booking.phone})</span></p>
+                    <p className="text-sm text-gray-500 break-words">วัตถุประสงค์: {booking.purpose}</p>
+                </div>
+                <div className="sm:col-span-2">
+                    <p className="font-semibold text-gray-800 text-sm">🗓️ {booking.isMultiDay && booking.dateRange ? `ช่วงวันที่: ${booking.dateRange}` : `วันที่: ${new Date(booking.date).toLocaleDateString('th-TH')}`}</p>
+                    <p className="text-sm text-gray-600">⏰ เวลา: {booking.startTime} - {booking.endTime}</p>
+                </div>
+                <div className="sm:col-span-1 flex flex-col items-start sm:items-end justify-between">
+                    <span className={`px-3 py-1 text-xs font-semibold rounded-full ${statusInfo.bg} ${statusInfo.text_color}`}>{statusInfo.text}</span>
+                     {booking.status === 'จองแล้ว' && (
+                        <div className="mt-3 w-full">
+                            <Button size="sm" variant="danger" onClick={() => {
+                                if (confirm(`คุณต้องการยกเลิกการจอง ${booking.roomName} ใช่หรือไม่?`)) {
+                                    if (booking.isMultiDay && booking.groupId) {
+                                        onCancelBookingGroup(booking.groupId);
+                                    } else {
+                                        onCancelBooking(booking.id);
+                                    }
+                                }
+                            }}>
+                            ยกเลิก
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md animate-fade-in">
-      <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-        <h2 className="text-2xl font-bold text-gray-800">รายการจองของฉัน</h2>
-        <Button onClick={handleAdminLogin} variant="secondary">แอดมิน</Button>
-      </div>
-
-      {!isAdmin && (
-        <div className="mb-6 bg-blue-50 p-4 rounded-lg">
-          <label htmlFor="filterPhone" className="block text-sm font-medium text-gray-700">ค้นหารายการจองด้วยเบอร์โทรศัพท์:</label>
-          <input
-            type="tel"
-            id="filterPhone"
-            value={filterPhone}
-            onChange={(e) => setFilterPhone(e.target.value)}
-            className="mt-1 w-full md:w-1/2 p-2 border border-gray-300 rounded-md shadow-sm"
-            placeholder="เช่น 0812345678"
-          />
-        </div>
-      )}
-      
-      {filteredBookings.length === 0 && (filterPhone || isAdmin) ? (
-        <p className="text-center text-gray-500 py-8">ไม่พบรายการจอง</p>
-      ) : null}
-
-      <div className="space-y-4">
-        {filteredBookings.map(b => (
-          <div key={b.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-            <div className="flex justify-between items-start">
-                <div>
-                    <h3 className="font-bold text-lg text-gray-800">{b.roomName}</h3>
-                    <p className="text-sm text-gray-600">
-                        {b.isMultiDay && b.dateRange ? `ช่วงวันที่: ${b.dateRange}` : `วันที่: ${new Date(b.date).toLocaleDateString('th-TH')}`}
-                    </p>
-                    <p className="text-sm text-gray-600">เวลา: {b.startTime} - {b.endTime}</p>
-                    <p className="text-sm text-gray-600">ผู้จอง: {b.bookerName} ({b.phone})</p>
-                </div>
-                <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusClass(b.status)}`}>{b.status}</span>
+    <div className="max-w-6xl mx-auto animate-fade-in">
+        <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
+            <div className="flex items-center gap-4 mb-6 pb-5 border-b border-gray-200">
+                <button 
+                  onClick={onBack}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-all active:scale-95 flex items-center gap-2"
+                >
+                  <span>←</span> กลับ
+                </button>
+                <h2 className="text-xl md:text-2xl font-bold text-gray-800">รายการจองทั้งหมด</h2>
             </div>
-            {b.status === 'จองแล้ว' && (
-              <div className="mt-3 text-right">
-                <Button variant="danger" onClick={() => {
-                    if (confirm(`คุณต้องการยกเลิกการจอง ${b.roomName} ใช่หรือไม่?`)) {
-                        if (b.isMultiDay && b.groupId) {
-                            onCancelBookingGroup(b.groupId);
-                        } else {
-                            onCancelBooking(b.id);
-                        }
-                    }
-                }}>
-                  {b.isMultiDay ? 'ยกเลิกการจองทั้งหมด' : 'ยกเลิกการจอง'}
-                </Button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+            
+            {/* Filter Section */}
+            <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
+                    <div>
+                        <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-2">🔍 ค้นหาชื่อผู้จอง</label>
+                        <input 
+                            type="text" 
+                            placeholder="ค้นหา..."
+                            value={nameFilter}
+                            onChange={e => setNameFilter(e.target.value)}
+                            className={inputClasses}
+                        />
+                    </div>
+                     <div>
+                        <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-2">🗓️ กรองตามวันที่</label>
+                        <input 
+                            type="date"
+                            value={dateFilter}
+                            onChange={e => setDateFilter(e.target.value)}
+                            className={inputClasses}
+                        />
+                    </div>
+                     <div>
+                        <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-2">🏢 กรองตามห้อง</label>
+                        <select
+                           value={roomFilter}
+                           onChange={e => setRoomFilter(e.target.value)}
+                           className={inputClasses}
+                        >
+                            <option value="all">ห้องทั้งหมด</option>
+                            {ROOMS.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex gap-2">
+                        <Button onClick={clearFilters} variant="secondary" className="w-full">
+                            ล้างตัวกรอง
+                        </Button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Bookings List */}
+            <div className="space-y-4">
+                {filteredBookings.length > 0 ? (
+                    filteredBookings.map(b => <BookingCard key={b.id} booking={b} />)
+                ) : (
+                    <div className="text-center text-gray-500 py-16 bg-gray-50 rounded-lg">
+                        <p className="text-lg font-semibold">ไม่พบรายการจอง</p>
+                        <p className="text-sm mt-1">{nameFilter || dateFilter || roomFilter !== 'all' ? 'ไม่พบข้อมูลที่ตรงกับเงื่อนไขการค้นหา' : 'ยังไม่มีการจองในระบบ'}</p>
+                    </div>
+                )}
+            </div>
+        </div>
     </div>
   );
 };

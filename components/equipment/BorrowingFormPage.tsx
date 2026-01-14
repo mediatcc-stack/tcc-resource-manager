@@ -21,6 +21,7 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
         notes: '',
     });
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -32,7 +33,7 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
         setError('');
         const { borrowerName, phone, department, purpose, borrowDate, returnDate, equipmentList } = formData;
         if (!borrowerName || !phone || !department || !purpose || !borrowDate || !returnDate || !equipmentList) {
-            setError('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน');
+            setError('กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบถ้วน');
             return;
         }
 
@@ -41,63 +42,75 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
             return;
         }
 
-        onSubmit(formData);
+        setLoading(true);
+        // Simulate API call delay
+        setTimeout(() => {
+            onSubmit(formData);
+            setLoading(false);
+        }, 500);
     };
+    
+    const inputClasses = "block w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
+    
+    const FormField: React.FC<{label: string, required?: boolean, children: React.ReactNode}> = ({ label, required, children }) => (
+        <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                {label} {required && <span className="text-red-500 ml-1">*</span>}
+            </label>
+            {children}
+        </div>
+    );
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md animate-fade-in">
-                <h2 className="text-2xl font-bold text-gray-800 mb-6">แบบฟอร์มขอยืมอุปกรณ์</h2>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {error && <p className="text-red-500 bg-red-100 p-3 rounded-md">{error}</p>}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">
+            <div className="lg:col-span-2 bg-white p-6 md:p-8 rounded-2xl shadow-xl">
+                 <div className="mb-6 pb-5 border-b border-gray-200">
+                    <h2 className="text-2xl font-bold text-[#0D448D]">แบบฟอร์มขอยืมอุปกรณ์</h2>
+                    <p className="text-gray-500 mt-1">กรุณากรอกข้อมูลให้ครบถ้วนเพื่อส่งคำขอ</p>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    {error && <p className="text-red-600 bg-red-50 p-4 rounded-lg font-semibold border border-red-200">{error}</p>}
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">ชื่อผู้ยืม</label>
-                            <input type="text" name="borrowerName" value={formData.borrowerName} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">เบอร์โทรศัพท์</label>
-                            <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required />
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField label="ชื่อ-นามสกุลผู้ยืม" required>
+                            <input type="text" name="borrowerName" value={formData.borrowerName} onChange={handleInputChange} className={inputClasses} required />
+                        </FormField>
+                        <FormField label="เบอร์โทรศัพท์" required>
+                            <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className={inputClasses} required />
+                        </FormField>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">ฝ่าย/แผนก</label>
-                        <input type="text" name="department" value={formData.department} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required />
+                     <FormField label="ฝ่าย/แผนก" required>
+                        <input type="text" name="department" value={formData.department} onChange={handleInputChange} className={inputClasses} required />
+                    </FormField>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField label="วันที่ยืม" required>
+                            <input type="date" name="borrowDate" value={formData.borrowDate} onChange={handleInputChange} className={inputClasses} required />
+                        </FormField>
+                        <FormField label="วันที่คืน" required>
+                            <input type="date" name="returnDate" value={formData.returnDate} onChange={handleInputChange} className={inputClasses} required />
+                        </FormField>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">วันที่ยืม</label>
-                            <input type="date" name="borrowDate" value={formData.borrowDate} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">วันที่คืน</label>
-                            <input type="date" name="returnDate" value={formData.returnDate} onChange={handleInputChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">วัตถุประสงค์การยืม</label>
-                        <textarea name="purpose" value={formData.purpose} onChange={handleInputChange} rows={2} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">รายการอุปกรณ์ที่ขอยืม (ระบุรายละเอียด เช่น ยี่ห้อ, รุ่น, จำนวน)</label>
-                        <textarea name="equipmentList" value={formData.equipmentList} onChange={handleInputChange} rows={4} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" placeholder="เช่น กล้อง Sony A7III 1 ตัว, ขาตั้งกล้อง 1 อัน, ไมค์ลอย 2 ตัว" required />
-                    </div>
-                     <div>
-                        <label className="block text-sm font-medium text-gray-700">หมายเหตุ (ถ้ามี)</label>
-                        <textarea name="notes" value={formData.notes} onChange={handleInputChange} rows={2} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-                    </div>
+                    <FormField label="วัตถุประสงค์การยืม" required>
+                        <textarea name="purpose" value={formData.purpose} onChange={handleInputChange} rows={2} className={inputClasses} required />
+                    </FormField>
+                    <FormField label="รายการอุปกรณ์ที่ขอยืม (ระบุรายละเอียด เช่น ยี่ห้อ, รุ่น, จำนวน)" required>
+                        <textarea name="equipmentList" value={formData.equipmentList} onChange={handleInputChange} rows={4} className={inputClasses} placeholder="เช่น กล้อง Sony A7III 1 ตัว, ขาตั้งกล้อง 1 อัน, ไมค์ลอย 2 ตัว" required />
+                    </FormField>
+                     <FormField label="หมายเหตุ (ถ้ามี)">
+                        <textarea name="notes" value={formData.notes} onChange={handleInputChange} rows={2} className={inputClasses} />
+                    </FormField>
                     <div className="flex justify-end gap-4 pt-4">
-                        <Button type="button" variant="secondary" onClick={onCancel}>ยกเลิก</Button>
-                        <Button type="submit" variant="primary">ส่งคำขอ</Button>
+                        <Button type="button" variant="secondary" onClick={onCancel} disabled={loading}>ยกเลิก</Button>
+                        <Button type="submit" variant="primary" loading={loading}>ส่งคำขอ</Button>
                     </div>
                 </form>
             </div>
             
             <div className="space-y-6">
-                <div className="bg-white p-6 rounded-lg shadow-md">
-                    <h3 className="text-lg font-bold text-gray-800 mb-3">หมวดหมู่อุปกรณ์</h3>
-                    <ul className="space-y-2 text-sm">
+                <div className="bg-white p-6 rounded-2xl shadow-xl">
+                    <h3 className="text-lg font-bold text-[#0D448D] mb-4">หมวดหมู่อุปกรณ์</h3>
+                    <ul className="space-y-3 text-sm">
                         {EQUIPMENT_CATEGORIES.map(cat => (
                             <li key={cat.title}>
                                 <p className="font-semibold text-gray-700">{cat.title}</p>
@@ -106,9 +119,9 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
                         ))}
                     </ul>
                 </div>
-                 <div className="bg-white p-6 rounded-lg shadow-md">
-                    <h3 className="text-lg font-bold text-gray-800 mb-3">ติดต่อเจ้าหน้าที่</h3>
-                    <ul className="space-y-1 text-sm">
+                 <div className="bg-white p-6 rounded-2xl shadow-xl">
+                    <h3 className="text-lg font-bold text-[#0D448D] mb-4">ติดต่อเจ้าหน้าที่</h3>
+                    <ul className="space-y-2 text-sm">
                         {CONTACTS.map(contact => (
                             <li key={contact.name}>
                                 <p className="font-medium text-gray-700">{contact.name}</p>
