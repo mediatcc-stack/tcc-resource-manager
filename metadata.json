@@ -1,0 +1,5 @@
+{
+  "name": "TCC Resource Manager",
+  "description": "A comprehensive web application for booking meeting rooms and borrowing media equipment for Thonburi Commercial College (TCC). It features an interactive calendar, detailed booking forms, equipment request management, and usage statistics.",
+  "requestFramePermissions": []
+}
