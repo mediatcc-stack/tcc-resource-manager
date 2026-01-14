@@ -1,6 +1,6 @@
 
-// แก้ไข URL นี้เป็น URL ของ Worker ที่คุณสร้างในขั้นตอนที่ 3
-const LINE_NOTIFIER_ENDPOINT = 'https://tcc-line-notifier.media-tcc.workers.dev';
+// แก้ไข URL นี้เป็น URL ของ Worker ของคุณ และเพิ่ม /notify ต่อท้าย
+const LINE_NOTIFIER_ENDPOINT = 'https://tcc-line-notifier.media-tcc.workers.dev/notify';
 
 export const sendLineNotification = async (message: string): Promise<void> => {
   console.log(`กำลังส่งการแจ้งเตือนไปที่ LINE: "${message}"`);

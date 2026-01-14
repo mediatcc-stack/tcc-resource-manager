@@ -56,7 +56,7 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
         };
         setBorrowings(prev => [createdRequest, ...prev]);
 
-        const notifyMessage = `ขอยืมอุปกรณ์ใหม่:\nผู้ยืม: ${createdRequest.borrowerName}\nอุปกรณ์: ${createdRequest.equipmentList.substring(0, 50)}...`;
+        const notifyMessage = `รายงานใหม่\n\nขอยืมอุปกรณ์ใหม่:\nผู้ยืม: ${createdRequest.borrowerName}\nอุปกรณ์: ${createdRequest.equipmentList.substring(0, 50)}...`;
         await sendLineNotification(notifyMessage);
         setCurrentPage('list');
         showToast('ส่งคำขอยืมอุปกรณ์สำเร็จ', 'success');
@@ -66,7 +66,7 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
         const req = borrowings.find(b => b.id === id);
         if (req) {
             setBorrowings(prev => prev.map(b => b.id === id ? { ...b, status: newStatus } : b));
-            const notifyMessage = `สถานะการยืม #${id.substring(0,4)} อัปเดตเป็น: ${newStatus}\nผู้ยืม: ${req.borrowerName}`;
+            const notifyMessage = `รายงานใหม่\n\nสถานะการยืม #${id.substring(0,4)} อัปเดตเป็น: ${newStatus}\nผู้ยืม: ${req.borrowerName}`;
             await sendLineNotification(notifyMessage);
             showToast(`อัปเดตสถานะเป็น "${newStatus}" เรียบร้อย`, 'success');
         }
@@ -77,7 +77,7 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
         if (req) {
             // We'll mark as returned to effectively remove it from active lists
              setBorrowings(prev => prev.map(b => b.id === id ? { ...b, status: BorrowStatus.Returned } : b));
-            const notifyMessage = `ยกเลิกการยืม: #${id.substring(0,4)}\nผู้ยืม: ${req.borrowerName}`;
+            const notifyMessage = `รายงานใหม่\n\nยกเลิกการยืม: #${id.substring(0,4)}\nผู้ยืม: ${req.borrowerName}`;
             await sendLineNotification(notifyMessage);
             showToast('ยกเลิกคำขอยืมเรียบร้อยแล้ว', 'success');
         }

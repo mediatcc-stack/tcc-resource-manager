@@ -77,7 +77,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       ? `ช่วงวันที่: ${firstBooking.dateRange}`
       : `วันที่: ${new Date(firstBooking.date).toLocaleDateString('th-TH')}`;
 
-    const notifyMessage = `
+    const notifyMessage = `รายงานใหม่\n
 🗓️ จองห้องใหม่
 ชื่องาน: ${firstBooking.purpose}
 ห้อง: ${firstBooking.roomName}
@@ -95,7 +95,7 @@ ${dateString}
     if(bookingToCancel) {
        setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'ยกเลิก' } : b));
        const formattedDate = new Date(bookingToCancel.date).toLocaleDateString('th-TH');
-       const notifyMessage = `
+       const notifyMessage = `รายงานใหม่\n
 ❌ ยกเลิกการจอง
 ชื่องาน: ${bookingToCancel.purpose}
 ห้อง: ${bookingToCancel.roomName}
@@ -112,7 +112,7 @@ ${dateString}
     if(groupBookings.length > 0) {
       setBookings(prev => prev.map(b => b.groupId === groupId ? { ...b, status: 'ยกเลิก' } : b));
       const firstBooking = groupBookings[0];
-       const notifyMessage = `
+       const notifyMessage = `รายงานใหม่\n
 ❌ ยกเลิกการจอง (หลายวัน)
 ชื่องาน: ${firstBooking.purpose}
 ห้อง: ${firstBooking.roomName}
