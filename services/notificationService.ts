@@ -17,10 +17,11 @@ export const sendLineNotification = async (message: string): Promise<void> => {
     const responseBody = await response.text();
 
     if (!response.ok) {
-      throw new Error(`ส่งการแจ้งเตือนไม่สำเร็จ: ${response.status} - ${responseBody}`);
+      console.error(`ส่งการแจ้งเตือนไม่สำเร็จ! Status: ${response.status}. Worker ตอบกลับว่า:`, responseBody);
+      throw new Error(`ส่งการแจ้งเตือนไม่สำเร็จ: ${response.status}`);
     }
 
-    console.log("ส่งการแจ้งเตือนไปที่ LINE สำเร็จ", { status: response.status, body: responseBody });
+    console.log(`ส่งการแจ้งเตือนไปที่ LINE สำเร็จ! Status: ${response.status}. Worker ตอบกลับว่า:`, responseBody);
 
   } catch (error) {
     console.error("เกิดข้อผิดพลาดในการส่ง LINE:", error);
