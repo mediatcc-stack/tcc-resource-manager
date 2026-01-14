@@ -3,6 +3,7 @@ import React, { useState, useCallback } from 'react';
 import LandingPage from './components/landing/LandingPage';
 import RoomBookingSystem from './components/room/RoomBookingSystem';
 import EquipmentSystem from './components/equipment/EquipmentSystem';
+import Navbar from './components/layout/Navbar';
 import { SystemType, ToastMessage } from './types';
 import ToastContainer from './components/shared/ToastContainer';
 
@@ -23,6 +24,10 @@ const App: React.FC = () => {
     setToastMessages(prev => prev.filter(toast => toast.id !== id));
   }, []);
 
+  const goBackToLanding = () => {
+    setCurrentSystem('landing');
+  };
+
   const renderSystem = () => {
     switch (currentSystem) {
       case 'room':
@@ -35,12 +40,9 @@ const App: React.FC = () => {
     }
   };
 
-  const goBackToLanding = () => {
-    setCurrentSystem('landing');
-  };
-
   return (
     <div className="app-container flex flex-col min-h-screen bg-gradient-to-br from-[#5071A4] to-[#9AACC8]">
+      <Navbar currentSystem={currentSystem} onBackToLanding={goBackToLanding} />
       <main className="main-content flex-1 p-4 md:p-8 w-full">
         {renderSystem()}
       </main>
