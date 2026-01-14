@@ -9,12 +9,6 @@ export interface Room {
   status: 'available' | 'closed';
 }
 
-export interface Attachment {
-  id: string;
-  title: string;
-  url: string;
-}
-
 export interface Booking {
   id: string;
   groupId?: string;
@@ -30,7 +24,7 @@ export interface Booking {
   equipment: string;
   status: 'จองแล้ว' | 'ยกเลิก' | 'หมดเวลา';
   createdAt: string;
-  attachments: Attachment[];
+  attachmentUrl?: string;
   isMultiDay: boolean;
   dateRange?: string;
 }

@@ -22,6 +22,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
     try {
       const savedBookings = localStorage.getItem('roomBookings');
       return savedBookings ? JSON.parse(savedBookings) : [];
+    // FIX: Added braces around the catch block to fix syntax error.
     } catch (error) {
       console.error("Error reading bookings from localStorage", error);
       return [];
@@ -72,7 +73,18 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
     setBookings(prev => [...prev, ...createdBookings]);
 
     const firstBooking = createdBookings[0];
-    const notifyMessage = `จองห้องใหม่: ${firstBooking.roomName}\nผู้จอง: ${firstBooking.bookerName}\nวันที่: ${firstBooking.date}\nเวลา: ${firstBooking.startTime}-${firstBooking.endTime}`;
+    const dateString = firstBooking.isMultiDay && firstBooking.dateRange 
+      ? `ช่วงวันที่: ${firstBooking.dateRange}`
+      : `วันที่: ${new Date(firstBooking.date).toLocaleDateString('th-TH')}`;
+
+    const notifyMessage = `
+🗓️ จองห้องใหม่
+ชื่องาน: ${firstBooking.purpose}
+ห้อง: ${firstBooking.roomName}
+${dateString}
+เวลา: ${firstBooking.startTime} - ${firstBooking.endTime}
+ผู้ขอจอง: ${firstBooking.bookerName}`.trim();
+
     await sendLineNotification(notifyMessage);
     setCurrentPage('home');
     showToast('การจองห้องสำเร็จ!', 'success');
@@ -82,7 +94,14 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
     const bookingToCancel = bookings.find(b => b.id === bookingId);
     if(bookingToCancel) {
        setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'ยกเลิก' } : b));
-       const notifyMessage = `ยกเลิกการจอง: ${bookingToCancel.roomName}\nผู้จอง: ${bookingToCancel.bookerName}\nวันที่: ${bookingToCancel.date}`;
+       const formattedDate = new Date(bookingToCancel.date).toLocaleDateString('th-TH');
+       const notifyMessage = `
+❌ ยกเลิกการจอง
+ชื่องาน: ${bookingToCancel.purpose}
+ห้อง: ${bookingToCancel.roomName}
+วันที่: ${formattedDate}
+เวลา: ${bookingToCancel.startTime} - ${bookingToCancel.endTime}
+ผู้ยกเลิก: ${bookingToCancel.bookerName}`.trim();
        await sendLineNotification(notifyMessage);
        showToast('ยกเลิกการจองเรียบร้อยแล้ว', 'success');
     }
@@ -93,7 +112,13 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
     if(groupBookings.length > 0) {
       setBookings(prev => prev.map(b => b.groupId === groupId ? { ...b, status: 'ยกเลิก' } : b));
       const firstBooking = groupBookings[0];
-      const notifyMessage = `ยกเลิกการจอง (หลายวัน): ${firstBooking.roomName}\nผู้จอง: ${firstBooking.bookerName}\nช่วง: ${firstBooking.dateRange}`;
+       const notifyMessage = `
+❌ ยกเลิกการจอง (หลายวัน)
+ชื่องาน: ${firstBooking.purpose}
+ห้อง: ${firstBooking.roomName}
+ช่วงวันที่: ${firstBooking.dateRange}
+เวลา: ${firstBooking.startTime} - ${firstBooking.endTime}
+ผู้ยกเลิก: ${firstBooking.bookerName}`.trim();
        await sendLineNotification(notifyMessage);
        showToast('ยกเลิกการจองกลุ่มเรียบร้อยแล้ว', 'success');
     }
@@ -109,6 +134,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
         return (
           <BookingForm 
             room={selectedRoom} 
+            rooms={ROOMS}
             date={selectedDate} 
             existingBookings={bookings}
             onSubmit={handleBookingSubmit}

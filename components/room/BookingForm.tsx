@@ -1,10 +1,12 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Room, Booking } from '../../types';
 import Button from '../shared/Button';
+import { ROOMS } from '../../constants';
 
 interface BookingFormProps {
   room: Room;
+  rooms: Room[];
   date: string;
   existingBookings: Booking[];
   onSubmit: (newBookings: Omit<Booking, 'id' | 'createdAt' | 'status'>[]) => void;
@@ -13,7 +15,10 @@ interface BookingFormProps {
 
 const timeSlots = Array.from({ length: 11 }, (_, i) => `${(i + 8).toString().padStart(2, '0')}:00`); // 08:00 to 18:00
 
-const BookingForm: React.FC<BookingFormProps> = ({ room, date, existingBookings, onSubmit, onCancel }) => {
+const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBookings, onSubmit, onCancel }) => {
+  const [currentRoom, setCurrentRoom] = useState<Room>(room);
+  const [currentDate, setCurrentDate] = useState<string>(date);
+  
   const [formData, setFormData] = useState({
     bookerName: '',
     phone: '',
@@ -21,16 +26,24 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, date, existingBookings,
     meetingType: 'Onsite' as 'Online' | 'Onsite',
     purpose: '',
     equipment: '',
+    attachmentUrl: '',
     startTime: '',
     endTime: '',
     isMultiDay: false,
-    endDate: date,
+    endDate: currentDate,
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  useEffect(() => {
+    // Reset end date if start date changes for multi-day booking
+    if (formData.isMultiDay) {
+      setFormData(prev => ({...prev, endDate: currentDate}));
+    }
+  }, [currentDate, formData.isMultiDay]);
 
   const bookedSlots = useMemo(() => {
-    const bookingsOnDate = existingBookings.filter(b => b.roomName === room.name && b.date === date && b.status === 'จองแล้ว');
+    const bookingsOnDate = existingBookings.filter(b => b.roomName === currentRoom.name && b.date === currentDate && b.status === 'จองแล้ว');
     const slots = new Set<string>();
     bookingsOnDate.forEach(b => {
       const start = timeSlots.indexOf(b.startTime);
@@ -40,11 +53,21 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, date, existingBookings,
       }
     });
     return slots;
-  }, [existingBookings, room.name, date]);
+  }, [existingBookings, currentRoom.name, currentDate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+  
+  const handleRoomChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newRoomId = parseInt(e.target.value, 10);
+    const newRoom = rooms.find(r => r.id === newRoomId);
+    if (newRoom) {
+      setCurrentRoom(newRoom);
+      // Reset times as available slots might differ
+      setFormData(prev => ({...prev, startTime: '', endTime: ''}));
+    }
   };
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -52,7 +75,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, date, existingBookings,
     setFormData(prev => ({ 
       ...prev, 
       isMultiDay: isChecked,
-      endDate: isChecked ? prev.endDate : date
+      endDate: isChecked ? prev.endDate : currentDate
     }));
   };
 
@@ -71,22 +94,31 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, date, existingBookings,
       return;
     }
     
-    const bookingsToCreate = [];
-    let currentDate = new Date(date);
-    const lastDate = formData.isMultiDay ? new Date(formData.endDate) : new Date(date);
+    // Rule: Must book at least 2 hours in advance
+    const now = new Date();
+    const bookingStartDateTime = new Date(`${currentDate}T${formData.startTime}`);
+    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
 
-    if (lastDate < currentDate) {
+    if (bookingStartDateTime < twoHoursFromNow) {
+        setError('การจองต้องทำล่วงหน้าอย่างน้อย 2 ชั่วโมง');
+        return;
+    }
+
+    const bookingsToCreate = [];
+    const firstDate = new Date(currentDate);
+    const lastDate = formData.isMultiDay ? new Date(formData.endDate) : new Date(currentDate);
+
+    if (lastDate < firstDate) {
         setError('วันที่สิ้นสุดต้องไม่ก่อนวันที่เริ่มต้น');
         return;
     }
 
-    // --- CRITICAL LOGIC FIX: Check for conflicts on all days ---
     const startIdx = timeSlots.indexOf(formData.startTime);
     const endIdx = timeSlots.indexOf(formData.endTime);
 
-    for (let d = new Date(currentDate); d <= lastDate; d.setDate(d.getDate() + 1)) {
+    for (let d = new Date(firstDate); d <= lastDate; d.setDate(d.getDate() + 1)) {
         const checkDateStr = d.toISOString().split('T')[0];
-        const bookingsOnThisDay = existingBookings.filter(b => b.roomName === room.name && b.date === checkDateStr && b.status === 'จองแล้ว');
+        const bookingsOnThisDay = existingBookings.filter(b => b.roomName === currentRoom.name && b.date === checkDateStr && b.status === 'จองแล้ว');
         
         for (const existingBooking of bookingsOnThisDay) {
             const existingStartIdx = timeSlots.indexOf(existingBooking.startTime);
@@ -97,26 +129,23 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, date, existingBookings,
             }
         }
     }
-    // --- END LOGIC FIX ---
 
     setLoading(true);
 
     const groupId = formData.isMultiDay ? Math.random().toString(36).substring(2, 15) : undefined;
-    const dateRange = formData.isMultiDay ? `${new Date(date).toLocaleDateString('th-TH')} - ${lastDate.toLocaleDateString('th-TH')}`: undefined;
+    const dateRange = formData.isMultiDay ? `${new Date(currentDate).toLocaleDateString('th-TH')} - ${lastDate.toLocaleDateString('th-TH')}`: undefined;
         
-    for (let d = new Date(currentDate); d <= lastDate; d.setDate(d.getDate() + 1)) {
+    for (let d = new Date(firstDate); d <= lastDate; d.setDate(d.getDate() + 1)) {
         bookingsToCreate.push({ 
             ...formData, 
-            attachments: [], 
             isMultiDay: formData.isMultiDay, 
             date: d.toISOString().split('T')[0], 
-            roomName: room.name, 
+            roomName: currentRoom.name, 
             groupId, 
             dateRange 
         });
     }
     
-    // Simulate API call delay
     setTimeout(() => {
         onSubmit(bookingsToCreate);
         setLoading(false);
@@ -134,8 +163,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, date, existingBookings,
   );
 
   const inputClasses = "block w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
-  const disabledInputClasses = "block w-full rounded-lg border border-gray-200 p-3 bg-gray-100 text-gray-600 cursor-not-allowed";
-
+  
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
       <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12">
@@ -144,32 +172,35 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, date, existingBookings,
             <span className="text-2xl">📝</span>
             <h2 className="text-2xl font-bold text-[#0D448D]">แบบฟอร์มการจอง</h2>
           </div>
-          <p className="text-gray-500 mt-2 ml-10">ห้อง: <span className="font-semibold text-gray-700">{room.name}</span></p>
         </div>
       
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && <p className="text-red-600 bg-red-50 p-4 rounded-lg font-semibold border border-red-200">{error}</p>}
           
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField label="ห้องประชุม" icon="🏢" required>
+              <select name="room" value={currentRoom.id} onChange={handleRoomChange} className={inputClasses} required>
+                {rooms.filter(r => r.status === 'available').map(r => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+            </FormField>
+          </div>
+
           <div>
               <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
                   <input type="checkbox" id="isMultiDay" name="isMultiDay" checked={formData.isMultiDay} onChange={handleCheckboxChange} className="h-5 w-5 rounded border-gray-300 text-[#0D448D] focus:ring-[#0D448D]" />
                   <label htmlFor="isMultiDay" className="font-semibold text-gray-800">จองหลายวันต่อเนื่อง (เช่น อบรม/สัมมนา 3 วัน)</label>
               </div>
-              {formData.isMultiDay && (
-                <div className="mt-3 p-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded-r-lg">
-                    <p className="font-semibold">💡 คำแนะนำสำหรับการจองหลายวัน</p>
-                    <p className="text-sm">เหมาะสำหรับการอบรม สัมมนา หรืองานที่ใช้ห้องเดียวกันต่อเนื่อง ระบบจะยึดการจองทุกวันตั้งแต่วันเริ่มต้นถึงสิ้นสุด ในช่วงเวลาเดียวกัน</p>
-                </div>
-              )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <FormField label={formData.isMultiDay ? "วันเริ่มต้น" : "วันที่"} icon="🗓️" required>
-                <input type="date" value={date} className={disabledInputClasses} readOnly />
+                <input type="date" value={currentDate} onChange={e => setCurrentDate(e.target.value)} min={new Date().toISOString().split('T')[0]} className={inputClasses} required/>
             </FormField>
              {formData.isMultiDay && (
                 <FormField label="วันสิ้นสุด" icon="🗓️" required>
-                    <input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} min={date} className={inputClasses} required />
+                    <input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} min={currentDate} className={inputClasses} required />
                 </FormField>
              )}
           </div>
@@ -216,6 +247,17 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, date, existingBookings,
           
           <FormField label="อุปกรณ์เพิ่มเติมที่ต้องการ (ถ้ามี)" icon="🛠️">
             <input type="text" name="equipment" value={formData.equipment} onChange={handleInputChange} className={inputClasses} placeholder="เช่น ไมโครโฟน 4 ตัว, Notebook 1 เครื่อง" />
+          </FormField>
+
+          <FormField label="แนบเอกสาร (Google Drive, etc.)" icon="📎">
+            <input 
+              type="url" 
+              name="attachmentUrl" 
+              value={formData.attachmentUrl} 
+              onChange={handleInputChange} 
+              className={inputClasses} 
+              placeholder="วางลิงก์เอกสารที่นี่" 
+            />
           </FormField>
           
           <div className="flex justify-end gap-4 pt-6">

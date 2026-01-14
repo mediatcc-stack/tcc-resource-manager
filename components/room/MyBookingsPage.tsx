@@ -17,14 +17,34 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
   const [roomFilter, setRoomFilter] = useState('all');
 
   const filteredBookings = useMemo(() => {
-    return bookings
+    const filtered = bookings
       .filter(b => {
         const nameMatch = nameFilter ? b.bookerName.toLowerCase().includes(nameFilter.toLowerCase()) : true;
         const dateMatch = dateFilter ? b.date === dateFilter : true;
         const roomMatch = roomFilter !== 'all' ? b.roomName === roomFilter : true;
         return nameMatch && dateMatch && roomMatch;
-      })
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || b.startTime.localeCompare(a.startTime));
+      });
+
+    return filtered.sort((a, b) => {
+      const aIsActive = a.status === 'จองแล้ว';
+      const bIsActive = b.status === 'จองแล้ว';
+
+      // Prioritize active bookings
+      if (aIsActive && !bIsActive) return -1;
+      if (!aIsActive && bIsActive) return 1;
+
+      const dateTimeA = new Date(`${a.date}T${a.startTime}`).getTime();
+      const dateTimeB = new Date(`${b.date}T${b.startTime}`).getTime();
+
+      // If both are active, sort by nearest upcoming (ascending)
+      if (aIsActive && bIsActive) {
+        return dateTimeA - dateTimeB;
+      }
+
+      // If both are inactive, sort by most recent (descending)
+      return dateTimeB - dateTimeA;
+    });
+
   }, [bookings, nameFilter, dateFilter, roomFilter]);
 
   const clearFilters = () => {
@@ -53,6 +73,18 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                     <h4 className="font-bold text-lg text-[#0D448D]">{booking.roomName}</h4>
                     <p className="text-sm text-gray-600 mt-1">ผู้จอง: <span className="font-medium">{booking.bookerName} ({booking.phone})</span></p>
                     <p className="text-sm text-gray-500 break-words">วัตถุประสงค์: {booking.purpose}</p>
+                     {booking.attachmentUrl && (
+                        <p className="text-sm text-gray-500 mt-2">
+                            <a 
+                                href={booking.attachmentUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-semibold hover:underline"
+                            >
+                                📎 ดูเอกสารแนบ
+                            </a>
+                        </p>
+                    )}
                 </div>
                 <div className="sm:col-span-2">
                     <p className="font-semibold text-gray-800 text-sm">🗓️ {booking.isMultiDay && booking.dateRange ? `ช่วงวันที่: ${booking.dateRange}` : `วันที่: ${new Date(booking.date).toLocaleDateString('th-TH')}`}</p>
