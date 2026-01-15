@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { BorrowingRequest } from '../../types';
 import Button from '../shared/Button';
@@ -96,7 +95,19 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
                         <textarea name="purpose" value={formData.purpose} onChange={handleInputChange} rows={2} className={inputClasses} required />
                     </FormField>
                     <FormField label="รายการอุปกรณ์ที่ขอยืม (ระบุรายละเอียด เช่น ยี่ห้อ, รุ่น, จำนวน)" required>
-                        <textarea name="equipmentList" value={formData.equipmentList} onChange={handleInputChange} rows={4} className={inputClasses} placeholder="เช่น กล้อง Sony A7III 1 ตัว, ขาตั้งกล้อง 1 อัน, ไมค์ลอย 2 ตัว" required />
+                        <textarea 
+                            name="equipmentList" 
+                            value={formData.equipmentList} 
+                            onChange={handleInputChange} 
+                            rows={4} 
+                            className={inputClasses} 
+                            placeholder={
+`- กล้อง Sony A7III x 1
+- ขาตั้งกล้อง x 1
+- ไมค์ลอย x 2`
+                            } 
+                            required 
+                        />
                     </FormField>
                      <FormField label="หมายเหตุ (ถ้ามี)">
                         <textarea name="notes" value={formData.notes} onChange={handleInputChange} rows={2} className={inputClasses} />

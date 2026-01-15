@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { Booking } from '../../types';
 import { ROOMS } from '../../constants';
@@ -28,19 +27,18 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => 
   const stats = useMemo(() => {
     const activeBookings = bookings.filter(b => b.status === 'จองแล้ว' || b.status === 'หมดเวลา');
     
-    const bookingsByRoom = ROOMS.map(room => {
-      const roomBookings = activeBookings.filter(b => b.roomName === room.name);
-      return {
-        name: room.name,
-        count: roomBookings.length,
-      };
-    }).sort((a,b) => b.count - a.count);
+    const bookingsByRoom = ROOMS.map(room => ({
+      name: room.name,
+      count: activeBookings.filter(b => b.roomName === room.name).length,
+    })).sort((a,b) => b.count - a.count);
 
     const totalBookings = activeBookings.length;
+    const maxBookings = bookingsByRoom[0]?.count || 1;
     
     return {
       totalBookings,
       bookingsByRoom,
+      maxBookings
     };
   }, [bookings]);
 
@@ -83,17 +81,23 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => 
         
         <div>
             <h3 className="text-lg font-semibold text-gray-700 mb-4">อันดับการใช้งานห้องทั้งหมด</h3>
-             <div className="space-y-3">
+             <div className="space-y-4">
                 {stats.bookingsByRoom.map((room, index) => (
-                    <div key={room.name} className="flex items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
-                        <div className={`text-lg font-bold w-10 text-center ${index < 3 ? 'text-blue-600' : 'text-gray-400'}`}>
+                    <div key={room.name} className="flex items-center gap-4">
+                        <div className={`font-bold w-10 text-center ${index < 3 ? 'text-blue-600 text-lg' : 'text-gray-400'}`}>
                             #{index + 1}
                         </div>
                         <div className="flex-1">
-                            <p className="font-semibold text-gray-800">{room.name}</p>
-                        </div>
-                        <div className="font-bold text-blue-600 bg-blue-100 text-sm px-4 py-2 rounded-lg">
-                            {room.count} ครั้ง
+                            <div className="flex justify-between items-center mb-1">
+                                <p className="font-semibold text-gray-800 text-sm">{room.name}</p>
+                                <p className="font-bold text-blue-600 text-sm">{room.count} ครั้ง</p>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                <div 
+                                    className="bg-gradient-to-r from-blue-400 to-blue-600 h-2.5 rounded-full transition-all duration-500" 
+                                    style={{ width: `${(room.count / stats.maxBookings) * 100}%` }}
+                                ></div>
+                            </div>
                         </div>
                     </div>
                 ))}

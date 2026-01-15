@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Booking } from '../../types';
 import Button from '../shared/Button';
@@ -33,14 +32,15 @@ const BookingCard: React.FC<{
   const statusInfo = getStatusInfo(booking.status);
 
   const handleStaffAction = (action: 'cancel' | 'delete') => {
-    const promptMessage = "หากต้องการยกเลิก/ลบการจอง โปรดแจ้งงานสื่อ ฯ ประชาสัมพันธ์โดยตรง\n\n(สำหรับเจ้าหน้าที่) กรุณาใส่รหัสผ่านเพื่อดำเนินการต่อ:";
+    const actionText = action === 'cancel' ? 'ยกเลิก' : 'ลบ';
+    const promptMessage = `หากต้องการ${actionText}การจอง โปรดแจ้งงานสื่อ ฯ ประชาสัมพันธ์โดยตรง\n\n(สำหรับเจ้าหน้าที่) กรุณาใส่รหัสผ่านเพื่อดำเนินการต่อ:`;
     const password = prompt(promptMessage);
 
     if (password === null) return; // User cancelled prompt
 
     if (STAFF_PASSWORDS.includes(password)) {
         if (action === 'cancel') {
-             if (confirm(`ยืนยันการยกเลิกการจอง ${booking.roomName}?`)) {
+             if (confirm(`ยืนยันการยกเลิกการจอง "${booking.purpose}" ใช่หรือไม่?`)) {
                 if (booking.isMultiDay && booking.groupId) {
                     onCancelBookingGroup(booking.groupId);
                 } else {
@@ -48,20 +48,20 @@ const BookingCard: React.FC<{
                 }
             }
         } else if (action === 'delete') {
-             if (confirm(`⚠️ ยืนยันการลบถาวร ⚠️\n\nการจองนี้จะหายไปจากระบบอย่างถาวรและไม่สามารถกู้คืนได้\n\nคุณต้องการ "ลบถาวร" การจองนี้ใช่หรือไม่?`)) {
+             if (confirm(`⚠️ ยืนยันการลบถาวร ⚠️\n\nการจอง "${booking.purpose}" จะหายไปจากระบบอย่างถาวรและไม่สามารถกู้คืนได้\n\nคุณต้องการ "ลบถาวร" การจองนี้ใช่หรือไม่?`)) {
                 onDeleteBooking(booking.id);
             }
         }
     } else {
-        alert('รหัสผ่านไม่ถูกต้อง');
+        alert('รหัสผ่านไม่ถูกต้อง ไม่สามารถดำเนินการได้');
     }
   };
 
 
   return (
       <div className={`bg-white p-5 rounded-xl shadow-md border-l-4 ${statusInfo.border} transition-shadow hover:shadow-lg`}>
-          <div className="grid grid-cols-1 sm:grid-cols-6 gap-x-4 gap-y-3">
-              <div className="sm:col-span-3">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-x-4 gap-y-3">
+              <div className="md:col-span-3">
                   <h4 className="font-bold text-lg text-[#0D448D]">{booking.roomName}</h4>
                   <p className="text-sm text-gray-600 mt-1">ผู้จอง: <span className="font-medium">{booking.bookerName} ({booking.phone || 'ไม่มีเบอร์'})</span></p>
                   <p className="text-sm text-gray-500 break-words">วัตถุประสงค์: {booking.purpose}</p>
@@ -78,24 +78,23 @@ const BookingCard: React.FC<{
                       </p>
                   )}
               </div>
-              <div className="sm:col-span-2">
+              <div className="md:col-span-2 flex flex-col md:items-end text-left md:text-right">
+                <span className={`mb-2 px-3 py-1 text-xs font-semibold rounded-full ${statusInfo.bg} ${statusInfo.text_color}`}>{statusInfo.text}</span>
                   <p className="font-semibold text-gray-800 text-sm">🗓️ {booking.isMultiDay && booking.dateRange ? `ช่วงวันที่: ${booking.dateRange}` : `วันที่: ${new Date(booking.date).toLocaleDateString('th-TH')}`}</p>
                   <p className="text-sm text-gray-600">⏰ เวลา: {booking.startTime} - {booking.endTime}</p>
               </div>
-              <div className="sm:col-span-1 flex flex-col items-start sm:items-end justify-between">
-                  <span className={`px-3 py-1 text-xs font-semibold rounded-full ${statusInfo.bg} ${statusInfo.text_color}`}>{statusInfo.text}</span>
-                  <div className="mt-3 w-full flex flex-col sm:flex-row sm:justify-end gap-2">
-                      {booking.status === 'จองแล้ว' && (
-                          <Button size="sm" variant="secondary" onClick={() => handleStaffAction('cancel')}>
-                          ยกเลิก
-                          </Button>
-                      )}
-                      {isAdmin && (
-                          <Button size="sm" variant="danger" onClick={() => handleStaffAction('delete')}>
-                          ลบ
-                          </Button>
-                      )}
-                  </div>
+              
+              <div className="md:col-span-5 flex justify-end gap-2 border-t border-gray-100 pt-3 mt-2">
+                    {booking.status === 'จองแล้ว' && (
+                        <Button size="sm" variant="secondary" onClick={() => handleStaffAction('cancel')}>
+                        ยกเลิกการจอง
+                        </Button>
+                    )}
+                    {isAdmin && (
+                        <Button size="sm" variant="danger" onClick={() => handleStaffAction('delete')}>
+                        ลบถาวร
+                        </Button>
+                    )}
               </div>
           </div>
       </div>
@@ -157,7 +156,6 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                 </div>
             </div>
             
-            {/* Filter Section */}
             <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 mb-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
                     <div>
@@ -179,7 +177,6 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                 </div>
             </div>
 
-            {/* Bookings List */}
             <div className="space-y-4">
                 {filteredBookings.length > 0 ? (
                     filteredBookings.map(b => 

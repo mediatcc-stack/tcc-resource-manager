@@ -11,6 +11,8 @@
     <style>
       body {
         font-family: 'Sarabun', sans-serif;
+        background-size: 200% 200%;
+        animation: gradient-animation 15s ease infinite;
       }
       /* Custom styles for better UX */
       .text-shadow-md {
@@ -25,6 +27,11 @@
       }
       .animate-fade-in {
         animation: fadeIn 0.4s ease-out forwards;
+      }
+      @keyframes gradient-animation {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
       }
     </style>
   <script type="importmap">
