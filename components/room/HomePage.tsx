@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Room, Booking } from '../../types';
+import BookingDetailsModal from './BookingDetailsModal'; // Import the modal
 
 interface HomePageProps {
   rooms: Room[];
@@ -12,6 +13,19 @@ interface HomePageProps {
 const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onBackToLanding }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalBookings, setModalBookings] = useState<Booking[]>([]);
+  const [modalDate, setModalDate] = useState('');
+
+  const handleDayClick = (dateStr: string) => {
+    setSelectedDate(dateStr);
+    const bookingsOnDay = getBookingsOnDate(dateStr);
+    if (bookingsOnDay.length > 0) {
+      setModalBookings(bookingsOnDay);
+      setModalDate(dateStr);
+      setModalOpen(true);
+    }
+  };
 
   // Calendar Logic
   const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
@@ -61,7 +75,8 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onBa
   };
 
   const getBookingsOnDate = (dateStr: string) => {
-    return bookings.filter(b => b.date === dateStr && b.status === 'จองแล้ว');
+    return bookings.filter(b => b.date === dateStr && b.status === 'จองแล้ว')
+      .sort((a,b) => a.startTime.localeCompare(b.startTime));
   };
 
   const thaiMonths = [
@@ -70,6 +85,13 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onBa
   ];
 
   return (
+    <>
+    <BookingDetailsModal 
+      isOpen={modalOpen} 
+      onClose={() => setModalOpen(false)} 
+      bookings={modalBookings}
+      date={modalDate}
+    />
     <div className="max-w-6xl mx-auto animate-fade-in px-2 md:px-0">
       {/* Big Unified White Container */}
       <div className="bg-white rounded-[2rem] md:rounded-[3rem] shadow-2xl p-6 md:p-12 border border-gray-100 mb-10 overflow-hidden">
@@ -130,7 +152,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onBa
                 return (
                   <div
                     key={index}
-                    onClick={() => setSelectedDate(dateStr)}
+                    onClick={() => item.currentMonth && handleDayClick(dateStr)}
                     className={`
                       min-h-[80px] md:min-h-[115px] p-2 md:p-4 border-2 rounded-[1.5rem] cursor-pointer transition-all relative flex flex-col items-center
                       ${!item.currentMonth ? 'bg-transparent text-gray-200 border-transparent opacity-20 pointer-events-none' : 'bg-white border-slate-100 hover:border-blue-400 hover:shadow-xl hover:-translate-y-1'}
@@ -264,6 +286,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onBa
         </p>
       </div>
     </div>
+    </>
   );
 };
 

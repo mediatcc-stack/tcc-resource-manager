@@ -1,8 +1,10 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Room, Booking } from '../../types';
 import Button from '../shared/Button';
 import { ROOMS } from '../../constants';
+import { uploadFile } from '../../services/apiService';
+// FIX: Import 'uuidv4' to fix 'Cannot find name' error.
+import { v4 as uuidv4 } from 'uuid';
 
 interface BookingFormProps {
   room: Room;
@@ -11,11 +13,12 @@ interface BookingFormProps {
   existingBookings: Booking[];
   onSubmit: (newBookings: Omit<Booking, 'id' | 'createdAt' | 'status'>[]) => void;
   onCancel: () => void;
+  showToast: (message: string, type: 'success' | 'error') => void;
 }
 
 const timeSlots = Array.from({ length: 11 }, (_, i) => `${(i + 8).toString().padStart(2, '0')}:00`); // 08:00 to 18:00
 
-const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBookings, onSubmit, onCancel }) => {
+const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBookings, onSubmit, onCancel, showToast }) => {
   const [currentRoom, setCurrentRoom] = useState<Room>(room);
   const [currentDate, setCurrentDate] = useState<string>(date);
   
@@ -32,11 +35,13 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     isMultiDay: false,
     endDate: currentDate,
   });
+
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   
   useEffect(() => {
-    // Reset end date if start date changes for multi-day booking
     if (formData.isMultiDay) {
       setFormData(prev => ({...prev, endDate: currentDate}));
     }
@@ -59,13 +64,20 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+          setAttachmentFile(e.target.files[0]);
+      } else {
+          setAttachmentFile(null);
+      }
+  };
   
   const handleRoomChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newRoomId = parseInt(e.target.value, 10);
     const newRoom = rooms.find(r => r.id === newRoomId);
     if (newRoom) {
       setCurrentRoom(newRoom);
-      // Reset times as available slots might differ
       setFormData(prev => ({...prev, startTime: '', endTime: ''}));
     }
   };
@@ -79,12 +91,11 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
-    const requiredFields = [formData.bookerName, formData.phone, formData.startTime, formData.endTime, formData.purpose, formData.participants > 0, formData.meetingType];
-    if (requiredFields.some(f => !f)) {
+    if (!formData.bookerName || !formData.phone || !formData.startTime || !formData.endTime || !formData.purpose || formData.participants <= 0) {
       setError('กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบถ้วน');
       return;
     }
@@ -94,17 +105,13 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
       return;
     }
     
-    // Rule: Must book at least 2 hours in advance
     const now = new Date();
     const bookingStartDateTime = new Date(`${currentDate}T${formData.startTime}`);
-    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-
-    if (bookingStartDateTime < twoHoursFromNow) {
-        setError('การจองต้องทำล่วงหน้าอย่างน้อย 2 ชั่วโมง');
+    if (bookingStartDateTime < now) {
+        setError('ไม่สามารถจองเวลาย้อนหลังได้');
         return;
     }
 
-    const bookingsToCreate = [];
     const firstDate = new Date(currentDate);
     const lastDate = formData.isMultiDay ? new Date(formData.endDate) : new Date(currentDate);
 
@@ -132,12 +139,28 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
 
     setLoading(true);
 
-    const groupId = formData.isMultiDay ? Math.random().toString(36).substring(2, 15) : undefined;
+    let finalAttachmentUrl = '';
+    if (attachmentFile) {
+        setUploading(true);
+        const uploadedUrl = await uploadFile(attachmentFile);
+        setUploading(false);
+        if (uploadedUrl) {
+            finalAttachmentUrl = uploadedUrl;
+        } else {
+            showToast('อัปโหลดไฟล์ไม่สำเร็จ', 'error');
+            setLoading(false);
+            return;
+        }
+    }
+
+    const bookingsToCreate = [];
+    const groupId = formData.isMultiDay ? uuidv4() : undefined;
     const dateRange = formData.isMultiDay ? `${new Date(currentDate).toLocaleDateString('th-TH')} - ${lastDate.toLocaleDateString('th-TH')}`: undefined;
         
     for (let d = new Date(firstDate); d <= lastDate; d.setDate(d.getDate() + 1)) {
         bookingsToCreate.push({ 
             ...formData, 
+            attachmentUrl: finalAttachmentUrl,
             isMultiDay: formData.isMultiDay, 
             date: d.toISOString().split('T')[0], 
             roomName: currentRoom.name, 
@@ -146,10 +169,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
         });
     }
     
-    setTimeout(() => {
-        onSubmit(bookingsToCreate);
-        setLoading(false);
-    }, 500);
+    onSubmit(bookingsToCreate);
+    setLoading(false);
   };
 
   const FormField: React.FC<{label: string, icon: string, required?: boolean, children: React.ReactNode}> = ({ label, icon, required, children }) => (
@@ -249,20 +270,16 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
             <input type="text" name="equipment" value={formData.equipment} onChange={handleInputChange} className={inputClasses} placeholder="เช่น ไมโครโฟน 4 ตัว, Notebook 1 เครื่อง" />
           </FormField>
 
-          <FormField label="แนบเอกสาร (Google Drive, etc.)" icon="📎">
-            <input 
-              type="url" 
-              name="attachmentUrl" 
-              value={formData.attachmentUrl} 
-              onChange={handleInputChange} 
-              className={inputClasses} 
-              placeholder="วางลิงก์เอกสารที่นี่" 
-            />
+          <FormField label="แนบไฟล์ (กำหนดการ, เอกสารประกอบ)" icon="📎">
+             <input type="file" onChange={handleFileChange} className={`${inputClasses} file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100`}/>
+             {attachmentFile && <span className="text-xs text-gray-500 mt-1">ไฟล์ที่เลือก: {attachmentFile.name}</span>}
           </FormField>
           
           <div className="flex justify-end gap-4 pt-6">
             <Button type="button" variant="secondary" onClick={onCancel} disabled={loading}>ยกเลิก</Button>
-            <Button type="submit" variant="primary" loading={loading}>ยืนยันการจอง</Button>
+            <Button type="submit" variant="primary" loading={loading || uploading}>
+                {uploading ? 'กำลังอัปโหลด...' : 'ยืนยันการจอง'}
+            </Button>
           </div>
         </form>
       </div>

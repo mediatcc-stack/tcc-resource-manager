@@ -8,43 +8,35 @@ interface MyBookingsPageProps {
   bookings: Booking[];
   onCancelBooking: (id: string) => void;
   onCancelBookingGroup: (groupId: string) => void;
+  onDeleteBooking: (id: string) => void;
   onBack: () => void;
+  isAdmin: boolean;
+  onAdminLogin: () => void;
 }
 
-const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooking, onCancelBookingGroup, onBack }) => {
+const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onBack, isAdmin, onAdminLogin }) => {
   const [nameFilter, setNameFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [roomFilter, setRoomFilter] = useState('all');
 
   const filteredBookings = useMemo(() => {
-    const filtered = bookings
+    return bookings
       .filter(b => {
         const nameMatch = nameFilter ? b.bookerName.toLowerCase().includes(nameFilter.toLowerCase()) : true;
         const dateMatch = dateFilter ? b.date === dateFilter : true;
         const roomMatch = roomFilter !== 'all' ? b.roomName === roomFilter : true;
         return nameMatch && dateMatch && roomMatch;
+      })
+      .sort((a, b) => {
+        const aIsActive = a.status === 'จองแล้ว';
+        const bIsActive = b.status === 'จองแล้ว';
+        if (aIsActive && !bIsActive) return -1;
+        if (!aIsActive && bIsActive) return 1;
+        const dateTimeA = new Date(`${a.date}T${a.startTime}`).getTime();
+        const dateTimeB = new Date(`${b.date}T${b.startTime}`).getTime();
+        if (aIsActive && bIsActive) return dateTimeA - dateTimeB;
+        return dateTimeB - dateTimeA;
       });
-
-    return filtered.sort((a, b) => {
-      const aIsActive = a.status === 'จองแล้ว';
-      const bIsActive = b.status === 'จองแล้ว';
-
-      // Prioritize active bookings
-      if (aIsActive && !bIsActive) return -1;
-      if (!aIsActive && bIsActive) return 1;
-
-      const dateTimeA = new Date(`${a.date}T${a.startTime}`).getTime();
-      const dateTimeB = new Date(`${b.date}T${b.startTime}`).getTime();
-
-      // If both are active, sort by nearest upcoming (ascending)
-      if (aIsActive && bIsActive) {
-        return dateTimeA - dateTimeB;
-      }
-
-      // If both are inactive, sort by most recent (descending)
-      return dateTimeB - dateTimeA;
-    });
-
   }, [bookings, nameFilter, dateFilter, roomFilter]);
 
   const clearFilters = () => {
@@ -81,7 +73,7 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-semibold hover:underline"
                             >
-                                📎 ดูเอกสารแนบ
+                                📎 ดูไฟล์แนบ
                             </a>
                         </p>
                     )}
@@ -92,8 +84,17 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                 </div>
                 <div className="sm:col-span-1 flex flex-col items-start sm:items-end justify-between">
                     <span className={`px-3 py-1 text-xs font-semibold rounded-full ${statusInfo.bg} ${statusInfo.text_color}`}>{statusInfo.text}</span>
-                     {booking.status === 'จองแล้ว' && (
-                        <div className="mt-3 w-full">
+                    <div className="mt-3 w-full flex flex-col sm:flex-row sm:justify-end gap-2">
+                        {isAdmin && (
+                            <Button size="sm" variant="secondary" onClick={() => {
+                                if (confirm(`คุณต้องการ "ลบถาวร" การจองนี้ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้`)) {
+                                    onDeleteBooking(booking.id);
+                                }
+                            }}>
+                            ลบ
+                            </Button>
+                        )}
+                        {booking.status === 'จองแล้ว' && (
                             <Button size="sm" variant="danger" onClick={() => {
                                 if (confirm(`คุณต้องการยกเลิกการจอง ${booking.roomName} ใช่หรือไม่?`)) {
                                     if (booking.isMultiDay && booking.groupId) {
@@ -105,8 +106,8 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                             }}>
                             ยกเลิก
                             </Button>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
@@ -116,14 +117,22 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
   return (
     <div className="max-w-6xl mx-auto animate-fade-in">
         <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
-            <div className="flex items-center gap-4 mb-6 pb-5 border-b border-gray-200">
-                <button 
-                  onClick={onBack}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-all active:scale-95 flex items-center gap-2"
-                >
-                  <span>←</span> กลับ
-                </button>
-                <h2 className="text-xl md:text-2xl font-bold text-gray-800">รายการจองทั้งหมด</h2>
+            <div className="flex flex-wrap justify-between items-center gap-4 mb-6 pb-5 border-b border-gray-200">
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={onBack}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-all active:scale-95 flex items-center gap-2"
+                  >
+                    <span>←</span> กลับ
+                  </button>
+                  <h2 className="text-xl md:text-2xl font-bold text-gray-800">รายการจองทั้งหมด</h2>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isAdmin && <span className="px-3 py-1 text-xs font-bold text-white bg-green-600 rounded-full shadow-md">โหมดแอดมิน</span>}
+                  <Button onClick={onAdminLogin} variant="secondary">
+                      {isAdmin ? 'ปิดโหมดแอดมิน' : '🔑 แอดมิน'}
+                  </Button>
+                </div>
             </div>
             
             {/* Filter Section */}
@@ -131,39 +140,20 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
                     <div>
                         <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-2">🔍 ค้นหาชื่อผู้จอง</label>
-                        <input 
-                            type="text" 
-                            placeholder="ค้นหา..."
-                            value={nameFilter}
-                            onChange={e => setNameFilter(e.target.value)}
-                            className={inputClasses}
-                        />
+                        <input type="text" placeholder="ค้นหา..." value={nameFilter} onChange={e => setNameFilter(e.target.value)} className={inputClasses}/>
                     </div>
                      <div>
                         <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-2">🗓️ กรองตามวันที่</label>
-                        <input 
-                            type="date"
-                            value={dateFilter}
-                            onChange={e => setDateFilter(e.target.value)}
-                            className={inputClasses}
-                        />
+                        <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)} className={inputClasses} />
                     </div>
                      <div>
                         <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-2">🏢 กรองตามห้อง</label>
-                        <select
-                           value={roomFilter}
-                           onChange={e => setRoomFilter(e.target.value)}
-                           className={inputClasses}
-                        >
+                        <select value={roomFilter} onChange={e => setRoomFilter(e.target.value)} className={inputClasses} >
                             <option value="all">ห้องทั้งหมด</option>
                             {ROOMS.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
                         </select>
                     </div>
-                    <div className="flex gap-2">
-                        <Button onClick={clearFilters} variant="secondary" className="w-full">
-                            ล้างตัวกรอง
-                        </Button>
-                    </div>
+                    <Button onClick={clearFilters} variant="secondary">ล้างตัวกรอง</Button>
                 </div>
             </div>
 
