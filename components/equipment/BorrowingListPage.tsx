@@ -14,6 +14,37 @@ interface BorrowingListPageProps {
     lastUpdated: Date | null;
 }
 
+const getStatusClass = (status: BorrowStatus) => {
+    switch(status) {
+        case BorrowStatus.Pending: return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+        case BorrowStatus.Borrowing: return 'bg-blue-100 text-blue-800 border-blue-200';
+        case BorrowStatus.Returned: return 'bg-green-100 text-green-800 border-green-200';
+        case BorrowStatus.Overdue: return 'bg-red-100 text-red-800 border-red-200';
+        default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+};
+
+const StatusActions: React.FC<{
+    req: BorrowingRequest;
+    isAdmin: boolean;
+    onChangeStatus: (id: string, newStatus: BorrowStatus) => void;
+}> = ({ req, isAdmin, onChangeStatus }) => {
+    if (!isAdmin || req.status === BorrowStatus.Returned) return null;
+
+    const handleStatusChange = (newStatus: BorrowStatus) => {
+        if (confirm(`ยืนยันการเปลี่ยนสถานะเป็น "${newStatus}"?`)) {
+            onChangeStatus(req.id, newStatus);
+        }
+    };
+
+    return (
+        <div className="flex gap-2 mt-2">
+            {req.status === BorrowStatus.Pending && <Button size="sm" variant="primary" onClick={() => handleStatusChange(BorrowStatus.Borrowing)}>อนุมัติให้ยืม</Button>}
+            {(req.status === BorrowStatus.Borrowing || req.status === BorrowStatus.Overdue) && <Button size="sm" variant="secondary" onClick={() => handleStatusChange(BorrowStatus.Returned)}>รับคืนแล้ว</Button>}
+        </div>
+    );
+}
+
 const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNewRequest, onChangeStatus, onCancelRequest, onBackToLanding, showToast, lastUpdated }) => {
     const [isAdmin, setIsAdmin] = useState(false);
     
@@ -26,34 +57,6 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
             showToast('รหัสผ่านไม่ถูกต้อง', 'error');
         }
     };
-
-    const getStatusClass = (status: BorrowStatus) => {
-        switch(status) {
-            case BorrowStatus.Pending: return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-            case BorrowStatus.Borrowing: return 'bg-blue-100 text-blue-800 border-blue-200';
-            case BorrowStatus.Returned: return 'bg-green-100 text-green-800 border-green-200';
-            case BorrowStatus.Overdue: return 'bg-red-100 text-red-800 border-red-200';
-            default: return 'bg-gray-100 text-gray-800 border-gray-200';
-        }
-    };
-
-    const StatusActions: React.FC<{req: BorrowingRequest}> = ({ req }) => {
-        if (!isAdmin || req.status === BorrowStatus.Returned) return null;
-
-        const handleStatusChange = (newStatus: BorrowStatus) => {
-            if (confirm(`ยืนยันการเปลี่ยนสถานะเป็น "${newStatus}"?`)) {
-                onChangeStatus(req.id, newStatus);
-            }
-        };
-
-        return (
-            <div className="flex gap-2 mt-2">
-                {req.status === BorrowStatus.Pending && <Button size="sm" variant="primary" onClick={() => handleStatusChange(BorrowStatus.Borrowing)}>อนุมัติให้ยืม</Button>}
-                {req.status === BorrowStatus.Borrowing && <Button size="sm" variant="secondary" onClick={() => handleStatusChange(BorrowStatus.Returned)}>รับคืนแล้ว</Button>}
-                {req.status === BorrowStatus.Overdue && <Button size="sm" variant="secondary" onClick={() => handleStatusChange(BorrowStatus.Returned)}>รับคืนแล้ว</Button>}
-            </div>
-        );
-    }
     
     return (
         <div className="bg-white p-6 md:p-8 rounded-2xl shadow-xl animate-fade-in">
@@ -101,7 +104,7 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
                             <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${getStatusClass(req.status)}`}>{req.status}</span>
                         </div>
                         <div className="flex justify-end mt-2">
-                           <StatusActions req={req} />
+                           <StatusActions req={req} isAdmin={isAdmin} onChangeStatus={onChangeStatus} />
                            {req.status === BorrowStatus.Pending && !isAdmin && (
                                <Button size="sm" variant="danger" onClick={() => {
                                    if(confirm('คุณต้องการยกเลิกคำขอนี้ใช่หรือไม่?')) {

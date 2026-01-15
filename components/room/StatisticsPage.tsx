@@ -9,6 +9,21 @@ interface StatisticsPageProps {
   onBack: () => void;
 }
 
+const StatCard: React.FC<{icon: string, title: string, value: string | number, description: string, color: string}> = ({icon, title, value, description, color}) => (
+    <div className={`p-6 rounded-2xl border bg-white shadow-sm`}>
+        <div className="flex items-center gap-4">
+            <div className={`p-3 rounded-xl bg-opacity-10 ${color.replace('text', 'bg').replace('-600', '-100')}`}>
+                <span className={`text-2xl ${color}`}>{icon}</span>
+            </div>
+            <div>
+                <p className="text-sm font-semibold text-gray-500">{title}</p>
+                <p className={`text-3xl font-bold ${color}`}>{value}</p>
+            </div>
+        </div>
+        <p className="text-xs text-gray-400 mt-3">{description}</p>
+    </div>
+);
+
 const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => {
   const stats = useMemo(() => {
     const activeBookings = bookings.filter(b => b.status === 'จองแล้ว' || b.status === 'หมดเวลา');
@@ -28,21 +43,6 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => 
       bookingsByRoom,
     };
   }, [bookings]);
-  
-  const StatCard: React.FC<{icon: string, title: string, value: string | number, description: string, color: string}> = ({icon, title, value, description, color}) => (
-      <div className={`p-6 rounded-2xl border bg-white shadow-sm`}>
-          <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-xl bg-opacity-10 ${color.replace('text', 'bg').replace('-600', '-100')}`}>
-                  <span className={`text-2xl ${color}`}>{icon}</span>
-              </div>
-              <div>
-                  <p className="text-sm font-semibold text-gray-500">{title}</p>
-                  <p className={`text-3xl font-bold ${color}`}>{value}</p>
-              </div>
-          </div>
-          <p className="text-xs text-gray-400 mt-3">{description}</p>
-      </div>
-  );
 
   return (
     <div className="max-w-6xl mx-auto animate-fade-in">

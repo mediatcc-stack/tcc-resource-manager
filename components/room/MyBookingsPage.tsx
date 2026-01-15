@@ -14,6 +14,80 @@ interface MyBookingsPageProps {
   onAdminLogin: () => void;
 }
 
+const getStatusInfo = (status: Booking['status']) => {
+  switch(status) {
+      case 'จองแล้ว': return { text: 'จองแล้ว', bg: 'bg-blue-100', text_color: 'text-blue-800', border: 'border-blue-500' };
+      case 'ยกเลิก': return { text: 'ยกเลิก', bg: 'bg-red-100', text_color: 'text-red-800', border: 'border-red-500' };
+      case 'หมดเวลา': return { text: 'เสร็จสิ้น', bg: 'bg-gray-100', text_color: 'text-gray-800', border: 'border-gray-400' };
+      default: return { text: status, bg: 'bg-gray-100', text_color: 'text-gray-800', border: 'border-gray-400' };
+  }
+};
+
+const BookingCard: React.FC<{
+  booking: Booking;
+  isAdmin: boolean;
+  onCancelBooking: (id: string) => void;
+  onCancelBookingGroup: (groupId: string) => void;
+  onDeleteBooking: (id: string) => void;
+}> = ({ booking, isAdmin, onCancelBooking, onCancelBookingGroup, onDeleteBooking }) => {
+  const statusInfo = getStatusInfo(booking.status);
+  return (
+      <div className={`bg-white p-5 rounded-xl shadow-md border-l-4 ${statusInfo.border} transition-shadow hover:shadow-lg`}>
+          <div className="grid grid-cols-1 sm:grid-cols-6 gap-x-4 gap-y-3">
+              <div className="sm:col-span-3">
+                  <h4 className="font-bold text-lg text-[#0D448D]">{booking.roomName}</h4>
+                  <p className="text-sm text-gray-600 mt-1">ผู้จอง: <span className="font-medium">{booking.bookerName} ({booking.phone})</span></p>
+                  <p className="text-sm text-gray-500 break-words">วัตถุประสงค์: {booking.purpose}</p>
+                   {booking.attachmentUrl && (
+                      <p className="text-sm text-gray-500 mt-2">
+                          <a 
+                              href={booking.attachmentUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-semibold hover:underline"
+                          >
+                              📎 ดูไฟล์แนบ
+                          </a>
+                      </p>
+                  )}
+              </div>
+              <div className="sm:col-span-2">
+                  <p className="font-semibold text-gray-800 text-sm">🗓️ {booking.isMultiDay && booking.dateRange ? `ช่วงวันที่: ${booking.dateRange}` : `วันที่: ${new Date(booking.date).toLocaleDateString('th-TH')}`}</p>
+                  <p className="text-sm text-gray-600">⏰ เวลา: {booking.startTime} - {booking.endTime}</p>
+              </div>
+              <div className="sm:col-span-1 flex flex-col items-start sm:items-end justify-between">
+                  <span className={`px-3 py-1 text-xs font-semibold rounded-full ${statusInfo.bg} ${statusInfo.text_color}`}>{statusInfo.text}</span>
+                  <div className="mt-3 w-full flex flex-col sm:flex-row sm:justify-end gap-2">
+                      {booking.status === 'จองแล้ว' && (
+                          <Button size="sm" variant="secondary" onClick={() => {
+                              if (confirm(`คุณต้องการยกเลิกการจอง ${booking.roomName} ใช่หรือไม่?`)) {
+                                  if (booking.isMultiDay && booking.groupId) {
+                                      onCancelBookingGroup(booking.groupId);
+                                  } else {
+                                      onCancelBooking(booking.id);
+                                  }
+                              }
+                          }}>
+                          ยกเลิก
+                          </Button>
+                      )}
+                      {isAdmin && (
+                          <Button size="sm" variant="danger" onClick={() => {
+                              if (confirm(`⚠️ ยืนยันการลบถาวร ⚠️\n\nการจองนี้จะหายไปจากระบบอย่างถาวรและไม่สามารถกู้คืนได้\n\nคุณต้องการ "ลบถาวร" การจองนี้ใช่หรือไม่?`)) {
+                                  onDeleteBooking(booking.id);
+                              }
+                          }}>
+                          ลบ
+                          </Button>
+                      )}
+                  </div>
+              </div>
+          </div>
+      </div>
+  );
+};
+
+
 const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onBack, isAdmin, onAdminLogin }) => {
   const [nameFilter, setNameFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
@@ -46,74 +120,7 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
   };
   
   const inputClasses = "block w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
-
-  const getStatusInfo = (status: Booking['status']) => {
-    switch(status) {
-        case 'จองแล้ว': return { text: 'จองแล้ว', bg: 'bg-blue-100', text_color: 'text-blue-800', border: 'border-blue-500' };
-        case 'ยกเลิก': return { text: 'ยกเลิก', bg: 'bg-red-100', text_color: 'text-red-800', border: 'border-red-500' };
-        case 'หมดเวลา': return { text: 'เสร็จสิ้น', bg: 'bg-gray-100', text_color: 'text-gray-800', border: 'border-gray-400' };
-        default: return { text: status, bg: 'bg-gray-100', text_color: 'text-gray-800', border: 'border-gray-400' };
-    }
-  };
-
-  const BookingCard: React.FC<{booking: Booking}> = ({ booking }) => {
-    const statusInfo = getStatusInfo(booking.status);
-    return (
-        <div className={`bg-white p-5 rounded-xl shadow-md border-l-4 ${statusInfo.border} transition-shadow hover:shadow-lg`}>
-            <div className="grid grid-cols-1 sm:grid-cols-6 gap-x-4 gap-y-3">
-                <div className="sm:col-span-3">
-                    <h4 className="font-bold text-lg text-[#0D448D]">{booking.roomName}</h4>
-                    <p className="text-sm text-gray-600 mt-1">ผู้จอง: <span className="font-medium">{booking.bookerName} ({booking.phone})</span></p>
-                    <p className="text-sm text-gray-500 break-words">วัตถุประสงค์: {booking.purpose}</p>
-                     {booking.attachmentUrl && (
-                        <p className="text-sm text-gray-500 mt-2">
-                            <a 
-                                href={booking.attachmentUrl} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-semibold hover:underline"
-                            >
-                                📎 ดูไฟล์แนบ
-                            </a>
-                        </p>
-                    )}
-                </div>
-                <div className="sm:col-span-2">
-                    <p className="font-semibold text-gray-800 text-sm">🗓️ {booking.isMultiDay && booking.dateRange ? `ช่วงวันที่: ${booking.dateRange}` : `วันที่: ${new Date(booking.date).toLocaleDateString('th-TH')}`}</p>
-                    <p className="text-sm text-gray-600">⏰ เวลา: {booking.startTime} - {booking.endTime}</p>
-                </div>
-                <div className="sm:col-span-1 flex flex-col items-start sm:items-end justify-between">
-                    <span className={`px-3 py-1 text-xs font-semibold rounded-full ${statusInfo.bg} ${statusInfo.text_color}`}>{statusInfo.text}</span>
-                    <div className="mt-3 w-full flex flex-col sm:flex-row sm:justify-end gap-2">
-                        {booking.status === 'จองแล้ว' && (
-                            <Button size="sm" variant="secondary" onClick={() => {
-                                if (confirm(`คุณต้องการยกเลิกการจอง ${booking.roomName} ใช่หรือไม่?`)) {
-                                    if (booking.isMultiDay && booking.groupId) {
-                                        onCancelBookingGroup(booking.groupId);
-                                    } else {
-                                        onCancelBooking(booking.id);
-                                    }
-                                }
-                            }}>
-                            ยกเลิก
-                            </Button>
-                        )}
-                        {isAdmin && (
-                            <Button size="sm" variant="danger" onClick={() => {
-                                if (confirm(`⚠️ ยืนยันการลบถาวร ⚠️\n\nการจองนี้จะหายไปจากระบบอย่างถาวรและไม่สามารถกู้คืนได้\n\nคุณต้องการ "ลบถาวร" การจองนี้ใช่หรือไม่?`)) {
-                                    onDeleteBooking(booking.id);
-                                }
-                            }}>
-                            ลบ
-                            </Button>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-  };
-
+  
   return (
     <div className="max-w-6xl mx-auto animate-fade-in">
         <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
@@ -160,7 +167,15 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
             {/* Bookings List */}
             <div className="space-y-4">
                 {filteredBookings.length > 0 ? (
-                    filteredBookings.map(b => <BookingCard key={b.id} booking={b} />)
+                    filteredBookings.map(b => 
+                      <BookingCard 
+                        key={b.id} 
+                        booking={b} 
+                        isAdmin={isAdmin}
+                        onCancelBooking={onCancelBooking}
+                        onCancelBookingGroup={onCancelBookingGroup}
+                        onDeleteBooking={onDeleteBooking}
+                      />)
                 ) : (
                     <div className="text-center text-gray-500 py-16 bg-gray-50 rounded-lg">
                         <p className="text-lg font-semibold">ไม่พบรายการจอง</p>
