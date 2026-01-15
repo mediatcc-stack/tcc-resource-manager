@@ -86,6 +86,7 @@ ${dateString}
 ผู้ขอจอง: ${firstBooking.bookerName}`.trim();
 
     await sendLineNotification(notifyMessage);
+    
     setCurrentPage('home');
     showToast('การจองห้องสำเร็จ!', 'success');
   }, [showToast]);
@@ -102,7 +103,9 @@ ${dateString}
 วันที่: ${formattedDate}
 เวลา: ${bookingToCancel.startTime} - ${bookingToCancel.endTime}
 ผู้ยกเลิก: ${bookingToCancel.bookerName}`.trim();
+
        await sendLineNotification(notifyMessage);
+       
        showToast('ยกเลิกการจองเรียบร้อยแล้ว', 'success');
     }
   }, [bookings, showToast]);
@@ -119,7 +122,9 @@ ${dateString}
 ช่วงวันที่: ${firstBooking.dateRange}
 เวลา: ${firstBooking.startTime} - ${firstBooking.endTime}
 ผู้ยกเลิก: ${firstBooking.bookerName}`.trim();
+
        await sendLineNotification(notifyMessage);
+       
        showToast('ยกเลิกการจองกลุ่มเรียบร้อยแล้ว', 'success');
     }
   }, [bookings, showToast]);
