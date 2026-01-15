@@ -1,4 +1,3 @@
-
 // !!! สำคัญ: โปรดตรวจสอบให้แน่ใจว่า URL นี้ตรงกับ URL ของ Worker ที่คุณใช้งานจริง
 const WORKER_BASE_URL = 'https://tcc-line-notifier.media-tcc.workers.dev';
 const LINE_NOTIFIER_ENDPOINT = `${WORKER_BASE_URL}/notify`;

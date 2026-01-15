@@ -1,9 +1,7 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Room, Booking } from '../../types';
 import Button from '../shared/Button';
 import { ROOMS } from '../../constants';
-import { uploadFile } from '../../services/apiService';
 import { v4 as uuidv4 } from 'uuid';
 
 interface BookingFormProps {
@@ -47,10 +45,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     endDate: currentDate,
   });
 
-  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
   
   useEffect(() => {
     if (formData.isMultiDay) {
@@ -74,14 +70,6 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files[0]) {
-          setAttachmentFile(e.target.files[0]);
-      } else {
-          setAttachmentFile(null);
-      }
   };
   
   const handleRoomChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -150,20 +138,6 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
 
     setLoading(true);
 
-    let finalAttachmentUrl = '';
-    if (attachmentFile) {
-        setUploading(true);
-        try {
-            finalAttachmentUrl = await uploadFile(attachmentFile);
-        } catch (error: any) {
-            showToast(`อัปโหลดไฟล์ไม่สำเร็จ: ${error.message}`, 'error');
-            setUploading(false);
-            setLoading(false);
-            return;
-        }
-        setUploading(false);
-    }
-
     const bookingsToCreate = [];
     const groupId = formData.isMultiDay ? uuidv4() : undefined;
     const dateRange = formData.isMultiDay ? `${new Date(currentDate).toLocaleDateString('th-TH')} - ${lastDate.toLocaleDateString('th-TH')}`: undefined;
@@ -171,7 +145,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     for (let d = new Date(firstDate); d <= lastDate; d.setDate(d.getDate() + 1)) {
         bookingsToCreate.push({ 
             ...formData, 
-            attachmentUrl: finalAttachmentUrl,
+            attachmentUrl: formData.attachmentUrl,
             isMultiDay: formData.isMultiDay, 
             date: d.toISOString().split('T')[0], 
             roomName: currentRoom.name, 
@@ -182,14 +156,6 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     
     onSubmit(bookingsToCreate);
     setLoading(false);
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const inputClasses = "block w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
@@ -279,27 +245,38 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
             <input type="text" name="equipment" value={formData.equipment} onChange={handleInputChange} className={inputClasses} placeholder="เช่น ไมโครโฟน 4 ตัว, Notebook 1 เครื่อง" />
           </FormField>
 
-          <FormField label="แนบไฟล์ (กำหนดการ, เอกสารประกอบ)" icon="📎">
-             <input type="file" id="file-upload" onChange={handleFileChange} className="hidden"/>
-             {attachmentFile ? (
-                <div className="flex items-center justify-between p-3 bg-gray-100 rounded-lg border border-gray-200">
-                    <div>
-                        <p className="text-sm font-semibold text-gray-800">{attachmentFile.name}</p>
-                        <p className="text-xs text-gray-500">{formatFileSize(attachmentFile.size)}</p>
-                    </div>
-                    <button type="button" onClick={() => setAttachmentFile(null)} className="text-red-500 hover:text-red-700 font-bold text-sm">ลบ</button>
-                </div>
-             ) : (
-                <label htmlFor="file-upload" className="cursor-pointer block w-full text-center p-3 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-600 transition">
-                    คลิกเพื่อเลือกไฟล์
-                </label>
-             )}
-          </FormField>
+          <div>
+              <FormField label="แนบลิงก์เอกสาร (ถ้ามี)" icon="🔗">
+                  <input 
+                      type="url" 
+                      name="attachmentUrl" 
+                      value={formData.attachmentUrl} 
+                      onChange={handleInputChange} 
+                      className={inputClasses} 
+                      placeholder="https://docs.google.com/..." 
+                  />
+              </FormField>
+              <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800 space-y-2">
+                  <p className="font-bold flex items-center gap-2">📌 วิธีการแนบเอกสาร:</p>
+                  <ol className="list-decimal list-inside pl-2 space-y-1">
+                      <li>อัปโหลดไฟล์ของคุณไปยัง <strong>Google Drive</strong> หรือ <strong>Dropbox</strong></li>
+                      <li>ตั้งสิทธิ์ให้เป็น <strong>"แชร์ให้ทุกคนที่มีลิงก์ดูได้"</strong></li>
+                      <li>คัดลอกลิงก์มาวางข้างบน</li>
+                  </ol>
+                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <p className="font-semibold flex items-center gap-2">💡 เคล็ดลับ:</p>
+                      <ul className="list-disc list-inside pl-2 text-xs mt-1">
+                          <li><strong>Google Drive:</strong> คลิกขวาที่ไฟล์ → แชร์ → เปลี่ยนเป็น "ทุกคนที่มีลิงก์" → คัดลอกลิงก์</li>
+                          <li><strong>Dropbox:</strong> คลิกขวาที่ไฟล์ → แชร์ → สร้างลิงก์ → คัดลอกลิงก์</li>
+                      </ul>
+                  </div>
+              </div>
+          </div>
           
           <div className="flex justify-end gap-4 pt-6">
             <Button type="button" variant="secondary" onClick={onCancel} disabled={loading}>ยกเลิก</Button>
-            <Button type="submit" variant="primary" loading={loading || uploading}>
-                {uploading ? 'กำลังอัปโหลด...' : 'ยืนยันการจอง'}
+            <Button type="submit" variant="primary" loading={loading}>
+                ยืนยันการจอง
             </Button>
           </div>
         </form>

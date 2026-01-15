@@ -34,6 +34,7 @@ export enum BorrowStatus {
   Borrowing = 'อยู่ระหว่างการยืม',
   Returned = 'คืนแล้ว',
   Overdue = 'เกินกำหนด',
+  Cancelled = 'ยกเลิก',
 }
 
 export interface BorrowingRequest {
