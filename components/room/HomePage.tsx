@@ -10,18 +10,25 @@ interface HomePageProps {
   onBackToLanding: () => void;
 }
 
-const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onBackToLanding }) => {
+const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  
   const [modalOpen, setModalOpen] = useState(false);
   const [modalBookings, setModalBookings] = useState<Booking[]>([]);
   const [modalDate, setModalDate] = useState('');
+  const [modalRoomName, setModalRoomName] = useState('');
 
   const handleDayClick = (dateStr: string) => {
     setSelectedDate(dateStr);
-    const bookingsOnDay = getBookingsOnDate(dateStr);
-    setModalBookings(bookingsOnDay);
-    setModalDate(dateStr);
+  };
+  
+  const handleShowRoomDetails = (room: Room) => {
+    const roomBookings = bookings.filter(b => b.roomName === room.name && b.date === selectedDate && b.status === 'จองแล้ว')
+                                 .sort((a,b) => a.startTime.localeCompare(b.startTime));
+    setModalBookings(roomBookings);
+    setModalDate(selectedDate);
+    setModalRoomName(room.name);
     setModalOpen(true);
   };
 
@@ -79,6 +86,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onBa
       onClose={() => setModalOpen(false)} 
       bookings={modalBookings}
       date={modalDate}
+      roomName={modalRoomName}
     />
     <div className="max-w-6xl mx-auto animate-fade-in px-2 md:px-0">
       <div className="bg-white rounded-[2rem] md:rounded-[3rem] shadow-2xl p-6 md:p-12 border border-gray-100 mb-10 overflow-hidden">
@@ -157,12 +165,16 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onBa
               const roomBookings = bookings.filter(b => b.roomName === room.name && b.date === selectedDate && b.status === 'จองแล้ว');
               
               return (
-                <div key={room.id} onClick={() => isAvailable && onSelectRoom(room, selectedDate)}
+                <div key={room.id}
                   className={`flex flex-col bg-white rounded-[2rem] border-2 transition-all duration-300 group relative
-                    ${isAvailable ? 'border-slate-100 hover:border-[#0D448D] hover:shadow-2xl hover:-translate-y-2 cursor-pointer shadow-sm' : 'border-gray-100 bg-gray-50/50 opacity-60 cursor-default shadow-none'}`}>
+                    ${isAvailable ? 'border-slate-100 hover:border-[#0D448D] hover:shadow-2xl hover:-translate-y-2 shadow-sm' : 'border-gray-100 bg-gray-50/50 opacity-60 cursor-default shadow-none'}`}>
                   <div className="p-6 flex flex-col h-full">
                     <h3 className="text-lg font-bold text-gray-800 leading-snug break-words mb-4">{room.name}</h3>
-                    <div className="flex-1 flex flex-col justify-center py-5 mb-5 border-y border-slate-50">
+                    
+                    <div 
+                        className={`flex-1 flex flex-col justify-center py-5 mb-5 border-y border-slate-50 ${isAvailable && 'cursor-pointer'}`}
+                        onClick={() => isAvailable && handleShowRoomDetails(room)}
+                    >
                       {isAvailable ? (
                         <RoomAvailabilityTimeline bookings={roomBookings} />
                       ) : (
@@ -171,10 +183,20 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onBa
                         </div>
                       )}
                     </div>
-                    {isAvailable && (<div className="w-full bg-[#0D448D] text-white py-3 rounded-[1.25rem] font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-900/10 group-hover:bg-blue-800 transition-all active:scale-95">
+
+                    {isAvailable && (
+                      <button 
+                        onClick={() => onSelectRoom(room, selectedDate)}
+                        className="w-full bg-[#0D448D] text-white py-3 rounded-[1.25rem] font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-900/10 group-hover:bg-blue-800 transition-all active:scale-95"
+                      >
                         <span>👆</span> คลิกเพื่อจองห้องนี้
-                      </div>)}
-                     {!isAvailable && (<div className="w-full bg-gray-200 text-gray-400 py-3 rounded-[1.25rem] font-bold text-sm flex items-center justify-center gap-2">ไม่สามารถจองได้</div>)}
+                      </button>
+                    )}
+                    {!isAvailable && (
+                      <div className="w-full bg-gray-200 text-gray-400 py-3 rounded-[1.25rem] font-bold text-sm flex items-center justify-center gap-2">
+                        ไม่สามารถจองได้
+                      </div>
+                    )}
                   </div>
                 </div>
               );

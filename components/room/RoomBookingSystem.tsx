@@ -100,17 +100,25 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       setLastUpdated(new Date());
 
       const firstBooking = createdBookings[0];
-      const dateLabel = firstBooking.isMultiDay ? 'ช่วงวันที่' : 'วันที่';
-      const dateValue = firstBooking.isMultiDay && firstBooking.dateRange 
-        ? firstBooking.dateRange
-        : new Date(firstBooking.date).toLocaleDateString('th-TH');
+      
+      const timeString = `${firstBooking.startTime} - ${firstBooking.endTime}`;
+      const dateInfo = firstBooking.isMultiDay && firstBooking.dateRange
+          ? `${firstBooking.dateRange}`
+          : `${new Date(firstBooking.date).toLocaleDateString('th-TH')}`;
 
-      const notifyMessage = `✨ *มีการจองห้องใหม่!* ✨\n
-🎯 *ชื่องาน:* ${firstBooking.purpose}
-🏢 *ห้อง:* ${firstBooking.roomName}
-🗓️ *${dateLabel}:* ${dateValue}
-⏰ *เวลา:* ${firstBooking.startTime} - ${firstBooking.endTime}
-👤 *ผู้จอง:* ${firstBooking.bookerName}`.trim();
+      const dateTimeLine = `${dateInfo} | ${timeString}`;
+
+      const notifyMessage = [
+          "------",
+          "📌 มีการจองห้องใหม่",
+          "",
+          `${firstBooking.roomName}`,
+          dateTimeLine,
+          "",
+          `ชื่องาน: ${firstBooking.purpose}`,
+          `ผู้จอง: ${firstBooking.bookerName}`,
+          "------"
+      ].join('\n');
 
       await sendLineNotification(notifyMessage);
       

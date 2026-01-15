@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Booking } from '../../types';
 
@@ -7,10 +6,13 @@ interface BookingDetailsModalProps {
     onClose: () => void;
     bookings: Booking[];
     date: string;
+    roomName?: string;
 }
 
-const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClose, bookings, date }) => {
+const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClose, bookings, date, roomName }) => {
     if (!isOpen) return null;
+
+    const formattedDate = new Date(date).toLocaleDateString('th-TH');
 
     return (
         <div 
@@ -23,7 +25,7 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
             >
                 <div className="p-6 border-b border-gray-200">
                     <h3 className="text-lg font-bold text-[#0D448D]">
-                        รายการจองวันที่ {new Date(date).toLocaleDateString('th-TH')}
+                       {roomName ? `${roomName} - ` : 'รายการจอง'}วันที่ {formattedDate}
                     </h3>
                 </div>
                 <div className="p-6 max-h-[60vh] overflow-y-auto">
@@ -31,7 +33,9 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
                         <ul className="space-y-4">
                             {bookings.map(booking => (
                                 <li key={booking.id} className="p-4 bg-gray-50 rounded-lg border border-gray-100">
-                                    <p className="font-semibold text-gray-800">{booking.roomName}</p>
+                                    <p className="font-semibold text-gray-800">
+                                      {roomName ? '' : `${booking.roomName}`}
+                                    </p>
                                     <p className="text-sm text-gray-600">
                                         <span className="font-medium">เวลา:</span> {booking.startTime} - {booking.endTime}
                                     </p>
@@ -45,7 +49,9 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
                             ))}
                         </ul>
                     ) : (
-                        <p className="text-gray-500 text-center">ไม่มีการจองสำหรับวันนี้</p>
+                        <p className="text-gray-500 text-center py-8">
+                           ✅ ไม่มีรายการจองสำหรับห้องนี้ในวันที่เลือก
+                        </p>
                     )}
                 </div>
                 <div className="p-4 bg-gray-50 border-t border-gray-200 text-right rounded-b-2xl">

@@ -5,17 +5,14 @@ interface RoomAvailabilityTimelineProps {
   bookings: Booking[];
 }
 
-const timeSlots = Array.from({ length: 11 }, (_, i) => (i + 8)); // 8 to 18
-
 const RoomAvailabilityTimeline: React.FC<RoomAvailabilityTimelineProps> = ({ bookings }) => {
-
     if (bookings.length === 0) {
         return (
             <div className="text-center">
                 <div className="bg-green-50 text-green-600 px-8 py-2 rounded-full text-sm font-bold border border-green-100">
                     ✅ ว่างทั้งวัน
                 </div>
-                <p className="text-[11px] text-gray-400 font-bold mt-2">✨ ยังไม่มีการจองในวันที่เลือก</p>
+                <p className="text-[11px] text-gray-400 font-bold mt-2">✨ แตะเพื่อดูรายละเอียดเพิ่มเติม</p>
             </div>
         );
     }
@@ -46,8 +43,8 @@ const RoomAvailabilityTimeline: React.FC<RoomAvailabilityTimelineProps> = ({ boo
                 <span>13:00</span>
                 <span>18:00</span>
             </div>
-            <p className="text-center text-xs text-orange-600 font-bold mt-2 bg-orange-50 py-1 rounded-full border border-orange-100">
-                มี {bookings.length} รายการจอง
+            <p className="text-center text-xs text-orange-600 font-bold mt-2 bg-orange-50 py-2 px-4 rounded-full border border-orange-100">
+                มี {bookings.length} รายการจอง (คลิกเพื่อดู)
             </p>
         </div>
     );
