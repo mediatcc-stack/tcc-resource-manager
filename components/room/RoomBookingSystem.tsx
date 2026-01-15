@@ -24,23 +24,42 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const fetchBookings = useCallback(async () => {
-    setIsLoading(true);
-    const data = await fetchData('rooms') as Booking[];
-    setBookings(data);
-    setIsLoading(false);
-  }, []);
+  const fetchBookings = useCallback(async (isBackground = false) => {
+    if (!isBackground) setIsLoading(true);
+    try {
+      const data = await fetchData('rooms') as Booking[];
+      setBookings(data);
+      setLastUpdated(new Date());
+    } catch (error: any) {
+      if (!isBackground) {
+        showToast(`โหลดข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
+        setBookings([]);
+      }
+      console.error("Background fetch failed:", error);
+    } finally {
+      if (!isBackground) setIsLoading(false);
+    }
+  }, [showToast]);
 
+  // Initial fetch and polling
   useEffect(() => {
     fetchBookings();
+    const pollInterval = setInterval(() => {
+      fetchBookings(true); // Background fetch
+    }, 30000); // Poll every 30 seconds
+
+    return () => clearInterval(pollInterval);
   }, [fetchBookings]);
 
+  // Status update interval
   useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date();
       let hasChanged = false;
-      const updatedBookings = bookings.map(b => {
+      const bookingsToCheck = [...bookings];
+      const updatedBookings = bookingsToCheck.map(b => {
         if (b.status === 'จองแล้ว') {
           const bookingDateTime = new Date(`${b.date}T${b.endTime}`);
           if (bookingDateTime < now) {
@@ -52,8 +71,9 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       });
       
       if (hasChanged) {
-        setBookings(updatedBookings);
-        saveData('rooms', updatedBookings);
+        saveData('rooms', updatedBookings).then(() => {
+          setBookings(updatedBookings);
+        });
       }
     }, 60000);
     return () => clearInterval(interval);
@@ -74,10 +94,12 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
     }));
 
     const updatedBookings = [...bookings, ...createdBookings];
-    setBookings(updatedBookings);
-    const success = await saveData('rooms', updatedBookings);
+    
+    try {
+      await saveData('rooms', updatedBookings);
+      setBookings(updatedBookings); // Optimistic update
+      setLastUpdated(new Date());
 
-    if (success) {
       const firstBooking = createdBookings[0];
       const dateString = firstBooking.isMultiDay && firstBooking.dateRange 
         ? `ช่วงวันที่: ${firstBooking.dateRange}`
@@ -95,27 +117,32 @@ ${dateString}
       
       setCurrentPage('home');
       showToast('การจองห้องสำเร็จ!', 'success');
-    } else {
-      showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
-      await fetchBookings(); // Re-sync with server
+      fetchBookings(true); // Fetch latest data silently
+    } catch (error: any) {
+      showToast(`บันทึกการจองไม่สำเร็จ: ${error.message}`, 'error');
+      fetchBookings(); // Revert on failure
     }
   }, [bookings, showToast, fetchBookings]);
 
-  const updateBookingStatus = async (updatedBookings: Booking[]) => {
-      setBookings(updatedBookings);
-      const success = await saveData('rooms', updatedBookings);
-      if (!success) {
-          showToast('เกิดข้อผิดพลาดในการอัปเดตข้อมูล', 'error');
-          await fetchBookings();
-      }
-      return success;
+  const updateBookingList = async (newList: Booking[]): Promise<boolean> => {
+    try {
+      await saveData('rooms', newList);
+      setBookings(newList);
+      setLastUpdated(new Date());
+      fetchBookings(true); // Trigger a silent refresh for other clients
+      return true;
+    } catch (error: any) {
+      showToast(`อัปเดตข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
+      fetchBookings();
+      return false;
+    }
   };
 
   const handleCancelBooking = useCallback(async (bookingId: string) => {
     const bookingToCancel = bookings.find(b => b.id === bookingId);
     if(bookingToCancel) {
        const updated = bookings.map(b => b.id === bookingId ? { ...b, status: 'ยกเลิก' } : b);
-       const success = await updateBookingStatus(updated);
+       const success = await updateBookingList(updated);
        
        if (success) {
             const formattedDate = new Date(bookingToCancel.date).toLocaleDateString('th-TH');
@@ -131,13 +158,13 @@ ${dateString}
             showToast('ยกเลิกการจองเรียบร้อยแล้ว', 'success');
        }
     }
-  }, [bookings, showToast, fetchBookings]);
+  }, [bookings, fetchBookings]);
   
   const handleCancelBookingGroup = useCallback(async (groupId: string) => {
     const groupBookings = bookings.filter(b => b.groupId === groupId);
     if(groupBookings.length > 0) {
       const updated = bookings.map(b => b.groupId === groupId ? { ...b, status: 'ยกเลิก' } : b);
-      const success = await updateBookingStatus(updated);
+      const success = await updateBookingList(updated);
 
       if (success) {
             const firstBooking = groupBookings[0];
@@ -153,7 +180,7 @@ ${dateString}
             showToast('ยกเลิกการจองกลุ่มเรียบร้อยแล้ว', 'success');
       }
     }
-  }, [bookings, showToast, fetchBookings]);
+  }, [bookings, fetchBookings]);
 
   const handleDeleteBooking = useCallback(async (bookingId: string) => {
       if (!isAdmin) {
@@ -161,11 +188,11 @@ ${dateString}
           return;
       }
       const updated = bookings.filter(b => b.id !== bookingId);
-      const success = await updateBookingStatus(updated);
+      const success = await updateBookingList(updated);
       if(success) {
           showToast('ลบรายการจองถาวรสำเร็จ', 'success');
       }
-  }, [bookings, isAdmin, showToast, fetchBookings]);
+  }, [bookings, isAdmin, fetchBookings]);
 
   const handleAdminLogin = () => {
     if (isAdmin) {
@@ -181,7 +208,6 @@ ${dateString}
         showToast('รหัสผ่านไม่ถูกต้อง', 'error');
     }
   };
-
 
   const renderCurrentPage = () => {
     if (isLoading) {
@@ -237,12 +263,20 @@ ${dateString}
   
   return (
     <div>
-        <div className="bg-white rounded-xl shadow-lg p-4 mb-6 flex items-center justify-center gap-6 flex-wrap border border-gray-100">
-            <NavButton page="home" label="หน้าแรก/ปฏิทิน" icon="🏠" currentPage={currentPage} setCurrentPage={setCurrentPage} />
-            <NavButton page="mybookings" label="รายการจองทั้งหมด" icon="📋" currentPage={currentPage} setCurrentPage={setCurrentPage} />
-            <NavButton page="statistics" label="สถิติ" icon="📊" currentPage={currentPage} setCurrentPage={setCurrentPage} />
+      <div className="bg-white rounded-xl shadow-lg p-4 mb-6 flex items-center justify-between gap-6 flex-wrap border border-gray-100">
+        <div className="flex items-center justify-center gap-6 flex-wrap">
+          <NavButton page="home" label="หน้าแรก/ปฏิทิน" icon="🏠" currentPage={currentPage} setCurrentPage={setCurrentPage} />
+          <NavButton page="mybookings" label="รายการจองทั้งหมด" icon="📋" currentPage={currentPage} setCurrentPage={setCurrentPage} />
+          <NavButton page="statistics" label="สถิติ" icon="📊" currentPage={currentPage} setCurrentPage={setCurrentPage} />
         </div>
-        {renderCurrentPage()}
+        {lastUpdated && (
+          <div className="text-xs text-gray-400 font-medium flex items-center gap-2">
+            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+            อัปเดตล่าสุด: {lastUpdated.toLocaleTimeString('th-TH')}
+          </div>
+        )}
+      </div>
+      {renderCurrentPage()}
     </div>
   );
 };

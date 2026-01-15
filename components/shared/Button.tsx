@@ -35,7 +35,7 @@ const Button: React.FC<ButtonProps> = ({ children, variant = 'primary', size = '
       {loading ? (
         <div className="flex items-center justify-center gap-2">
           <LoadingSpinner />
-          <span>Processing...</span>
+          <span>กำลังประมวลผล...</span>
         </div>
       ) : (
         children

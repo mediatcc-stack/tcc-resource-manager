@@ -11,9 +11,10 @@ interface BorrowingListPageProps {
     onCancelRequest: (id: string) => void;
     onBackToLanding: () => void;
     showToast: (message: string, type: 'success' | 'error') => void;
+    lastUpdated: Date | null;
 }
 
-const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNewRequest, onChangeStatus, onCancelRequest, onBackToLanding, showToast }) => {
+const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNewRequest, onChangeStatus, onCancelRequest, onBackToLanding, showToast, lastUpdated }) => {
     const [isAdmin, setIsAdmin] = useState(false);
     
     const handleAdminLogin = () => {
@@ -74,8 +75,14 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
                 </div>
             </div>
             
-             <div className="flex justify-end mb-6">
-                 <Button onClick={onNewRequest} variant="primary">
+             <div className="flex justify-between items-center mb-6">
+                {lastUpdated && (
+                    <div className="text-xs text-gray-400 font-medium flex items-center gap-2">
+                        <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                        อัปเดตล่าสุด: {lastUpdated.toLocaleTimeString('th-TH')}
+                    </div>
+                )}
+                 <Button onClick={onNewRequest} variant="primary" className="ml-auto">
                     + สร้างคำขอยืมใหม่
                 </Button>
              </div>

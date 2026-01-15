@@ -20,7 +20,7 @@ export const sendLineNotification = async (message: string): Promise<void> => {
 
     if (!response.ok) {
       console.error(`ส่งการแจ้งเตือนไม่สำเร็จ! Status: ${response.status}. Worker ตอบกลับว่า:`, responseBody);
-      throw new Error(`ส่งการแจ้งเตือนไม่สำเร็จ: ${responseBody.error || 'Unknown worker error'}`);
+      throw new Error(`ส่งการแจ้งเตือนไม่สำเร็จ: ${responseBody.error || 'ข้อผิดพลาดที่ไม่รู้จักจาก worker'}`);
     }
 
     console.log(`Worker ตอบกลับ: ${responseBody.message}`);

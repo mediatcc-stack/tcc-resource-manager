@@ -17,23 +17,42 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
     const [currentPage, setCurrentPage] = useState<EquipmentPage>('list');
     const [borrowings, setBorrowings] = useState<BorrowingRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-    const fetchBorrowings = useCallback(async () => {
-        setIsLoading(true);
-        const data = await fetchData('equipment') as BorrowingRequest[];
-        setBorrowings(data);
-        setIsLoading(false);
-    }, []);
+    const fetchBorrowings = useCallback(async (isBackground = false) => {
+        if (!isBackground) setIsLoading(true);
+        try {
+            const data = await fetchData('equipment') as BorrowingRequest[];
+            setBorrowings(data);
+            setLastUpdated(new Date());
+        } catch (error: any) {
+             if (!isBackground) {
+                showToast(`โหลดข้อมูลการยืมไม่สำเร็จ: ${error.message}`, 'error');
+                setBorrowings([]);
+            }
+            console.error("Background fetch failed:", error);
+        } finally {
+            if (!isBackground) setIsLoading(false);
+        }
+    }, [showToast]);
 
+    // Initial fetch and polling
     useEffect(() => {
         fetchBorrowings();
+        const pollInterval = setInterval(() => {
+            fetchBorrowings(true); // Background fetch
+        }, 30000); // Poll every 30 seconds
+
+        return () => clearInterval(pollInterval);
     }, [fetchBorrowings]);
 
+    // Status update interval
     useEffect(() => {
         const interval = setInterval(() => {
             const today = new Date().toISOString().split('T')[0];
             let hasChanged = false;
-            const updatedBorrowings = borrowings.map(b => {
+            const borrowingsToCheck = [...borrowings];
+            const updatedBorrowings = borrowingsToCheck.map(b => {
                 if (b.status === BorrowStatus.Borrowing && b.returnDate < today) {
                     hasChanged = true;
                     return { ...b, status: BorrowStatus.Overdue };
@@ -41,8 +60,9 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
                 return b;
             });
             if (hasChanged) {
-                setBorrowings(updatedBorrowings);
-                saveData('equipment', updatedBorrowings);
+                saveData('equipment', updatedBorrowings).then(() => {
+                    setBorrowings(updatedBorrowings);
+                });
             }
         }, 60 * 60 * 1000); // Check every hour
         return () => clearInterval(interval);
@@ -56,36 +76,42 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
             status: BorrowStatus.Pending,
         };
         const updatedBorrowings = [createdRequest, ...borrowings];
-        setBorrowings(updatedBorrowings);
-        const success = await saveData('equipment', updatedBorrowings);
+        
+        try {
+            await saveData('equipment', updatedBorrowings);
+            setBorrowings(updatedBorrowings);
+            setLastUpdated(new Date());
 
-        if(success) {
             const notifyMessage = `รายงานใหม่\n\nขอยืมอุปกรณ์ใหม่:\nผู้ยืม: ${createdRequest.borrowerName}\nอุปกรณ์: ${createdRequest.equipmentList.substring(0, 50)}...`;
             await sendLineNotification(notifyMessage);
             setCurrentPage('list');
             showToast('ส่งคำขอยืมอุปกรณ์สำเร็จ', 'success');
-        } else {
-            showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
-            await fetchBorrowings();
+            fetchBorrowings(true); // Silent refresh
+        } catch (error: any) {
+            showToast(`บันทึกข้อมูลการยืมไม่สำเร็จ: ${error.message}`, 'error');
+            fetchBorrowings(); // Revert on failure
         }
     }, [borrowings, showToast, fetchBorrowings]);
 
-    const updateBorrowingStatus = async (updatedBorrowings: BorrowingRequest[]) => {
-        setBorrowings(updatedBorrowings);
-        const success = await saveData('equipment', updatedBorrowings);
-        if (!success) {
-            showToast('เกิดข้อผิดพลาดในการอัปเดตข้อมูล', 'error');
-            await fetchBorrowings();
+    const updateBorrowingList = async (newList: BorrowingRequest[]): Promise<boolean> => {
+        try {
+            await saveData('equipment', newList);
+            setBorrowings(newList);
+            setLastUpdated(new Date());
+            fetchBorrowings(true); // Silent refresh for other clients
+            return true;
+        } catch (error: any) {
+            showToast(`อัปเดตข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
+            fetchBorrowings(); // Revert UI
+            return false;
         }
-        return success;
     };
-
 
     const handleChangeStatus = useCallback(async (id: string, newStatus: BorrowStatus) => {
         const req = borrowings.find(b => b.id === id);
         if (req) {
             const updated = borrowings.map(b => b.id === id ? { ...b, status: newStatus } : b);
-            const success = await updateBorrowingStatus(updated);
+            const success = await updateBorrowingList(updated);
             if (success) {
                 const notifyMessage = `รายงานใหม่\n\nสถานะการยืม #${id.substring(0,4)} อัปเดตเป็น: ${newStatus}\nผู้ยืม: ${req.borrowerName}`;
                 await sendLineNotification(notifyMessage);
@@ -98,7 +124,7 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
         const req = borrowings.find(b => b.id === id);
         if (req) {
              const updated = borrowings.map(b => b.id === id ? { ...b, status: BorrowStatus.Returned, notes: (b.notes || '') + ' (ผู้ใช้ยกเลิก)' } : b);
-             const success = await updateBorrowingStatus(updated);
+             const success = await updateBorrowingList(updated);
              if (success) {
                 const notifyMessage = `รายงานใหม่\n\nยกเลิกการยืม: #${id.substring(0,4)}\nผู้ยืม: ${req.borrowerName}`;
                 await sendLineNotification(notifyMessage);
@@ -106,7 +132,6 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
              }
         }
     }, [borrowings, showToast, fetchBorrowings]);
-
 
     const renderCurrentPage = () => {
         if (isLoading) {
@@ -130,6 +155,7 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
                     onCancelRequest={handleCancelRequest}
                     onBackToLanding={onBackToLanding}
                     showToast={showToast}
+                    lastUpdated={lastUpdated}
                 />;
         }
     };

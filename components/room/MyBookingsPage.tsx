@@ -85,17 +85,8 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                 <div className="sm:col-span-1 flex flex-col items-start sm:items-end justify-between">
                     <span className={`px-3 py-1 text-xs font-semibold rounded-full ${statusInfo.bg} ${statusInfo.text_color}`}>{statusInfo.text}</span>
                     <div className="mt-3 w-full flex flex-col sm:flex-row sm:justify-end gap-2">
-                        {isAdmin && (
-                            <Button size="sm" variant="secondary" onClick={() => {
-                                if (confirm(`คุณต้องการ "ลบถาวร" การจองนี้ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้`)) {
-                                    onDeleteBooking(booking.id);
-                                }
-                            }}>
-                            ลบ
-                            </Button>
-                        )}
                         {booking.status === 'จองแล้ว' && (
-                            <Button size="sm" variant="danger" onClick={() => {
+                            <Button size="sm" variant="secondary" onClick={() => {
                                 if (confirm(`คุณต้องการยกเลิกการจอง ${booking.roomName} ใช่หรือไม่?`)) {
                                     if (booking.isMultiDay && booking.groupId) {
                                         onCancelBookingGroup(booking.groupId);
@@ -105,6 +96,15 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                                 }
                             }}>
                             ยกเลิก
+                            </Button>
+                        )}
+                        {isAdmin && (
+                            <Button size="sm" variant="danger" onClick={() => {
+                                if (confirm(`⚠️ ยืนยันการลบถาวร ⚠️\n\nการจองนี้จะหายไปจากระบบอย่างถาวรและไม่สามารถกู้คืนได้\n\nคุณต้องการ "ลบถาวร" การจองนี้ใช่หรือไม่?`)) {
+                                    onDeleteBooking(booking.id);
+                                }
+                            }}>
+                            ลบ
                             </Button>
                         )}
                     </div>

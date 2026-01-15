@@ -9,6 +9,16 @@ interface BorrowingFormPageProps {
     onCancel: () => void;
 }
 
+// Moved FormField outside the component to prevent re-definition on re-renders, fixing the focus loss issue.
+const FormField: React.FC<{label: string, required?: boolean, children: React.ReactNode}> = ({ label, required, children }) => (
+    <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-2">
+            {label} {required && <span className="text-red-500 ml-1">*</span>}
+        </label>
+        {children}
+    </div>
+);
+
 const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCancel }) => {
     const [formData, setFormData] = useState({
         borrowerName: '',
@@ -51,15 +61,6 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
     };
     
     const inputClasses = "block w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
-    
-    const FormField: React.FC<{label: string, required?: boolean, children: React.ReactNode}> = ({ label, required, children }) => (
-        <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                {label} {required && <span className="text-red-500 ml-1">*</span>}
-            </label>
-            {children}
-        </div>
-    );
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">

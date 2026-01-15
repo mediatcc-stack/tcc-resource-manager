@@ -20,11 +20,10 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onBa
   const handleDayClick = (dateStr: string) => {
     setSelectedDate(dateStr);
     const bookingsOnDay = getBookingsOnDate(dateStr);
-    if (bookingsOnDay.length > 0) {
-      setModalBookings(bookingsOnDay);
-      setModalDate(dateStr);
-      setModalOpen(true);
-    }
+    // Open modal for any clicked day to provide consistent feedback
+    setModalBookings(bookingsOnDay);
+    setModalDate(dateStr);
+    setModalOpen(true);
   };
 
   // Calendar Logic

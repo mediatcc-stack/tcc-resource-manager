@@ -1,9 +1,9 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Room, Booking } from '../../types';
 import Button from '../shared/Button';
 import { ROOMS } from '../../constants';
 import { uploadFile } from '../../services/apiService';
-// FIX: Import 'uuidv4' to fix 'Cannot find name' error.
 import { v4 as uuidv4 } from 'uuid';
 
 interface BookingFormProps {
@@ -17,6 +17,17 @@ interface BookingFormProps {
 }
 
 const timeSlots = Array.from({ length: 11 }, (_, i) => `${(i + 8).toString().padStart(2, '0')}:00`); // 08:00 to 18:00
+
+// Moved FormField outside the component to prevent re-definition on re-renders, fixing the focus loss issue.
+const FormField: React.FC<{label: string, icon: string, required?: boolean, children: React.ReactNode}> = ({ label, icon, required, children }) => (
+  <div>
+    <label className="flex items-center text-sm font-semibold text-gray-700 mb-2">
+      <span className="mr-2 text-xl">{icon}</span>
+      {label} {required && <span className="text-red-500 ml-1">*</span>}
+    </label>
+    {children}
+  </div>
+);
 
 const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBookings, onSubmit, onCancel, showToast }) => {
   const [currentRoom, setCurrentRoom] = useState<Room>(room);
@@ -107,7 +118,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     
     const now = new Date();
     const bookingStartDateTime = new Date(`${currentDate}T${formData.startTime}`);
-    if (bookingStartDateTime < now) {
+    if (!formData.isMultiDay && bookingStartDateTime < now) {
         setError('ไม่สามารถจองเวลาย้อนหลังได้');
         return;
     }
@@ -142,15 +153,15 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     let finalAttachmentUrl = '';
     if (attachmentFile) {
         setUploading(true);
-        const uploadedUrl = await uploadFile(attachmentFile);
-        setUploading(false);
-        if (uploadedUrl) {
-            finalAttachmentUrl = uploadedUrl;
-        } else {
-            showToast('อัปโหลดไฟล์ไม่สำเร็จ', 'error');
+        try {
+            finalAttachmentUrl = await uploadFile(attachmentFile);
+        } catch (error: any) {
+            showToast(`อัปโหลดไฟล์ไม่สำเร็จ: ${error.message}`, 'error');
+            setUploading(false);
             setLoading(false);
             return;
         }
+        setUploading(false);
     }
 
     const bookingsToCreate = [];
@@ -173,15 +184,13 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     setLoading(false);
   };
 
-  const FormField: React.FC<{label: string, icon: string, required?: boolean, children: React.ReactNode}> = ({ label, icon, required, children }) => (
-    <div>
-      <label className="flex items-center text-sm font-semibold text-gray-700 mb-2">
-        <span className="mr-2 text-xl">{icon}</span>
-        {label} {required && <span className="text-red-500 ml-1">*</span>}
-      </label>
-      {children}
-    </div>
-  );
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
 
   const inputClasses = "block w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
   
@@ -271,8 +280,20 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
           </FormField>
 
           <FormField label="แนบไฟล์ (กำหนดการ, เอกสารประกอบ)" icon="📎">
-             <input type="file" onChange={handleFileChange} className={`${inputClasses} file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100`}/>
-             {attachmentFile && <span className="text-xs text-gray-500 mt-1">ไฟล์ที่เลือก: {attachmentFile.name}</span>}
+             <input type="file" id="file-upload" onChange={handleFileChange} className="hidden"/>
+             {attachmentFile ? (
+                <div className="flex items-center justify-between p-3 bg-gray-100 rounded-lg border border-gray-200">
+                    <div>
+                        <p className="text-sm font-semibold text-gray-800">{attachmentFile.name}</p>
+                        <p className="text-xs text-gray-500">{formatFileSize(attachmentFile.size)}</p>
+                    </div>
+                    <button type="button" onClick={() => setAttachmentFile(null)} className="text-red-500 hover:text-red-700 font-bold text-sm">ลบ</button>
+                </div>
+             ) : (
+                <label htmlFor="file-upload" className="cursor-pointer block w-full text-center p-3 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-600 transition">
+                    คลิกเพื่อเลือกไฟล์
+                </label>
+             )}
           </FormField>
           
           <div className="flex justify-end gap-4 pt-6">
