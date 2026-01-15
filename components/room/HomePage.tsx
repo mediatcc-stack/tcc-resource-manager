@@ -40,18 +40,18 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onBa
     // Previous month padding
     const prevMonthDays = daysInMonth(year, month - 1);
     for (let i = firstDay - 1; i >= 0; i--) {
-      days.push({ day: prevMonthDays - i, currentMonth: false, date: new Date(year, month - 1, prevMonthDays - i) });
+      days.push({ day: prevMonthDays - i, currentMonth: false, date: new Date(Date.UTC(year, month - 1, prevMonthDays - i)) });
     }
     
     // Current month days
     for (let i = 1; i <= totalDays; i++) {
-      days.push({ day: i, currentMonth: true, date: new Date(year, month, i) });
+      days.push({ day: i, currentMonth: true, date: new Date(Date.UTC(year, month, i)) });
     }
     
     // Next month padding
     const remaining = 42 - days.length;
     for (let i = 1; i <= remaining; i++) {
-      days.push({ day: i, currentMonth: false, date: new Date(year, month + 1, i) });
+      days.push({ day: i, currentMonth: false, date: new Date(Date.UTC(year, month + 1, i)) });
     }
     
     return days;
@@ -64,9 +64,9 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onBa
 
   const isToday = (date: Date) => {
     const today = new Date();
-    return date.getDate() === today.getDate() && 
-           date.getMonth() === today.getMonth() && 
-           date.getFullYear() === today.getFullYear();
+    return date.getUTCDate() === today.getDate() && 
+           date.getUTCMonth() === today.getMonth() && 
+           date.getUTCFullYear() === today.getFullYear();
   };
 
   const hasBooking = (dateStr: string) => {

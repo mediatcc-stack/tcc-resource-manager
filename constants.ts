@@ -44,4 +44,4 @@ export const EQUIPMENT_CATEGORIES = [
     { title: "💻 โน๊ตบุ๊ค", items: "โน๊ตบุ๊คทั่วไป, โน๊ตบุ๊คสำหรับตัดต่อ" },
 ];
 
-export const ADMIN_PASSWORDS = ['010', 'pr2567', 'media@2021'];
+export const STAFF_PASSWORDS = ['010', 'media@2021'];

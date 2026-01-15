@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { RoomPage, Booking, Room } from '../../types';
-import { ROOMS, ADMIN_PASSWORDS } from '../../constants';
+import { ROOMS, STAFF_PASSWORDS } from '../../constants';
 import HomePage from './HomePage';
 import BookingForm from './BookingForm';
 import MyBookingsPage from './MyBookingsPage';
@@ -183,16 +183,12 @@ ${dateString}
   }, [bookings, fetchBookings]);
 
   const handleDeleteBooking = useCallback(async (bookingId: string) => {
-      if (!isAdmin) {
-          showToast('ต้องใช้สิทธิ์แอดมินในการลบ', 'error');
-          return;
-      }
       const updated = bookings.filter(b => b.id !== bookingId);
       const success = await updateBookingList(updated);
       if(success) {
           showToast('ลบรายการจองถาวรสำเร็จ', 'success');
       }
-  }, [bookings, isAdmin, fetchBookings]);
+  }, [bookings, fetchBookings]);
 
   const handleAdminLogin = () => {
     if (isAdmin) {
@@ -201,7 +197,7 @@ ${dateString}
       return;
     }
     const password = prompt('กรุณาใส่รหัสผ่านแอดมิน:');
-    if (password && ADMIN_PASSWORDS.includes(password)) {
+    if (password && STAFF_PASSWORDS.includes(password)) {
         setIsAdmin(true);
         showToast('เข้าสู่โหมดแอดมินสำเร็จ', 'success');
     } else if (password) {

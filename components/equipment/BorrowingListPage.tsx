@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { BorrowingRequest, BorrowStatus } from '../../types';
 import Button from '../shared/Button';
-import { ADMIN_PASSWORDS } from '../../constants';
+import { STAFF_PASSWORDS } from '../../constants';
 
 interface BorrowingListPageProps {
     borrowings: BorrowingRequest[];
@@ -50,7 +50,7 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
     
     const handleAdminLogin = () => {
         const password = prompt('กรุณาใส่รหัสผ่านแอดมิน:');
-        if (password && ADMIN_PASSWORDS.includes(password)) {
+        if (password && STAFF_PASSWORDS.includes(password)) {
             setIsAdmin(true);
             showToast('เข้าสู่โหมดแอดมินสำเร็จ', 'success');
         } else if (password) {

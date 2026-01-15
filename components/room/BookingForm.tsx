@@ -106,7 +106,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     e.preventDefault();
     setError('');
     
-    if (!formData.bookerName || !formData.phone || !formData.startTime || !formData.endTime || !formData.purpose || formData.participants <= 0) {
+    if (!formData.bookerName || !formData.startTime || !formData.endTime || !formData.purpose || formData.participants <= 0) {
       setError('กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบถ้วน');
       return;
     }
@@ -254,8 +254,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
             <FormField label="ชื่อ-นามสกุลผู้จอง" icon="👤" required>
               <input type="text" name="bookerName" placeholder="กรอกชื่อ-นามสกุล" value={formData.bookerName} onChange={handleInputChange} className={inputClasses} required />
             </FormField>
-            <FormField label="เบอร์โทรศัพท์" icon="📱" required>
-              <input type="tel" name="phone" placeholder="0812345678" value={formData.phone} onChange={handleInputChange} className={inputClasses} required />
+            <FormField label="เบอร์โทรศัพท์" icon="📱">
+              <input type="tel" name="phone" placeholder="0812345678" value={formData.phone} onChange={handleInputChange} className={inputClasses} />
             </FormField>
           </div>
           

@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Booking } from '../../types';
 import Button from '../shared/Button';
-import { ROOMS } from '../../constants';
+import { ROOMS, STAFF_PASSWORDS } from '../../constants';
 
 interface MyBookingsPageProps {
   bookings: Booking[];
@@ -31,12 +31,39 @@ const BookingCard: React.FC<{
   onDeleteBooking: (id: string) => void;
 }> = ({ booking, isAdmin, onCancelBooking, onCancelBookingGroup, onDeleteBooking }) => {
   const statusInfo = getStatusInfo(booking.status);
+
+  const handleStaffAction = (action: 'cancel' | 'delete') => {
+    const promptMessage = "หากต้องการยกเลิก/ลบการจอง โปรดแจ้งงานสื่อ ฯ ประชาสัมพันธ์โดยตรง\n\n(สำหรับเจ้าหน้าที่) กรุณาใส่รหัสผ่านเพื่อดำเนินการต่อ:";
+    const password = prompt(promptMessage);
+
+    if (password === null) return; // User cancelled prompt
+
+    if (STAFF_PASSWORDS.includes(password)) {
+        if (action === 'cancel') {
+             if (confirm(`ยืนยันการยกเลิกการจอง ${booking.roomName}?`)) {
+                if (booking.isMultiDay && booking.groupId) {
+                    onCancelBookingGroup(booking.groupId);
+                } else {
+                    onCancelBooking(booking.id);
+                }
+            }
+        } else if (action === 'delete') {
+             if (confirm(`⚠️ ยืนยันการลบถาวร ⚠️\n\nการจองนี้จะหายไปจากระบบอย่างถาวรและไม่สามารถกู้คืนได้\n\nคุณต้องการ "ลบถาวร" การจองนี้ใช่หรือไม่?`)) {
+                onDeleteBooking(booking.id);
+            }
+        }
+    } else {
+        alert('รหัสผ่านไม่ถูกต้อง');
+    }
+  };
+
+
   return (
       <div className={`bg-white p-5 rounded-xl shadow-md border-l-4 ${statusInfo.border} transition-shadow hover:shadow-lg`}>
           <div className="grid grid-cols-1 sm:grid-cols-6 gap-x-4 gap-y-3">
               <div className="sm:col-span-3">
                   <h4 className="font-bold text-lg text-[#0D448D]">{booking.roomName}</h4>
-                  <p className="text-sm text-gray-600 mt-1">ผู้จอง: <span className="font-medium">{booking.bookerName} ({booking.phone})</span></p>
+                  <p className="text-sm text-gray-600 mt-1">ผู้จอง: <span className="font-medium">{booking.bookerName} ({booking.phone || 'ไม่มีเบอร์'})</span></p>
                   <p className="text-sm text-gray-500 break-words">วัตถุประสงค์: {booking.purpose}</p>
                    {booking.attachmentUrl && (
                       <p className="text-sm text-gray-500 mt-2">
@@ -59,24 +86,12 @@ const BookingCard: React.FC<{
                   <span className={`px-3 py-1 text-xs font-semibold rounded-full ${statusInfo.bg} ${statusInfo.text_color}`}>{statusInfo.text}</span>
                   <div className="mt-3 w-full flex flex-col sm:flex-row sm:justify-end gap-2">
                       {booking.status === 'จองแล้ว' && (
-                          <Button size="sm" variant="secondary" onClick={() => {
-                              if (confirm(`คุณต้องการยกเลิกการจอง ${booking.roomName} ใช่หรือไม่?`)) {
-                                  if (booking.isMultiDay && booking.groupId) {
-                                      onCancelBookingGroup(booking.groupId);
-                                  } else {
-                                      onCancelBooking(booking.id);
-                                  }
-                              }
-                          }}>
+                          <Button size="sm" variant="secondary" onClick={() => handleStaffAction('cancel')}>
                           ยกเลิก
                           </Button>
                       )}
                       {isAdmin && (
-                          <Button size="sm" variant="danger" onClick={() => {
-                              if (confirm(`⚠️ ยืนยันการลบถาวร ⚠️\n\nการจองนี้จะหายไปจากระบบอย่างถาวรและไม่สามารถกู้คืนได้\n\nคุณต้องการ "ลบถาวร" การจองนี้ใช่หรือไม่?`)) {
-                                  onDeleteBooking(booking.id);
-                              }
-                          }}>
+                          <Button size="sm" variant="danger" onClick={() => handleStaffAction('delete')}>
                           ลบ
                           </Button>
                       )}
