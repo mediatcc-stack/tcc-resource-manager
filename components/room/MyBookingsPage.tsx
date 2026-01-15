@@ -32,26 +32,37 @@ const BookingCard: React.FC<{
   const statusInfo = getStatusInfo(booking.status);
 
   const handleStaffAction = (action: 'cancel' | 'delete') => {
-    const actionText = action === 'cancel' ? 'ยกเลิก' : 'ลบ';
-    const promptMessage = `หากต้องการ${actionText}การจอง โปรดแจ้งงานสื่อ ฯ ประชาสัมพันธ์โดยตรง\n\n(สำหรับเจ้าหน้าที่) กรุณาใส่รหัสผ่านเพื่อดำเนินการต่อ:`;
-    const password = prompt(promptMessage);
-
-    if (password === null) return; // User cancelled prompt
-
-    if (STAFF_PASSWORDS.includes(password)) {
+    // Action logic is extracted to be reused
+    const performAction = () => {
         if (action === 'cancel') {
-             if (confirm(`ยืนยันการยกเลิกการจอง "${booking.purpose}" ใช่หรือไม่?`)) {
+            if (confirm(`ยืนยันการยกเลิกการจอง "${booking.purpose}" ใช่หรือไม่?`)) {
                 if (booking.isMultiDay && booking.groupId) {
                     onCancelBookingGroup(booking.groupId);
                 } else {
                     onCancelBooking(booking.id);
                 }
             }
-        } else if (action === 'delete') {
-             if (confirm(`⚠️ ยืนยันการลบถาวร ⚠️\n\nการจอง "${booking.purpose}" จะหายไปจากระบบอย่างถาวรและไม่สามารถกู้คืนได้\n\nคุณต้องการ "ลบถาวร" การจองนี้ใช่หรือไม่?`)) {
+        } else if (action === 'delete') { // This case is only ever called when isAdmin is true
+            if (confirm(`⚠️ ยืนยันการลบถาวร ⚠️\n\nการจอง "${booking.purpose}" จะหายไปจากระบบอย่างถาวรและไม่สามารถกู้คืนได้\n\nคุณต้องการ "ลบถาวร" การจองนี้ใช่หรือไม่?`)) {
                 onDeleteBooking(booking.id);
             }
         }
+    };
+
+    // If the user is already an admin, skip the password prompt.
+    if (isAdmin) {
+        performAction();
+        return;
+    }
+
+    // If not an admin, show the prompt with the password field. This is for the "Cancel" button.
+    const promptMessage = `หากต้องการยกเลิกการจอง โปรดแจ้งงานสื่อ ฯ ประชาสัมพันธ์โดยตรง\n\n(สำหรับเจ้าหน้าที่) กรุณาใส่รหัสผ่านเพื่อดำเนินการต่อ:`;
+    const password = prompt(promptMessage);
+
+    if (password === null) return; // User cancelled the prompt.
+
+    if (STAFF_PASSWORDS.includes(password)) {
+        performAction();
     } else {
         alert('รหัสผ่านไม่ถูกต้อง ไม่สามารถดำเนินการได้');
     }

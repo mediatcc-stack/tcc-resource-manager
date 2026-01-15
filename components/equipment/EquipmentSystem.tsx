@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { EquipmentPage, BorrowingRequest, BorrowStatus } from '../../types';
 import BorrowingListPage from './BorrowingListPage';
@@ -12,6 +11,17 @@ interface EquipmentSystemProps {
   onBackToLanding: () => void;
   showToast: (message: string, type: 'success' | 'error') => void;
 }
+
+const getStatusEmoji = (status: BorrowStatus): string => {
+    switch (status) {
+        case BorrowStatus.Pending: return '⏳';
+        case BorrowStatus.Borrowing: return '➡️';
+        case BorrowStatus.Returned: return '✅';
+        case BorrowStatus.Overdue: return '⚠️';
+        case BorrowStatus.Cancelled: return '❌';
+        default: return '🔄';
+    }
+};
 
 const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, showToast }) => {
     const [currentPage, setCurrentPage] = useState<EquipmentPage>('list');
@@ -82,11 +92,12 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
             setBorrowings(updatedBorrowings);
             setLastUpdated(new Date());
 
-            const notifyMessage = `รายงานใหม่\n
-📢 ขอยืมอุปกรณ์ใหม่
-ผู้ยืม: ${createdRequest.borrowerName}
-วัตถุประสงค์: ${createdRequest.purpose}
-อุปกรณ์: ${createdRequest.equipmentList.substring(0, 50)}...`.trim();
+            const notifyMessage = `✨ *มีคำขอยืมอุปกรณ์ใหม่!* ✨\n
+👤 *ผู้ยืม:* ${createdRequest.borrowerName}
+🎯 *วัตถุประสงค์:* ${createdRequest.purpose}
+📦 *อุปกรณ์:* ${createdRequest.equipmentList.substring(0, 50)}...
+
+*กรุณาตรวจสอบและอนุมัติในระบบ*`.trim();
             await sendLineNotification(notifyMessage);
             setCurrentPage('list');
             showToast('ส่งคำขอยืมอุปกรณ์สำเร็จ', 'success');
@@ -117,10 +128,10 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
             const updated = borrowings.map(b => b.id === id ? { ...b, status: newStatus } : b);
             const success = await updateBorrowingList(updated);
             if (success) {
-                const notifyMessage = `รายงานใหม่\n
-🔄 สถานะอัปเดต
-ผู้ยืม: ${req.borrowerName}
-สถานะใหม่: ${newStatus}`.trim();
+                const statusEmoji = getStatusEmoji(newStatus);
+                const notifyMessage = `📝 *อัปเดตสถานะการยืม* 📝\n
+👤 *ผู้ยืม:* ${req.borrowerName}
+${statusEmoji} *สถานะใหม่:* ${newStatus}`.trim();
 
                 await sendLineNotification(notifyMessage);
                 showToast(`อัปเดตสถานะเป็น "${newStatus}" เรียบร้อย`, 'success');
@@ -134,10 +145,10 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
              const updated = borrowings.map(b => b.id === id ? { ...b, status: BorrowStatus.Cancelled } : b);
              const success = await updateBorrowingList(updated);
              if (success) {
-                const notifyMessage = `รายงานใหม่\n
-❌ ยกเลิกการยืม
-ผู้ยืม: ${req.borrowerName}
-วัตถุประสงค์: ${req.purpose}`.trim();
+                const notifyMessage = `🔴 *มีการยกเลิกคำขอยืม* 🔴\n
+👤 *ผู้ยืม:* ${req.borrowerName}
+🎯 *วัตถุประสงค์:* ${req.purpose}
+📦 *อุปกรณ์:* ${req.equipmentList.substring(0, 50)}...`.trim();
                 await sendLineNotification(notifyMessage);
                 showToast('ยกเลิกคำขอยืมเรียบร้อยแล้ว', 'success');
              }

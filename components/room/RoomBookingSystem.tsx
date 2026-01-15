@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { RoomPage, Booking, Room } from '../../types';
 import { ROOMS, STAFF_PASSWORDS } from '../../constants';
@@ -101,17 +100,17 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       setLastUpdated(new Date());
 
       const firstBooking = createdBookings[0];
-      const dateString = firstBooking.isMultiDay && firstBooking.dateRange 
-        ? `ช่วงวันที่: ${firstBooking.dateRange}`
-        : `วันที่: ${new Date(firstBooking.date).toLocaleDateString('th-TH')}`;
+      const dateLabel = firstBooking.isMultiDay ? 'ช่วงวันที่' : 'วันที่';
+      const dateValue = firstBooking.isMultiDay && firstBooking.dateRange 
+        ? firstBooking.dateRange
+        : new Date(firstBooking.date).toLocaleDateString('th-TH');
 
-      const notifyMessage = `รายงานใหม่\n
-🗓️ จองห้องใหม่
-ชื่องาน: ${firstBooking.purpose}
-ห้อง: ${firstBooking.roomName}
-${dateString}
-เวลา: ${firstBooking.startTime} - ${firstBooking.endTime}
-ผู้ขอจอง: ${firstBooking.bookerName}`.trim();
+      const notifyMessage = `✨ *มีการจองห้องใหม่!* ✨\n
+🎯 *ชื่องาน:* ${firstBooking.purpose}
+🏢 *ห้อง:* ${firstBooking.roomName}
+🗓️ *${dateLabel}:* ${dateValue}
+⏰ *เวลา:* ${firstBooking.startTime} - ${firstBooking.endTime}
+👤 *ผู้จอง:* ${firstBooking.bookerName}`.trim();
 
       await sendLineNotification(notifyMessage);
       
@@ -146,13 +145,12 @@ ${dateString}
        
        if (success) {
             const formattedDate = new Date(bookingToCancel.date).toLocaleDateString('th-TH');
-            const notifyMessage = `รายงานใหม่\n
-❌ ยกเลิกการจอง
-ชื่องาน: ${bookingToCancel.purpose}
-ห้อง: ${bookingToCancel.roomName}
-วันที่: ${formattedDate}
-เวลา: ${bookingToCancel.startTime} - ${bookingToCancel.endTime}
-ผู้ยกเลิก: ${bookingToCancel.bookerName}`.trim();
+            const notifyMessage = `🔴 *มีการยกเลิกการจอง* 🔴\n
+🎯 *ชื่องาน:* ${bookingToCancel.purpose}
+🏢 *ห้อง:* ${bookingToCancel.roomName}
+🗓️ *วันที่:* ${formattedDate}
+⏰ *เวลา:* ${bookingToCancel.startTime} - ${bookingToCancel.endTime}
+👤 *ผู้จอง:* ${bookingToCancel.bookerName}`.trim();
 
             await sendLineNotification(notifyMessage);
             showToast('ยกเลิกการจองเรียบร้อยแล้ว', 'success');
@@ -168,13 +166,12 @@ ${dateString}
 
       if (success) {
             const firstBooking = groupBookings[0];
-            const notifyMessage = `รายงานใหม่\n
-❌ ยกเลิกการจอง (หลายวัน)
-ชื่องาน: ${firstBooking.purpose}
-ห้อง: ${firstBooking.roomName}
-ช่วงวันที่: ${firstBooking.dateRange}
-เวลา: ${firstBooking.startTime} - ${firstBooking.endTime}
-ผู้ยกเลิก: ${firstBooking.bookerName}`.trim();
+            const notifyMessage = `🔴 *ยกเลิกการจอง (หลายวัน)* 🔴\n
+🎯 *ชื่องาน:* ${firstBooking.purpose}
+🏢 *ห้อง:* ${firstBooking.roomName}
+🗓️ *ช่วงวันที่:* ${firstBooking.dateRange}
+⏰ *เวลา:* ${firstBooking.startTime} - ${firstBooking.endTime}
+👤 *ผู้จอง:* ${firstBooking.bookerName}`.trim();
 
             await sendLineNotification(notifyMessage);
             showToast('ยกเลิกการจองกลุ่มเรียบร้อยแล้ว', 'success');
