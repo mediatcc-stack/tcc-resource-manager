@@ -25,29 +25,29 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
             >
                 <div className="p-6 border-b border-gray-200">
                     <h3 className="text-lg font-bold text-[#0D448D]">
-                       {roomName ? `${roomName} - ` : 'รายการจอง'}วันที่ {formattedDate}
+                       {roomName ? `จองสำหรับ ${roomName}` : 'รายการจอง'} - วันที่ {formattedDate}
                     </h3>
                 </div>
                 <div className="p-6 max-h-[60vh] overflow-y-auto">
                     {bookings.length > 0 ? (
-                        <ul className="space-y-4">
-                            {bookings.map(booking => (
-                                <li key={booking.id} className="p-4 bg-gray-50 rounded-lg border border-gray-100">
-                                    <p className="font-semibold text-gray-800">
-                                      {roomName ? '' : `${booking.roomName}`}
-                                    </p>
-                                    <p className="text-sm text-gray-600">
-                                        <span className="font-medium">เวลา:</span> {booking.startTime} - {booking.endTime}
-                                    </p>
-                                    <p className="text-sm text-gray-600">
-                                        <span className="font-medium">วัตถุประสงค์:</span> {booking.purpose}
-                                    </p>
-                                    <p className="text-sm text-gray-600">
-                                        <span className="font-medium">ผู้จอง:</span> {booking.bookerName}
-                                    </p>
-                                </li>
-                            ))}
-                        </ul>
+                        <div className="space-y-4">
+                            {bookings.map(booking => {
+                                const bookingText = [
+                                    `${booking.startTime} - ${booking.endTime}`,
+                                    "",
+                                    `ชื่องาน: ${booking.purpose}`,
+                                    `ผู้จอง: ${booking.bookerName}`
+                                ].join('\n');
+
+                                return (
+                                    <div key={booking.id}>
+                                        <pre className="font-sans text-sm text-gray-800 bg-gray-50 p-4 rounded-lg border border-gray-200 whitespace-pre-wrap">
+                                            {bookingText}
+                                        </pre>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     ) : (
                         <p className="text-gray-500 text-center py-8">
                            ✅ ไม่มีรายการจองสำหรับห้องนี้ในวันที่เลือก
