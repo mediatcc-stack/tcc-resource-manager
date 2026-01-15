@@ -1,8 +1,9 @@
 
+// !!! สำคัญ: โปรดตรวจสอบให้แน่ใจว่า URL นี้ตรงกับ URL ของ Worker ที่คุณใช้งานจริง
 const LINE_NOTIFIER_ENDPOINT = 'https://tcc-line-notifier.media-tcc.workers.dev';
 
 export const sendLineNotification = async (message: string): Promise<void> => {
-  console.log(`กำลังส่งการแจ้งเตือน: "${message}"`);
+  console.log(`กำลังส่งข้อความแจ้งเตือน...`);
   
   try {
     const response = await fetch(LINE_NOTIFIER_ENDPOINT, {
@@ -10,7 +11,8 @@ export const sendLineNotification = async (message: string): Promise<void> => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ message }), // ส่งแค่ message
+      // ส่งแค่ message ไปให้ Worker
+      body: JSON.stringify({ message }), 
     });
 
     const responseBody = await response.json();
@@ -20,7 +22,7 @@ export const sendLineNotification = async (message: string): Promise<void> => {
       throw new Error(`ส่งการแจ้งเตือนไม่สำเร็จ: ${responseBody.error || 'Unknown worker error'}`);
     }
 
-    console.log(`ส่งการแจ้งเตือนไปที่ LINE สำเร็จ! Status: ${response.status}. Worker ตอบกลับว่า:`, responseBody);
+    console.log(`Worker ตอบกลับ: ${responseBody.message}`);
 
   } catch (error) {
     console.error("เกิดข้อผิดพลาดในการส่ง LINE:", error);

@@ -41,7 +41,7 @@ export interface BorrowingRequest {
   borrowerName: string;
   phone: string;
   department: string;
-  purpose: string;
+  purpose:string;
   borrowDate: string;
   returnDate: string;
   equipmentList: string;

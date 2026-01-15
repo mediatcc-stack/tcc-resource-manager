@@ -7,6 +7,11 @@ export const APP_CONFIG = {
   collegeName: "วิทยาลัยพณิชยการธนบุรี",
 };
 
+// --- การจัดการ Group ID จะทำที่ Cloudflare Worker Secrets ---
+// โดยการตั้งชื่อตัวแปรให้ขึ้นต้นด้วย GROUP_ID
+// เช่น GROUP_ID, GROUP_ID_1, GROUP_ID_2
+// ----------------------------------------------------
+
 export const ROOMS: Room[] = [
   { id: 1, name: "ห้องประชุมธีรธรรมานันท์", status: 'available' },
   { id: 2, name: "ห้องประชุมเฉลิมพระเกียรติ", status: 'available' },
@@ -15,6 +20,8 @@ export const ROOMS: Room[] = [
   { id: 7, name: "ห้องงานสื่อการเรียนการสอน 421", status: 'available' },
   { id: 8, name: "ห้องงานบริหารศูนย์บริหารเครือข่ายการผลิตและพัฒนากำลังคนอาชีวศึกษา (CVM)", status: 'available' },
   { id: 9, name: "ลานโดมอเนกประสงค์", status: 'available' },
+  
+  // ห้องที่ปิดใช้งาน
   { id: 5, name: "ห้องประชุมไพโรจน์ปวะบุตร", status: 'closed' },
   { id: 6, name: "ห้องประชุมประทีป ปฐมกสิกุล", status: 'closed' }
 ];
