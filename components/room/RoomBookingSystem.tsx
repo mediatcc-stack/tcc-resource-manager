@@ -64,7 +64,8 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
           const bookingDateTime = new Date(`${b.date}T${b.endTime}`);
           if (bookingDateTime < now) {
             hasChanged = true;
-            return { ...b, status: 'หมดเวลา' };
+            // FIX: Use 'as const' to prevent TypeScript from widening the 'status' property to type 'string'.
+            return { ...b, status: 'หมดเวลา' as const };
           }
         }
         return b;
@@ -103,7 +104,9 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
 
       const firstBooking = createdBookings[0];
       const roomNames = [...new Set(createdBookings.map(b => b.roomName))];
-      const roomString = roomNames.length > 1 ? `ห้อง: ${roomNames.join(', ')}` : roomNames[0];
+      const roomString = roomNames.length > 1
+        ? `ห้อง (${roomNames.length}): ${roomNames.join(', ')}`
+        : `ห้อง: ${roomNames[0]}`;
       
       const timeString = `${firstBooking.startTime} - ${firstBooking.endTime}`;
       const dateInfo = firstBooking.isMultiDay && firstBooking.dateRange
@@ -111,18 +114,26 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
           : `${new Date(firstBooking.date).toLocaleDateString('th-TH')}`;
 
       const dateTimeLine = `${dateInfo} | ${timeString}`;
-
-      const notifyMessage = [
+      
+      const messageParts = [
           "------",
           "📌 มีการจองห้องใหม่",
           "",
-          roomString,
-          dateTimeLine,
-          "",
           `ชื่องาน: ${firstBooking.purpose}`,
+          roomString,
+          `ช่วงเวลา: ${dateTimeLine}`,
+          "",
           `ผู้จอง: ${firstBooking.bookerName}`,
-          "------"
-      ].join('\n');
+          `ผู้เข้าร่วม: ${firstBooking.participants} คน`,
+          `รูปแบบ: ${firstBooking.meetingType}`,
+      ];
+
+      if (firstBooking.equipment) {
+          messageParts.push(`อุปกรณ์: ${firstBooking.equipment}`);
+      }
+      
+      messageParts.push("------");
+      const notifyMessage = messageParts.join('\n');
 
       await sendLineNotification(notifyMessage);
       
@@ -135,15 +146,59 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
     }
   }, [bookings, showToast, fetchBookings]);
   
-  const handleBookingUpdate = async (updatedBookingData: Booking) => {
-    const updatedList = bookings.map(b => b.id === updatedBookingData.id ? updatedBookingData : b);
-    const success = await updateBookingList(updatedList);
-    if (success) {
-      showToast('แก้ไขการจองสำเร็จ!', 'success');
-      setCurrentPage('mybookings');
-      setEditingBooking(null);
+  const handleBookingUpdate = async (
+    bookingToEdit: Booking,
+    newFormData: any,
+    newSelectedRoomIds: number[]
+  ) => {
+    const isOriginallyGroup = !!bookingToEdit.groupId;
+    const originalGroupId = bookingToEdit.groupId;
+
+    const originalBookings = isOriginallyGroup
+        ? bookings.filter(b => b.groupId === originalGroupId)
+        : [bookingToEdit];
+
+    const originalDates = [...new Set(originalBookings.map(b => b.date))];
+    const newRoomNames = ROOMS.filter(r => newSelectedRoomIds.includes(r.id)).map(r => r.name);
+    
+    const becomesGroup = newRoomNames.length > 1 || originalDates.length > 1;
+    const effectiveGroupId = isOriginallyGroup ? originalGroupId : (becomesGroup ? uuidv4() : undefined);
+
+    const resultingBookings: Booking[] = [];
+
+    for (const date of originalDates) {
+        for (const roomName of newRoomNames) {
+            const existingBooking = originalBookings.find(b => b.date === date && b.roomName === roomName);
+            const newBookingData = {
+                ...newFormData,
+                roomName,
+                date,
+                groupId: effectiveGroupId,
+                isMultiDay: bookingToEdit.isMultiDay,
+                dateRange: bookingToEdit.dateRange,
+                status: 'จองแล้ว' as 'จองแล้ว',
+            };
+            
+            resultingBookings.push({
+                ...newBookingData,
+                id: existingBooking ? existingBooking.id : uuidv4(),
+                createdAt: existingBooking ? existingBooking.createdAt : new Date().toISOString(),
+            });
+        }
     }
-  };
+
+    const originalBookingIds = new Set(originalBookings.map(b => b.id));
+    const otherBookings = bookings.filter(b => !originalBookingIds.has(b.id));
+    const finalBookings = [...otherBookings, ...resultingBookings];
+
+    const success = await updateBookingList(finalBookings);
+    if (success) {
+        showToast('แก้ไขการจองสำเร็จ!', 'success');
+        setCurrentPage('mybookings');
+        setEditingBooking(null);
+    }
+};
+
 
   const updateBookingList = async (newList: Booking[]): Promise<boolean> => {
     try {
@@ -162,7 +217,8 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
   const handleCancelBooking = useCallback(async (bookingId: string) => {
     const bookingToCancel = bookings.find(b => b.id === bookingId);
     if(bookingToCancel) {
-       const updated = bookings.map(b => b.id === bookingId ? { ...b, status: 'ยกเลิก' } : b);
+// FIX: Use 'as const' to prevent TypeScript from widening the 'status' property to type 'string'.
+       const updated = bookings.map(b => b.id === bookingId ? { ...b, status: 'ยกเลิก' as const } : b);
        const success = await updateBookingList(updated);
        
        if (success) {
@@ -174,7 +230,8 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
   const handleCancelBookingGroup = useCallback(async (groupId: string) => {
     const groupBookings = bookings.filter(b => b.groupId === groupId);
     if(groupBookings.length > 0) {
-      const updated = bookings.map(b => b.groupId === groupId ? { ...b, status: 'ยกเลิก' } : b);
+// FIX: Use 'as const' to prevent TypeScript from widening the 'status' property to type 'string'.
+      const updated = bookings.map(b => b.groupId === groupId ? { ...b, status: 'ยกเลิก' as const } : b);
       const success = await updateBookingList(updated);
 
       if (success) {

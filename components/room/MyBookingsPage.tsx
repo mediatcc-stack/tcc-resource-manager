@@ -32,7 +32,8 @@ const BookingCard: React.FC<{
   onDeleteBooking: (id: string) => void;
   onDeleteBookingGroup: (groupId: string) => void;
   onEditBooking: (booking: Booking) => void;
-}> = ({ booking, isAdmin, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onDeleteBookingGroup, onEditBooking }) => {
+  groupDetails?: { roomCount: number; roomNames: string[] };
+}> = ({ booking, isAdmin, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onDeleteBookingGroup, onEditBooking, groupDetails }) => {
   const statusInfo = getStatusInfo(booking.status);
 
   const handleStaffAction = (action: 'cancel' | 'delete' | 'edit') => {
@@ -89,12 +90,18 @@ const BookingCard: React.FC<{
     }
   };
 
+  const roomTitle = groupDetails && groupDetails.roomCount > 1
+    ? `${booking.roomName} (+${groupDetails.roomCount - 1} ห้อง)`
+    : booking.roomName;
+  const roomTitleTooltip = groupDetails && groupDetails.roomNames.length > 1
+    ? `ห้องทั้งหมด:\n- ${groupDetails.roomNames.join('\n- ')}`
+    : booking.roomName;
 
   return (
       <div className={`bg-white p-5 rounded-xl shadow-md border-l-4 ${statusInfo.border} transition-shadow hover:shadow-lg`}>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-x-4 gap-y-3">
               <div className="md:col-span-3">
-                  <h4 className="font-bold text-lg text-[#0D448D]">{booking.roomName}</h4>
+                  <h4 className="font-bold text-lg text-[#0D448D]" title={roomTitleTooltip}>{roomTitle}</h4>
                   <p className="text-sm text-gray-600 mt-1">ผู้จอง: <span className="font-medium">{booking.bookerName} ({booking.phone || 'ไม่มีเบอร์'})</span></p>
                   <p className="text-sm text-gray-500 break-words mt-1">วัตถุประสงค์: {booking.purpose}</p>
                   
@@ -253,17 +260,30 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
 
             <div className="space-y-4">
                 {filteredAndGroupedBookings.length > 0 ? (
-                    filteredAndGroupedBookings.map(b => 
-                      <BookingCard 
-                        key={b.groupId || b.id} 
-                        booking={b} 
-                        isAdmin={isAdmin}
-                        onCancelBooking={onCancelBooking}
-                        onCancelBookingGroup={onCancelBookingGroup}
-                        onDeleteBooking={onDeleteBooking}
-                        onDeleteBookingGroup={onDeleteBookingGroup}
-                        onEditBooking={onEditBooking}
-                      />)
+                    filteredAndGroupedBookings.map(b => {
+                      let groupDetails;
+                      if (b.groupId) {
+                        const groupBookings = bookings.filter(gb => gb.groupId === b.groupId);
+                        const roomNames = [...new Set(groupBookings.map(gb => gb.roomName))];
+                        groupDetails = {
+                          roomCount: roomNames.length,
+                          roomNames: roomNames,
+                        };
+                      }
+                      return (
+                        <BookingCard 
+                          key={b.groupId || b.id} 
+                          booking={b} 
+                          isAdmin={isAdmin}
+                          groupDetails={groupDetails}
+                          onCancelBooking={onCancelBooking}
+                          onCancelBookingGroup={onCancelBookingGroup}
+                          onDeleteBooking={onDeleteBooking}
+                          onDeleteBookingGroup={onDeleteBookingGroup}
+                          onEditBooking={onEditBooking}
+                        />
+                      );
+                    })
                 ) : (
                     <div className="text-center text-gray-500 py-16 bg-gray-50 rounded-lg">
                         <p className="text-lg font-semibold">ไม่พบรายการจอง</p>

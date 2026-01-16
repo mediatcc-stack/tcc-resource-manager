@@ -10,7 +10,7 @@ interface BookingFormProps {
   date: string;
   existingBookings: Booking[];
   onSubmit: (newBookings: Omit<Booking, 'id' | 'createdAt' | 'status'>[]) => void;
-  onUpdate?: (updatedBooking: Booking) => void;
+  onUpdate?: (bookingToEdit: Booking, newFormData: any, newSelectedRoomIds: number[]) => void;
   bookingToEdit?: Booking | null;
   onCancel: () => void;
   showToast: (message: string, type: 'success' | 'error') => void;
@@ -54,28 +54,38 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
 
   useEffect(() => {
     if (bookingToEdit) {
-      const roomToEdit = rooms.find(r => r.name === bookingToEdit.roomName);
-      setSelectedRoomIds(roomToEdit ? [roomToEdit.id] : []);
-      setCurrentDate(bookingToEdit.date);
-      setFormData({
-        bookerName: bookingToEdit.bookerName,
-        phone: bookingToEdit.phone,
-        participants: bookingToEdit.participants,
-        meetingType: bookingToEdit.meetingType,
-        purpose: bookingToEdit.purpose,
-        equipment: bookingToEdit.equipment,
-        attachmentUrl: bookingToEdit.attachmentUrl || '',
-        startTime: bookingToEdit.startTime,
-        endTime: bookingToEdit.endTime,
-        isMultiDay: bookingToEdit.isMultiDay,
-        endDate: bookingToEdit.isMultiDay && bookingToEdit.dateRange
-          ? new Date(bookingToEdit.dateRange.split(' - ')[1].split('/').reverse().join('-')).toISOString().split('T')[0]
-          : bookingToEdit.date,
-      });
+        let roomIdsToSelect: number[] = [];
+        if (bookingToEdit.groupId) {
+            const groupBookings = existingBookings.filter(b => b.groupId === bookingToEdit.groupId);
+            const uniqueRoomNames = [...new Set(groupBookings.map(b => b.roomName))];
+            roomIdsToSelect = rooms.filter(r => uniqueRoomNames.includes(r.name)).map(r => r.id);
+        } else {
+            const roomToEdit = rooms.find(r => r.name === bookingToEdit.roomName);
+            if (roomToEdit) {
+                roomIdsToSelect = [roomToEdit.id];
+            }
+        }
+        setSelectedRoomIds(roomIdsToSelect);
+        setCurrentDate(bookingToEdit.date);
+        setFormData({
+            bookerName: bookingToEdit.bookerName,
+            phone: bookingToEdit.phone,
+            participants: bookingToEdit.participants,
+            meetingType: bookingToEdit.meetingType,
+            purpose: bookingToEdit.purpose,
+            equipment: bookingToEdit.equipment,
+            attachmentUrl: bookingToEdit.attachmentUrl || '',
+            startTime: bookingToEdit.startTime,
+            endTime: bookingToEdit.endTime,
+            isMultiDay: false, 
+            endDate: bookingToEdit.date,
+        });
     } else {
-      setSelectedRoomIds([room.id]);
+        setSelectedRoomIds([room.id]);
+        setCurrentDate(date);
     }
-  }, [bookingToEdit, rooms, room]);
+}, [bookingToEdit, rooms, room, date, existingBookings]);
+
   
   useEffect(() => {
     if (formData.isMultiDay && !isEditing) {
@@ -149,6 +159,13 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     
     setLoading(true);
 
+    if (isEditing && onUpdate && bookingToEdit) {
+        onUpdate(bookingToEdit, formData, selectedRoomIds);
+        setLoading(false);
+        return;
+    }
+
+
     const firstDate = new Date(currentDate);
     const lastDate = formData.isMultiDay ? new Date(formData.endDate) : new Date(currentDate);
 
@@ -156,19 +173,6 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
         setError('วันที่สิ้นสุดต้องไม่ก่อนวันที่เริ่มต้น');
         setLoading(false);
         return;
-    }
-
-    if (isEditing && onUpdate && bookingToEdit) {
-      const updatedRoomName = rooms.find(r => r.id === selectedRoomIds[0])?.name || bookingToEdit.roomName;
-      const updatedBooking: Booking = {
-        ...bookingToEdit,
-        ...formData,
-        roomName: updatedRoomName,
-        date: currentDate,
-      };
-      onUpdate(updatedBooking);
-      setLoading(false);
-      return;
     }
 
     const startIdx = timeSlots.indexOf(formData.startTime);
@@ -235,36 +239,26 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
           {error && <p className="text-red-600 bg-red-50 p-4 rounded-lg font-semibold border border-red-200">{error}</p>}
           
           <FormField label="ห้องประชุม" icon="🏢" required>
-            {isEditing ? (
-              <select
-                name="room"
-                value={selectedRoomIds[0] || ''}
-                onChange={e => setSelectedRoomIds([parseInt(e.target.value, 10)])}
-                className={inputClasses}
-                required
-              >
-                {rooms.map(r => (
-                  <option key={r.id} value={r.id} disabled={r.status === 'closed' && !(bookingToEdit && bookingToEdit.roomName === r.name)}>{r.name}</option>
-                ))}
-              </select>
-            ) : (
-              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 max-h-48 overflow-y-auto space-y-3">
-                {rooms.filter(r => r.status === 'available').map(r => (
-                  <div key={r.id} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id={`room-${r.id}`}
-                      value={r.id}
-                      checked={selectedRoomIds.includes(r.id)}
-                      onChange={handleMultiRoomChange}
-                      className="h-4 w-4 rounded border-gray-300 text-[#0D448D] focus:ring-[#0D448D]"
-                    />
-                    <label htmlFor={`room-${r.id}`} className="ml-3 text-sm font-medium text-gray-800">{r.name}</label>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 max-h-48 overflow-y-auto space-y-3">
+              {rooms.map(r => (
+                <div key={r.id} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={`room-${r.id}`}
+                    value={r.id}
+                    checked={selectedRoomIds.includes(r.id)}
+                    onChange={handleMultiRoomChange}
+                    disabled={r.status === 'closed' && !selectedRoomIds.includes(r.id)}
+                    className="h-4 w-4 rounded border-gray-300 text-[#0D448D] focus:ring-[#0D448D]"
+                  />
+                  <label htmlFor={`room-${r.id}`} className="ml-3 text-sm font-medium text-gray-800">
+                    {r.name} {r.status === 'closed' && '(งดใช้ชั่วคราว)'}
+                  </label>
+                </div>
+              ))}
+            </div>
           </FormField>
+
 
           {!isEditing && (
             <div>
@@ -277,7 +271,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <FormField label={formData.isMultiDay ? "วันเริ่มต้น" : "วันที่"} icon="🗓️" required>
-                <input type="date" value={currentDate} onChange={e => setCurrentDate(e.target.value)} min={isEditing ? undefined : new Date().toISOString().split('T')[0]} className={inputClasses} required/>
+                <input type="date" value={currentDate} onChange={e => setCurrentDate(e.target.value)} min={isEditing ? undefined : new Date().toISOString().split('T')[0]} className={inputClasses} required disabled={isEditing}/>
             </FormField>
              {formData.isMultiDay && !isEditing && (
                 <FormField label="วันสิ้นสุด" icon="🗓️" required>
