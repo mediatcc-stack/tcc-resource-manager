@@ -96,19 +96,41 @@ const BookingCard: React.FC<{
               <div className="md:col-span-3">
                   <h4 className="font-bold text-lg text-[#0D448D]">{booking.roomName}</h4>
                   <p className="text-sm text-gray-600 mt-1">ผู้จอง: <span className="font-medium">{booking.bookerName} ({booking.phone || 'ไม่มีเบอร์'})</span></p>
-                  <p className="text-sm text-gray-500 break-words">วัตถุประสงค์: {booking.purpose}</p>
-                   {booking.attachmentUrl && (
-                      <p className="text-sm text-gray-500 mt-2">
-                          <a 
-                              href={booking.attachmentUrl} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-semibold hover:underline"
-                          >
-                              📎 ดูไฟล์แนบ
-                          </a>
-                      </p>
-                  )}
+                  <p className="text-sm text-gray-500 break-words mt-1">วัตถุประสงค์: {booking.purpose}</p>
+                  
+                  <div className="mt-3 pt-3 border-t border-gray-100 space-y-2 text-sm">
+                      <div className="flex items-center text-gray-600">
+                          <span className="w-6 text-center text-lg">👥</span>
+                          <span className="font-semibold w-24">ผู้เข้าร่วม:</span>
+                          <span>{booking.participants} คน</span>
+                      </div>
+                      <div className="flex items-center text-gray-600">
+                          <span className="w-6 text-center text-lg">💻</span>
+                          <span className="font-semibold w-24">รูปแบบ:</span>
+                          <span>{booking.meetingType}</span>
+                      </div>
+                      {booking.equipment && (
+                          <div className="flex items-start text-gray-600">
+                              <span className="w-6 text-center text-lg pt-0.5">🛠️</span>
+                              <span className="font-semibold w-24 flex-shrink-0">อุปกรณ์เพิ่มเติม:</span>
+                              <span className="break-words">{booking.equipment}</span>
+                          </div>
+                      )}
+                      {booking.attachmentUrl && (
+                          <div className="flex items-start text-gray-600">
+                              <span className="w-6 text-center text-lg pt-0.5">📎</span>
+                              <span className="font-semibold w-24 flex-shrink-0">ไฟล์แนบ:</span>
+                              <a 
+                                  href={booking.attachmentUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 hover:underline break-all"
+                              >
+                                  ดูไฟล์
+                              </a>
+                          </div>
+                      )}
+                  </div>
               </div>
               <div className="md:col-span-2 flex flex-col md:items-end text-left md:text-right">
                 <span className={`mb-2 px-3 py-1 text-xs font-semibold rounded-full ${statusInfo.bg} ${statusInfo.text_color}`}>{statusInfo.text}</span>
