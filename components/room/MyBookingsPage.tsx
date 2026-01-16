@@ -90,8 +90,8 @@ const BookingCard: React.FC<{
     }
   };
 
-  const roomTitle = groupDetails && groupDetails.roomCount > 1
-    ? `${booking.roomName} (+${groupDetails.roomCount - 1} ห้อง)`
+  const roomTitle = groupDetails && groupDetails.roomNames.length > 1
+    ? groupDetails.roomNames.join(', ')
     : booking.roomName;
   const roomTitleTooltip = groupDetails && groupDetails.roomNames.length > 1
     ? `ห้องทั้งหมด:\n- ${groupDetails.roomNames.join('\n- ')}`
