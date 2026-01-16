@@ -1,4 +1,3 @@
-
 export type SystemType = 'landing' | 'room' | 'equipment';
 export type RoomPage = 'home' | 'booking' | 'mybookings' | 'statistics';
 export type EquipmentPage = 'list' | 'form';
@@ -27,6 +26,7 @@ export interface Booking {
   attachmentUrl?: string;
   isMultiDay: boolean;
   dateRange?: string;
+  reminderSent?: boolean;
 }
 
 export enum BorrowStatus {

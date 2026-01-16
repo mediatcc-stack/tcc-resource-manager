@@ -8,6 +8,7 @@ interface MyBookingsPageProps {
   onCancelBooking: (id: string) => void;
   onCancelBookingGroup: (groupId: string) => void;
   onDeleteBooking: (id: string) => void;
+  onEditBooking: (booking: Booking) => void;
   onBack: () => void;
   isAdmin: boolean;
   onAdminLogin: () => void;
@@ -28,11 +29,11 @@ const BookingCard: React.FC<{
   onCancelBooking: (id: string) => void;
   onCancelBookingGroup: (groupId: string) => void;
   onDeleteBooking: (id: string) => void;
-}> = ({ booking, isAdmin, onCancelBooking, onCancelBookingGroup, onDeleteBooking }) => {
+  onEditBooking: (booking: Booking) => void;
+}> = ({ booking, isAdmin, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onEditBooking }) => {
   const statusInfo = getStatusInfo(booking.status);
 
-  const handleStaffAction = (action: 'cancel' | 'delete') => {
-    // Action logic is extracted to be reused
+  const handleStaffAction = (action: 'cancel' | 'delete' | 'edit') => {
     const performAction = () => {
         if (action === 'cancel') {
             if (confirm(`ยืนยันการยกเลิกการจอง "${booking.purpose}" ใช่หรือไม่?`)) {
@@ -42,24 +43,27 @@ const BookingCard: React.FC<{
                     onCancelBooking(booking.id);
                 }
             }
-        } else if (action === 'delete') { // This case is only ever called when isAdmin is true
+        } else if (action === 'delete') {
             if (confirm(`⚠️ ยืนยันการลบถาวร ⚠️\n\nการจอง "${booking.purpose}" จะหายไปจากระบบอย่างถาวรและไม่สามารถกู้คืนได้\n\nคุณต้องการ "ลบถาวร" การจองนี้ใช่หรือไม่?`)) {
                 onDeleteBooking(booking.id);
             }
+        } else if (action === 'edit') {
+            onEditBooking(booking);
         }
     };
 
-    // If the user is already an admin, skip the password prompt.
     if (isAdmin) {
         performAction();
         return;
     }
 
-    // If not an admin, show the prompt with the password field. This is for the "Cancel" button.
-    const promptMessage = `หากต้องการยกเลิกการจอง โปรดแจ้งงานสื่อ ฯ ประชาสัมพันธ์โดยตรง\n\n(สำหรับเจ้าหน้าที่) กรุณาใส่รหัสผ่านเพื่อดำเนินการต่อ:`;
+    const promptMessage = action === 'edit' 
+        ? `(สำหรับเจ้าหน้าที่) กรุณาใส่รหัสผ่านเพื่อแก้ไขการจอง:`
+        : `หากต้องการยกเลิกการจอง โปรดแจ้งงานสื่อ ฯ ประชาสัมพันธ์โดยตรง\n\n(สำหรับเจ้าหน้าที่) กรุณาใส่รหัสผ่านเพื่อดำเนินการต่อ:`;
+    
     const password = prompt(promptMessage);
 
-    if (password === null) return; // User cancelled the prompt.
+    if (password === null) return;
 
     if (STAFF_PASSWORDS.includes(password)) {
         performAction();
@@ -97,9 +101,14 @@ const BookingCard: React.FC<{
               
               <div className="md:col-span-5 flex justify-end gap-2 border-t border-gray-100 pt-3 mt-2">
                     {booking.status === 'จองแล้ว' && (
-                        <Button size="sm" variant="secondary" onClick={() => handleStaffAction('cancel')}>
-                        ยกเลิกการจอง
-                        </Button>
+                        <>
+                          <Button size="sm" variant="primary" onClick={() => handleStaffAction('edit')}>
+                            แก้ไข
+                          </Button>
+                          <Button size="sm" variant="secondary" onClick={() => handleStaffAction('cancel')}>
+                            ยกเลิกการจอง
+                          </Button>
+                        </>
                     )}
                     {isAdmin && (
                         <Button size="sm" variant="danger" onClick={() => handleStaffAction('delete')}>
@@ -113,18 +122,18 @@ const BookingCard: React.FC<{
 };
 
 
-const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onBack, isAdmin, onAdminLogin }) => {
-  const [nameFilter, setNameFilter] = useState('');
+const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onEditBooking, onBack, isAdmin, onAdminLogin }) => {
+  const [purposeFilter, setPurposeFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [roomFilter, setRoomFilter] = useState('all');
 
   const filteredBookings = useMemo(() => {
     return bookings
       .filter(b => {
-        const nameMatch = nameFilter ? b.bookerName.toLowerCase().includes(nameFilter.toLowerCase()) : true;
+        const purposeMatch = purposeFilter ? b.purpose.toLowerCase().includes(purposeFilter.toLowerCase()) : true;
         const dateMatch = dateFilter ? b.date === dateFilter : true;
         const roomMatch = roomFilter !== 'all' ? b.roomName === roomFilter : true;
-        return nameMatch && dateMatch && roomMatch;
+        return purposeMatch && dateMatch && roomMatch;
       })
       .sort((a, b) => {
         const aIsActive = a.status === 'จองแล้ว';
@@ -136,10 +145,10 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
         if (aIsActive && bIsActive) return dateTimeA - dateTimeB;
         return dateTimeB - dateTimeA;
       });
-  }, [bookings, nameFilter, dateFilter, roomFilter]);
+  }, [bookings, purposeFilter, dateFilter, roomFilter]);
 
   const clearFilters = () => {
-    setNameFilter('');
+    setPurposeFilter('');
     setDateFilter('');
     setRoomFilter('all');
   };
@@ -170,8 +179,8 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
             <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 mb-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
                     <div>
-                        <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-2">🔍 ค้นหาชื่อผู้จอง</label>
-                        <input type="text" placeholder="ค้นหา..." value={nameFilter} onChange={e => setNameFilter(e.target.value)} className={inputClasses}/>
+                        <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-2">🔍 ค้นหาชื่องาน</label>
+                        <input type="text" placeholder="ค้นหา..." value={purposeFilter} onChange={e => setPurposeFilter(e.target.value)} className={inputClasses}/>
                     </div>
                      <div>
                         <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-2">🗓️ กรองตามวันที่</label>
@@ -198,11 +207,12 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                         onCancelBooking={onCancelBooking}
                         onCancelBookingGroup={onCancelBookingGroup}
                         onDeleteBooking={onDeleteBooking}
+                        onEditBooking={onEditBooking}
                       />)
                 ) : (
                     <div className="text-center text-gray-500 py-16 bg-gray-50 rounded-lg">
                         <p className="text-lg font-semibold">ไม่พบรายการจอง</p>
-                        <p className="text-sm mt-1">{nameFilter || dateFilter || roomFilter !== 'all' ? 'ไม่พบข้อมูลที่ตรงกับเงื่อนไขการค้นหา' : 'ยังไม่มีการจองในระบบ'}</p>
+                        <p className="text-sm mt-1">{purposeFilter || dateFilter || roomFilter !== 'all' ? 'ไม่พบข้อมูลที่ตรงกับเงื่อนไขการค้นหา' : 'ยังไม่มีการจองในระบบ'}</p>
                     </div>
                 )}
             </div>

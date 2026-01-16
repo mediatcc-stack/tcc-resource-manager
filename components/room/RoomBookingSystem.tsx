@@ -24,6 +24,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
 
   const fetchBookings = useCallback(async (isBackground = false) => {
     if (!isBackground) setIsLoading(true);
@@ -82,6 +83,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
     setSelectedRoom(room);
     setSelectedDate(date);
     setCurrentPage('booking');
+    setEditingBooking(null);
   }, []);
 
   const handleBookingSubmit = useCallback(async (newBookingsData: Omit<Booking, 'id' | 'createdAt' | 'status'>[]) => {
@@ -130,6 +132,16 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       fetchBookings(); // Revert on failure
     }
   }, [bookings, showToast, fetchBookings]);
+  
+  const handleBookingUpdate = async (updatedBookingData: Booking) => {
+    const updatedList = bookings.map(b => b.id === updatedBookingData.id ? updatedBookingData : b);
+    const success = await updateBookingList(updatedList);
+    if (success) {
+      showToast('แก้ไขการจองสำเร็จ!', 'success');
+      setCurrentPage('mybookings');
+      setEditingBooking(null);
+    }
+  };
 
   const updateBookingList = async (newList: Booking[]): Promise<boolean> => {
     try {
@@ -152,22 +164,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
        const success = await updateBookingList(updated);
        
        if (success) {
-            const formattedDate = new Date(bookingToCancel.date).toLocaleDateString('th-TH');
-            const dateTimeLine = `${formattedDate} | ${bookingToCancel.startTime} - ${bookingToCancel.endTime}`;
-
-            const notifyMessage = [
-                "------",
-                "🔴 ยกเลิกการจอง",
-                "",
-                `${bookingToCancel.roomName}`,
-                dateTimeLine,
-                "",
-                `ชื่องาน: ${bookingToCancel.purpose}`,
-                `ผู้จอง: ${bookingToCancel.bookerName}`,
-                "------"
-            ].join('\n');
-
-            await sendLineNotification(notifyMessage);
             showToast('ยกเลิกการจองเรียบร้อยแล้ว', 'success');
        }
     }
@@ -180,22 +176,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       const success = await updateBookingList(updated);
 
       if (success) {
-            const firstBooking = groupBookings[0];
-            const dateTimeLine = `${firstBooking.dateRange} | ${firstBooking.startTime} - ${firstBooking.endTime}`;
-            
-            const notifyMessage = [
-                "------",
-                "🔴 ยกเลิกการจอง (หลายวัน)",
-                "",
-                `${firstBooking.roomName}`,
-                dateTimeLine,
-                "",
-                `ชื่องาน: ${firstBooking.purpose}`,
-                `ผู้จอง: ${firstBooking.bookerName}`,
-                "------"
-            ].join('\n');
-
-            await sendLineNotification(notifyMessage);
             showToast('ยกเลิกการจองกลุ่มเรียบร้อยแล้ว', 'success');
       }
     }
@@ -224,6 +204,11 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
     }
   };
 
+  const handleStartEdit = (booking: Booking) => {
+    setEditingBooking(booking);
+    setCurrentPage('booking');
+  };
+
   const renderCurrentPage = () => {
     if (isLoading) {
       return (
@@ -236,18 +221,20 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
 
     switch (currentPage) {
       case 'booking':
-        if (!selectedRoom) {
+        if (!selectedRoom && !editingBooking) {
             setCurrentPage('home');
             return null;
         }
         return (
           <BookingForm 
-            room={selectedRoom} 
+            room={editingBooking ? ROOMS.find(r => r.name === editingBooking.roomName) ?? selectedRoom! : selectedRoom!} 
             rooms={ROOMS}
-            date={selectedDate} 
+            date={editingBooking ? editingBooking.date : selectedDate} 
             existingBookings={bookings}
             onSubmit={handleBookingSubmit}
-            onCancel={() => setCurrentPage('home')}
+            onUpdate={handleBookingUpdate}
+            bookingToEdit={editingBooking}
+            onCancel={() => { setCurrentPage('home'); setEditingBooking(null); }}
             showToast={showToast}
           />
         );
@@ -257,6 +244,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
                   onCancelBooking={handleCancelBooking} 
                   onCancelBookingGroup={handleCancelBookingGroup}
                   onDeleteBooking={handleDeleteBooking}
+                  onEditBooking={handleStartEdit}
                   onBack={() => setCurrentPage('home')}
                   isAdmin={isAdmin}
                   onAdminLogin={handleAdminLogin}

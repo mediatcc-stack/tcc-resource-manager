@@ -27,8 +27,8 @@ const RoomAvailabilityTimeline: React.FC<RoomAvailabilityTimelineProps> = ({ boo
         <div className="w-full">
             <div className="relative h-4 w-full bg-green-100 rounded-full overflow-hidden border border-green-200">
                 {bookedIntervals.map((interval, index) => {
-                    const left = ((interval.start - 8) / 10) * 100; // 10 hours total (8 to 18)
-                    const width = ((interval.end - interval.start) / 10) * 100;
+                    const left = ((interval.start - 7) / 11) * 100; // 11 hours total (7 to 18)
+                    const width = ((interval.end - interval.start) / 11) * 100;
                     return (
                         <div
                             key={index}
@@ -39,8 +39,8 @@ const RoomAvailabilityTimeline: React.FC<RoomAvailabilityTimelineProps> = ({ boo
                 })}
             </div>
             <div className="flex justify-between mt-1 text-[10px] font-semibold text-gray-400 px-1">
-                <span>08:00</span>
-                <span>13:00</span>
+                <span>07:00</span>
+                <span>12:00</span>
                 <span>18:00</span>
             </div>
             <p className="text-center text-xs text-orange-600 font-bold mt-2 bg-orange-50 py-2 px-4 rounded-full border border-orange-100">

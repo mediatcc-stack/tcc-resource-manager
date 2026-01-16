@@ -10,11 +10,13 @@ interface BookingFormProps {
   date: string;
   existingBookings: Booking[];
   onSubmit: (newBookings: Omit<Booking, 'id' | 'createdAt' | 'status'>[]) => void;
+  onUpdate?: (updatedBooking: Booking) => void;
+  bookingToEdit?: Booking | null;
   onCancel: () => void;
   showToast: (message: string, type: 'success' | 'error') => void;
 }
 
-const timeSlots = Array.from({ length: 11 }, (_, i) => `${(i + 8).toString().padStart(2, '0')}:00`); // 08:00 to 18:00
+const timeSlots = Array.from({ length: 12 }, (_, i) => `${(i + 7).toString().padStart(2, '0')}:00`); // 07:00 to 18:00
 
 // Moved FormField outside the component to prevent re-definition on re-renders, fixing the focus loss issue.
 const FormField: React.FC<{label: string, icon: string, required?: boolean, children: React.ReactNode}> = ({ label, icon, required, children }) => (
@@ -27,7 +29,9 @@ const FormField: React.FC<{label: string, icon: string, required?: boolean, chil
   </div>
 );
 
-const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBookings, onSubmit, onCancel, showToast }) => {
+const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBookings, onSubmit, onUpdate, bookingToEdit, onCancel, showToast }) => {
+  const isEditing = !!bookingToEdit;
+
   const [currentRoom, setCurrentRoom] = useState<Room>(room);
   const [currentDate, setCurrentDate] = useState<string>(date);
   
@@ -47,6 +51,26 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (bookingToEdit) {
+      setCurrentRoom(rooms.find(r => r.name === bookingToEdit.roomName) || room);
+      setCurrentDate(bookingToEdit.date);
+      setFormData({
+        bookerName: bookingToEdit.bookerName,
+        phone: bookingToEdit.phone,
+        participants: bookingToEdit.participants,
+        meetingType: bookingToEdit.meetingType,
+        purpose: bookingToEdit.purpose,
+        equipment: bookingToEdit.equipment,
+        attachmentUrl: bookingToEdit.attachmentUrl || '',
+        startTime: bookingToEdit.startTime,
+        endTime: bookingToEdit.endTime,
+        isMultiDay: bookingToEdit.isMultiDay,
+        endDate: bookingToEdit.isMultiDay ? bookingToEdit.dateRange?.split(' - ')[1] || bookingToEdit.date : bookingToEdit.date,
+      });
+    }
+  }, [bookingToEdit, rooms, room]);
   
   useEffect(() => {
     if (formData.isMultiDay) {
@@ -55,7 +79,13 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
   }, [currentDate, formData.isMultiDay]);
 
   const bookedSlots = useMemo(() => {
-    const bookingsOnDate = existingBookings.filter(b => b.roomName === currentRoom.name && b.date === currentDate && b.status === 'จองแล้ว');
+    // When editing, exclude the current booking's own slots
+    const bookingsOnDate = existingBookings.filter(b => 
+        b.roomName === currentRoom.name && 
+        b.date === currentDate && 
+        b.status === 'จองแล้ว' &&
+        b.id !== bookingToEdit?.id
+    );
     const slots = new Set<string>();
     bookingsOnDate.forEach(b => {
       const start = timeSlots.indexOf(b.startTime);
@@ -65,7 +95,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
       }
     });
     return slots;
-  }, [existingBookings, currentRoom.name, currentDate]);
+  }, [existingBookings, currentRoom.name, currentDate, bookingToEdit]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -104,10 +134,24 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
       return;
     }
     
+    setLoading(true);
+
+    if (isEditing && onUpdate && bookingToEdit) {
+      const updatedBooking: Booking = {
+        ...bookingToEdit,
+        ...formData,
+      };
+      onUpdate(updatedBooking);
+      setLoading(false);
+      return;
+    }
+
+    // --- Logic for creating new booking ---
     const now = new Date();
     const bookingStartDateTime = new Date(`${currentDate}T${formData.startTime}`);
     if (!formData.isMultiDay && bookingStartDateTime < now) {
         setError('ไม่สามารถจองเวลาย้อนหลังได้');
+        setLoading(false);
         return;
     }
 
@@ -116,6 +160,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
 
     if (lastDate < firstDate) {
         setError('วันที่สิ้นสุดต้องไม่ก่อนวันที่เริ่มต้น');
+        setLoading(false);
         return;
     }
 
@@ -131,12 +176,11 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
             const existingEndIdx = timeSlots.indexOf(existingBooking.endTime);
             if (Math.max(startIdx, existingStartIdx) < Math.min(endIdx, existingEndIdx)) {
                 setError(`เกิดข้อขัดแย้ง: มีการจองทับซ้อนในวันที่ ${d.toLocaleDateString('th-TH')}`);
+                setLoading(false);
                 return;
             }
         }
     }
-
-    setLoading(true);
 
     const bookingsToCreate = [];
     const groupId = formData.isMultiDay ? uuidv4() : undefined;
@@ -158,16 +202,17 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     setLoading(false);
   };
 
-  const inputClasses = "block w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
+  const inputClasses = "block w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-200 disabled:cursor-not-allowed";
   
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
       <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12">
         <div className="mb-8 pb-5 border-b border-gray-100">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">📝</span>
-            <h2 className="text-2xl font-bold text-[#0D448D]">แบบฟอร์มการจอง</h2>
+            <span className="text-2xl">{isEditing ? '✏️' : '📝'}</span>
+            <h2 className="text-2xl font-bold text-[#0D448D]">{isEditing ? 'แก้ไขข้อมูลการจอง' : 'แบบฟอร์มการจอง'}</h2>
           </div>
+          {isEditing && <p className="text-sm text-gray-500 mt-2 ml-10">คุณกำลังแก้ไขการจองที่มีอยู่ การเปลี่ยนแปลงจะไม่ส่งผลต่อวัน-เวลา หรือห้องที่จอง</p>}
         </div>
       
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -175,8 +220,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField label="ห้องประชุม" icon="🏢" required>
-              <select name="room" value={currentRoom.id} onChange={handleRoomChange} className={inputClasses} required>
-                {rooms.filter(r => r.status === 'available').map(r => (
+              <select name="room" value={currentRoom.id} onChange={handleRoomChange} className={inputClasses} required disabled={isEditing}>
+                {rooms.filter(r => r.status === 'available' || (isEditing && r.id === currentRoom.id)).map(r => (
                   <option key={r.id} value={r.id}>{r.name}</option>
                 ))}
               </select>
@@ -185,31 +230,31 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
 
           <div>
               <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
-                  <input type="checkbox" id="isMultiDay" name="isMultiDay" checked={formData.isMultiDay} onChange={handleCheckboxChange} className="h-5 w-5 rounded border-gray-300 text-[#0D448D] focus:ring-[#0D448D]" />
+                  <input type="checkbox" id="isMultiDay" name="isMultiDay" checked={formData.isMultiDay} onChange={handleCheckboxChange} className="h-5 w-5 rounded border-gray-300 text-[#0D448D] focus:ring-[#0D448D] disabled:bg-gray-200" disabled={isEditing} />
                   <label htmlFor="isMultiDay" className="font-semibold text-gray-800">จองหลายวันต่อเนื่อง (เช่น อบรม/สัมมนา 3 วัน)</label>
               </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <FormField label={formData.isMultiDay ? "วันเริ่มต้น" : "วันที่"} icon="🗓️" required>
-                <input type="date" value={currentDate} onChange={e => setCurrentDate(e.target.value)} min={new Date().toISOString().split('T')[0]} className={inputClasses} required/>
+                <input type="date" value={currentDate} onChange={e => setCurrentDate(e.target.value)} min={new Date().toISOString().split('T')[0]} className={inputClasses} required disabled={isEditing}/>
             </FormField>
              {formData.isMultiDay && (
                 <FormField label="วันสิ้นสุด" icon="🗓️" required>
-                    <input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} min={currentDate} className={inputClasses} required />
+                    <input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} min={currentDate} className={inputClasses} required disabled={isEditing} />
                 </FormField>
              )}
           </div>
           
            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <FormField label="เวลาเริ่มต้น" icon="⏰" required>
-              <select name="startTime" value={formData.startTime} onChange={handleInputChange} className={inputClasses} required>
+              <select name="startTime" value={formData.startTime} onChange={handleInputChange} className={inputClasses} required disabled={isEditing}>
                   <option value="">-- เลือกเวลา --</option>
-                  {timeSlots.map(t => <option key={t} value={t} disabled={bookedSlots.has(t)}>{t}</option>)}
+                  {timeSlots.slice(0, -1).map(t => <option key={t} value={t} disabled={!isEditing && bookedSlots.has(t)}>{t}</option>)}
               </select>
             </FormField>
             <FormField label="เวลาสิ้นสุด" icon="⏰" required>
-              <select name="endTime" value={formData.endTime} onChange={handleInputChange} className={inputClasses} required>
+              <select name="endTime" value={formData.endTime} onChange={handleInputChange} className={inputClasses} required disabled={isEditing}>
                   <option value="">-- เลือกเวลา --</option>
                   {timeSlots.map(t => <option key={t} value={t} disabled={t <= formData.startTime}>{t}</option>)}
               </select>
@@ -276,7 +321,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
           <div className="flex justify-end gap-4 pt-6">
             <Button type="button" variant="secondary" onClick={onCancel} disabled={loading}>ยกเลิก</Button>
             <Button type="submit" variant="primary" loading={loading}>
-                ยืนยันการจอง
+                {isEditing ? 'บันทึกการเปลี่ยนแปลง' : 'ยืนยันการจอง'}
             </Button>
           </div>
         </form>

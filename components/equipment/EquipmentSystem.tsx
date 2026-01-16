@@ -134,21 +134,10 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
             const updated = borrowings.map(b => b.id === id ? { ...b, status: newStatus } : b);
             const success = await updateBorrowingList(updated);
             if (success) {
-                const statusEmoji = getStatusEmoji(newStatus);
-                const notifyMessage = [
-                    "------",
-                    "📝 อัปเดตสถานะการยืม",
-                    "",
-                    `ผู้ยืม: ${req.borrowerName}`,
-                    `สถานะใหม่: ${statusEmoji} ${newStatus}`,
-                    "------"
-                ].join('\n');
-
-                await sendLineNotification(notifyMessage);
                 showToast(`อัปเดตสถานะเป็น "${newStatus}" เรียบร้อย`, 'success');
             }
         }
-    }, [borrowings, showToast, fetchBorrowings]);
+    }, [borrowings, showToast]);
 
     const handleCancelRequest = useCallback(async (id: string) => {
         const req = borrowings.find(b => b.id === id);
@@ -156,20 +145,10 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
              const updated = borrowings.map(b => b.id === id ? { ...b, status: BorrowStatus.Cancelled } : b);
              const success = await updateBorrowingList(updated);
              if (success) {
-                const notifyMessage = [
-                    "------",
-                    "🔴 ยกเลิกคำขอยืม",
-                    "",
-                    `ผู้ยืม: ${req.borrowerName}`,
-                    `วัตถุประสงค์: ${req.purpose}`,
-                    `อุปกรณ์: ${req.equipmentList}`,
-                    "------"
-                ].join('\n');
-                await sendLineNotification(notifyMessage);
                 showToast('ยกเลิกคำขอยืมเรียบร้อยแล้ว', 'success');
              }
         }
-    }, [borrowings, showToast, fetchBorrowings]);
+    }, [borrowings, showToast]);
 
     const renderCurrentPage = () => {
         if (isLoading) {
