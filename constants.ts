@@ -1,4 +1,3 @@
-
 import { Room } from './types';
 
 export const APP_CONFIG = {
@@ -23,7 +22,7 @@ export const ROOMS: Room[] = [
   
   // ห้องที่ปิดใช้งาน
   { id: 5, name: "ห้องประชุมไพโรจน์ปวะบุตร", status: 'closed' },
-  { id: 6, name: "ห้องประชุมประทีป ปฐมกสิกุล", status: 'closed' }
+  { id: 6, name: "หอประชุมประทีป ปฐมกสิกุล", status: 'closed' }
 ];
 
 export const CONTACTS = [

@@ -8,13 +8,13 @@ interface BorrowingListPageProps {
     borrowings: BorrowingRequest[];
     onNewRequest: () => void;
     onChangeStatus: (id: string, newStatus: BorrowStatus) => void;
-    onCancelRequest: (id: string) => void;
+    onDeleteRequest: (id: string) => void;
     onBackToLanding: () => void;
     showToast: (message: string, type: 'success' | 'error') => void;
     lastUpdated: Date | null;
 }
 
-const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNewRequest, onChangeStatus, onCancelRequest, onBackToLanding, showToast, lastUpdated }) => {
+const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNewRequest, onChangeStatus, onDeleteRequest, onBackToLanding, showToast, lastUpdated }) => {
     const [isAdmin, setIsAdmin] = useState(false);
     const [nameFilter, setNameFilter] = useState('');
     const [dateFilter, setDateFilter] = useState('');
@@ -141,9 +141,9 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
                         <BorrowingCard 
                             key={req.id}
                             req={req}
-                            isAdmin={isAdmin}
                             onChangeStatus={onChangeStatus}
-                            onCancelRequest={onCancelRequest}
+                            onDeleteRequest={onDeleteRequest}
+                            isAdmin={isAdmin}
                         />
                     )
                 ) : (

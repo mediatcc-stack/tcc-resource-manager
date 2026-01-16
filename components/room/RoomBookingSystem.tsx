@@ -102,6 +102,8 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       setLastUpdated(new Date());
 
       const firstBooking = createdBookings[0];
+      const roomNames = [...new Set(createdBookings.map(b => b.roomName))];
+      const roomString = roomNames.length > 1 ? `ห้อง: ${roomNames.join(', ')}` : roomNames[0];
       
       const timeString = `${firstBooking.startTime} - ${firstBooking.endTime}`;
       const dateInfo = firstBooking.isMultiDay && firstBooking.dateRange
@@ -114,7 +116,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
           "------",
           "📌 มีการจองห้องใหม่",
           "",
-          `${firstBooking.roomName}`,
+          roomString,
           dateTimeLine,
           "",
           `ชื่องาน: ${firstBooking.purpose}`,
@@ -209,6 +211,10 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
     setCurrentPage('booking');
   };
 
+  const handleNavigateToMyBookings = () => {
+    setCurrentPage('mybookings');
+  };
+
   const renderCurrentPage = () => {
     if (isLoading) {
       return (
@@ -227,14 +233,14 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
         }
         return (
           <BookingForm 
-            room={editingBooking ? ROOMS.find(r => r.name === editingBooking.roomName) ?? selectedRoom! : selectedRoom!} 
+            room={editingBooking ? ROOMS.find(r => r.name === editingBooking.roomName)! : selectedRoom!} 
             rooms={ROOMS}
             date={editingBooking ? editingBooking.date : selectedDate} 
             existingBookings={bookings}
             onSubmit={handleBookingSubmit}
             onUpdate={handleBookingUpdate}
             bookingToEdit={editingBooking}
-            onCancel={() => { setCurrentPage('home'); setEditingBooking(null); }}
+            onCancel={() => { setCurrentPage(editingBooking ? 'mybookings' : 'home'); setEditingBooking(null); }}
             showToast={showToast}
           />
         );
@@ -259,6 +265,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
             bookings={bookings} 
             onSelectRoom={handleSelectRoom}
             onBackToLanding={onBackToLanding}
+            onNavigateToMyBookings={handleNavigateToMyBookings}
           />
         );
     }

@@ -94,7 +94,7 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
 
             const notifyMessage = [
                 "------",
-                "✨ มีคำขอยืมอุปกรณ์ใหม่",
+                "📢 มีคำขอยืมอุปกรณ์ใหม่",
                 "",
                 `ผู้ยืม: ${createdRequest.borrowerName}`,
                 `วัตถุประสงค์: ${createdRequest.purpose}`,
@@ -139,16 +139,13 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
         }
     }, [borrowings, showToast]);
 
-    const handleCancelRequest = useCallback(async (id: string) => {
-        const req = borrowings.find(b => b.id === id);
-        if (req) {
-             const updated = borrowings.map(b => b.id === id ? { ...b, status: BorrowStatus.Cancelled } : b);
-             const success = await updateBorrowingList(updated);
-             if (success) {
-                showToast('ยกเลิกคำขอยืมเรียบร้อยแล้ว', 'success');
-             }
+    const handleDeleteRequest = useCallback(async (id: string) => {
+        const updated = borrowings.filter(b => b.id !== id);
+        const success = await updateBorrowingList(updated);
+        if (success) {
+            showToast('ลบรายการยืมถาวรสำเร็จ', 'success');
         }
-    }, [borrowings, showToast]);
+    }, [borrowings]);
 
     const renderCurrentPage = () => {
         if (isLoading) {
@@ -169,7 +166,7 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
                     borrowings={borrowings} 
                     onNewRequest={() => setCurrentPage('form')}
                     onChangeStatus={handleChangeStatus}
-                    onCancelRequest={handleCancelRequest}
+                    onDeleteRequest={handleDeleteRequest}
                     onBackToLanding={onBackToLanding}
                     showToast={showToast}
                     lastUpdated={lastUpdated}

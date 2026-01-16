@@ -40,8 +40,8 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        const { borrowerName, phone, department, purpose, borrowDate, returnDate, equipmentList } = formData;
-        if (!borrowerName || !phone || !department || !purpose || !borrowDate || !returnDate || !equipmentList) {
+        const { borrowerName, phone, purpose, borrowDate, returnDate, equipmentList } = formData;
+        if (!borrowerName || !phone || !purpose || !borrowDate || !returnDate || !equipmentList) {
             setError('กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบถ้วน');
             return;
         }
@@ -104,8 +104,8 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
                     <FormField icon="📱" label="เบอร์โทรศัพท์" required>
                         <input type="tel" name="phone" placeholder="0812345678" value={formData.phone} onChange={handleInputChange} className={inputClasses} required />
                     </FormField>
-                    <FormField icon="📁" label="หน่วยงาน / แผนก" required>
-                        <input type="text" name="department" placeholder="ระบุหน่วยงาน (ถ้ามี)" value={formData.department} onChange={handleInputChange} className={inputClasses} required />
+                    <FormField icon="📁" label="หน่วยงาน / แผนก">
+                        <input type="text" name="department" placeholder="ระบุหน่วยงาน (ถ้ามี)" value={formData.department} onChange={handleInputChange} className={inputClasses} />
                     </FormField>
                     <FormField icon="🎯" label="วัตถุประสงค์ในการยืม" required>
                         <textarea name="purpose" value={formData.purpose} placeholder="ระบุวัตถุประสงค์" onChange={handleInputChange} rows={3} className={inputClasses} required />

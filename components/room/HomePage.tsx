@@ -8,9 +8,10 @@ interface HomePageProps {
   bookings: Booking[];
   onSelectRoom: (room: Room, date: string) => void;
   onBackToLanding: () => void;
+  onNavigateToMyBookings: () => void;
 }
 
-const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom }) => {
+const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNavigateToMyBookings }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   
@@ -87,6 +88,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom }) =>
       bookings={modalBookings}
       date={modalDate}
       roomName={modalRoomName}
+      onNavigateToMyBookings={onNavigateToMyBookings}
     />
     <div className="max-w-6xl mx-auto animate-fade-in px-2 md:px-0">
       <div className="bg-white rounded-[2rem] md:rounded-[3rem] shadow-2xl p-6 md:p-12 border border-gray-100 mb-10 overflow-hidden">

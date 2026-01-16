@@ -34,6 +34,12 @@ const BookingCard: React.FC<{
   const statusInfo = getStatusInfo(booking.status);
 
   const handleStaffAction = (action: 'cancel' | 'delete' | 'edit') => {
+    // Edit action is available for everyone without a password
+    if (action === 'edit') {
+      onEditBooking(booking);
+      return;
+    }
+
     const performAction = () => {
         if (action === 'cancel') {
             if (confirm(`ยืนยันการยกเลิกการจอง "${booking.purpose}" ใช่หรือไม่?`)) {
@@ -47,8 +53,6 @@ const BookingCard: React.FC<{
             if (confirm(`⚠️ ยืนยันการลบถาวร ⚠️\n\nการจอง "${booking.purpose}" จะหายไปจากระบบอย่างถาวรและไม่สามารถกู้คืนได้\n\nคุณต้องการ "ลบถาวร" การจองนี้ใช่หรือไม่?`)) {
                 onDeleteBooking(booking.id);
             }
-        } else if (action === 'edit') {
-            onEditBooking(booking);
         }
     };
 
@@ -56,12 +60,9 @@ const BookingCard: React.FC<{
         performAction();
         return;
     }
-
-    const promptMessage = action === 'edit' 
-        ? `(สำหรับเจ้าหน้าที่) กรุณาใส่รหัสผ่านเพื่อแก้ไขการจอง:`
-        : `หากต้องการยกเลิกการจอง โปรดแจ้งงานสื่อ ฯ ประชาสัมพันธ์โดยตรง\n\n(สำหรับเจ้าหน้าที่) กรุณาใส่รหัสผ่านเพื่อดำเนินการต่อ:`;
     
-    const password = prompt(promptMessage);
+    // For cancel/delete, prompt for password
+    const password = prompt(`หากต้องการดำเนินการต่อ โปรดแจ้งงานสื่อ ฯ ประชาสัมพันธ์โดยตรง\n\n(สำหรับเจ้าหน้าที่) กรุณาใส่รหัสผ่าน:`);
 
     if (password === null) return;
 
