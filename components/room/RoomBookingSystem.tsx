@@ -190,6 +190,15 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
           showToast('ลบรายการจองถาวรสำเร็จ', 'success');
       }
   }, [bookings, fetchBookings]);
+  
+  const handleDeleteBookingGroup = useCallback(async (groupId: string) => {
+      const updated = bookings.filter(b => b.groupId !== groupId);
+      const success = await updateBookingList(updated);
+      if(success) {
+          showToast('ลบกลุ่มการจองถาวรสำเร็จ', 'success');
+      }
+  }, [bookings, fetchBookings]);
+
 
   const handleAdminLogin = () => {
     if (isAdmin) {
@@ -250,6 +259,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
                   onCancelBooking={handleCancelBooking} 
                   onCancelBookingGroup={handleCancelBookingGroup}
                   onDeleteBooking={handleDeleteBooking}
+                  onDeleteBookingGroup={handleDeleteBookingGroup}
                   onEditBooking={handleStartEdit}
                   onBack={() => setCurrentPage('home')}
                   isAdmin={isAdmin}

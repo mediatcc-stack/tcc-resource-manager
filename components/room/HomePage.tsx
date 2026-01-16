@@ -52,7 +52,9 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
       days.push({ day: i, currentMonth: true, date: new Date(Date.UTC(year, month, i)) });
     }
     
-    const remaining = 42 - days.length;
+    const cellsSoFar = days.length;
+    const remaining = (7 - (cellsSoFar % 7)) % 7;
+
     for (let i = 1; i <= remaining; i++) {
       days.push({ day: i, currentMonth: false, date: new Date(Date.UTC(year, month + 1, i)) });
     }

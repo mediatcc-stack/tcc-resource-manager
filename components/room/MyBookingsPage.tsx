@@ -8,6 +8,7 @@ interface MyBookingsPageProps {
   onCancelBooking: (id: string) => void;
   onCancelBookingGroup: (groupId: string) => void;
   onDeleteBooking: (id: string) => void;
+  onDeleteBookingGroup: (groupId: string) => void;
   onEditBooking: (booking: Booking) => void;
   onBack: () => void;
   isAdmin: boolean;
@@ -29,8 +30,9 @@ const BookingCard: React.FC<{
   onCancelBooking: (id: string) => void;
   onCancelBookingGroup: (groupId: string) => void;
   onDeleteBooking: (id: string) => void;
+  onDeleteBookingGroup: (groupId: string) => void;
   onEditBooking: (booking: Booking) => void;
-}> = ({ booking, isAdmin, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onEditBooking }) => {
+}> = ({ booking, isAdmin, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onDeleteBookingGroup, onEditBooking }) => {
   const statusInfo = getStatusInfo(booking.status);
 
   const handleStaffAction = (action: 'cancel' | 'delete' | 'edit') => {
@@ -42,16 +44,30 @@ const BookingCard: React.FC<{
 
     const performAction = () => {
         if (action === 'cancel') {
-            if (confirm(`ยืนยันการยกเลิกการจอง "${booking.purpose}" ใช่หรือไม่?`)) {
-                if (booking.isMultiDay && booking.groupId) {
-                    onCancelBookingGroup(booking.groupId);
+            const isGroup = booking.isMultiDay && booking.groupId;
+            const confirmMessage = isGroup
+                ? `ยืนยันการยกเลิกการจองกลุ่ม "${booking.purpose}" ทั้งหมดใช่หรือไม่?`
+                : `ยืนยันการยกเลิกการจอง "${booking.purpose}" ใช่หรือไม่?`;
+            
+            if (confirm(confirmMessage)) {
+                if (isGroup) {
+                    onCancelBookingGroup(booking.groupId!);
                 } else {
                     onCancelBooking(booking.id);
                 }
             }
         } else if (action === 'delete') {
-            if (confirm(`⚠️ ยืนยันการลบถาวร ⚠️\n\nการจอง "${booking.purpose}" จะหายไปจากระบบอย่างถาวรและไม่สามารถกู้คืนได้\n\nคุณต้องการ "ลบถาวร" การจองนี้ใช่หรือไม่?`)) {
-                onDeleteBooking(booking.id);
+             const isGroup = booking.isMultiDay && booking.groupId;
+             const confirmMessage = isGroup
+                ? `⚠️ ยืนยันการลบถาวร ⚠️\n\nการจองกลุ่ม "${booking.purpose}" ทั้งหมดจะถูกลบและไม่สามารถกู้คืนได้\n\nต้องการดำเนินการต่อใช่หรือไม่?`
+                : `⚠️ ยืนยันการลบถาวร ⚠️\n\nการจอง "${booking.purpose}" จะถูกลบและไม่สามารถกู้คืนได้\n\nต้องการดำเนินการต่อใช่หรือไม่?`;
+
+            if (confirm(confirmMessage)) {
+                if (isGroup) {
+                    onDeleteBookingGroup(booking.groupId!);
+                } else {
+                    onDeleteBooking(booking.id);
+                }
             }
         }
     };
@@ -123,20 +139,13 @@ const BookingCard: React.FC<{
 };
 
 
-const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onEditBooking, onBack, isAdmin, onAdminLogin }) => {
+const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onDeleteBookingGroup, onEditBooking, onBack, isAdmin, onAdminLogin }) => {
   const [purposeFilter, setPurposeFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [roomFilter, setRoomFilter] = useState('all');
 
-  const filteredBookings = useMemo(() => {
-    return bookings
-      .filter(b => {
-        const purposeMatch = purposeFilter ? b.purpose.toLowerCase().includes(purposeFilter.toLowerCase()) : true;
-        const dateMatch = dateFilter ? b.date === dateFilter : true;
-        const roomMatch = roomFilter !== 'all' ? b.roomName === roomFilter : true;
-        return purposeMatch && dateMatch && roomMatch;
-      })
-      .sort((a, b) => {
+  const filteredAndGroupedBookings = useMemo(() => {
+    const sortedBookings = [...bookings].sort((a, b) => {
         const aIsActive = a.status === 'จองแล้ว';
         const bIsActive = b.status === 'จองแล้ว';
         if (aIsActive && !bIsActive) return -1;
@@ -146,6 +155,28 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
         if (aIsActive && bIsActive) return dateTimeA - dateTimeB;
         return dateTimeB - dateTimeA;
       });
+      
+    const filtered = sortedBookings.filter(b => {
+        const purposeMatch = purposeFilter ? b.purpose.toLowerCase().includes(purposeFilter.toLowerCase()) : true;
+        const dateMatch = dateFilter ? b.date === dateFilter : true;
+        const roomMatch = roomFilter !== 'all' ? b.roomName === roomFilter : true;
+        return purposeMatch && dateMatch && roomMatch;
+      });
+
+    const processedGroupIds = new Set<string>();
+    const uniqueBookings: Booking[] = [];
+
+    for (const booking of filtered) {
+        if (booking.groupId) {
+            if (!processedGroupIds.has(booking.groupId)) {
+                uniqueBookings.push(booking);
+                processedGroupIds.add(booking.groupId);
+            }
+        } else {
+            uniqueBookings.push(booking);
+        }
+    }
+    return uniqueBookings;
   }, [bookings, purposeFilter, dateFilter, roomFilter]);
 
   const clearFilters = () => {
@@ -199,15 +230,16 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
             </div>
 
             <div className="space-y-4">
-                {filteredBookings.length > 0 ? (
-                    filteredBookings.map(b => 
+                {filteredAndGroupedBookings.length > 0 ? (
+                    filteredAndGroupedBookings.map(b => 
                       <BookingCard 
-                        key={b.id} 
+                        key={b.groupId || b.id} 
                         booking={b} 
                         isAdmin={isAdmin}
                         onCancelBooking={onCancelBooking}
                         onCancelBookingGroup={onCancelBookingGroup}
                         onDeleteBooking={onDeleteBooking}
+                        onDeleteBookingGroup={onDeleteBookingGroup}
                         onEditBooking={onEditBooking}
                       />)
                 ) : (
