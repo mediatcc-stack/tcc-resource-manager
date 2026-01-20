@@ -24,9 +24,10 @@ const timeToMinutes = (timeStr: string): number => {
   return (hours * 60) + (minutes || 0);
 };
 
+// สไตล์สำหรับ Label และ Icon
 const FormField: React.FC<{label: string, icon: string, required?: boolean, children: React.ReactNode}> = ({ label, icon, required, children }) => (
-  <div className="animate-fade-in">
-    <label className="flex items-center text-sm font-bold text-gray-700 mb-2">
+  <div className="animate-fade-in group">
+    <label className="flex items-center text-sm font-bold text-gray-600 mb-2 group-focus-within:text-blue-600 transition-colors">
       <span className="mr-2 text-xl">{icon}</span>
       {label} {required && <span className="text-red-500 ml-1">*</span>}
     </label>
@@ -161,18 +162,21 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     setLoading(false);
   };
 
+  // ปรับปรุง Input Classes ให้สว่างขึ้น (พื้นหลังขาว เส้นขอบชัด)
+  const inputClasses = "block w-full rounded-xl border border-gray-200 bg-white p-3.5 text-gray-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all duration-200 placeholder-gray-400";
+
   return (
     <div className="max-w-4xl mx-auto animate-fade-in px-4 md:px-0 mb-20">
-      <div className="bg-white rounded-[2.5rem] shadow-2xl p-8 md:p-12 border border-gray-100">
+      <div className="bg-white rounded-[2.5rem] shadow-2xl p-8 md:p-12 border border-blue-50">
         <div className="mb-10 pb-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-blue-50 rounded-2xl text-2xl">{isEditing ? '✏️' : '📝'}</div>
             <div>
-                <h2 className="text-2xl font-black text-[#0D448D] tracking-tight">{isEditing ? 'แก้ไขข้อมูลการจอง' : 'กรอกแบบฟอร์มการจอง'}</h2>
+                <h2 className="text-2xl font-black text-blue-800 tracking-tight">{isEditing ? 'แก้ไขข้อมูลการจอง' : 'กรอกแบบฟอร์มการจอง'}</h2>
                 <p className="text-sm text-gray-400 font-bold uppercase tracking-wider">Conference Room Booking Form</p>
             </div>
           </div>
-          <button type="button" onClick={onCancel} className="text-gray-400 hover:text-gray-600 font-bold text-sm">ยกเลิก</button>
+          <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-50 text-gray-400 hover:text-gray-600 font-bold text-sm rounded-lg transition-colors">ยกเลิก</button>
         </div>
       
         <form onSubmit={handleSubmit} className="space-y-8">
@@ -184,43 +188,51 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
           )}
           
           <FormField label="เลือกห้องประชุม" icon="🏢" required>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-5 bg-slate-50 rounded-3xl border border-slate-100 max-h-60 overflow-y-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-5 bg-blue-50/30 rounded-3xl border border-blue-100 max-h-60 overflow-y-auto">
               {rooms.map(r => (
-                <div key={r.id} className={`flex items-center p-3 rounded-xl border-2 ${selectedRoomIds.includes(r.id) ? 'bg-white border-[#0D448D]' : 'border-transparent'}`}>
-                  <input type="checkbox" id={`room-${r.id}`} value={r.id} checked={selectedRoomIds.includes(r.id)} onChange={handleMultiRoomChange} disabled={r.status === 'closed' && !selectedRoomIds.includes(r.id)} className="h-5 w-5 rounded text-[#0D448D]"/>
-                  <label htmlFor={`room-${r.id}`} className="ml-3 text-sm font-black text-gray-700">{r.name}</label>
+                <div key={r.id} className={`flex items-center p-3 rounded-xl border-2 transition-all cursor-pointer ${selectedRoomIds.includes(r.id) ? 'bg-white border-blue-500 shadow-sm' : 'bg-transparent border-transparent hover:border-blue-200'}`}>
+                  <input 
+                    type="checkbox" 
+                    id={`room-${r.id}`} 
+                    value={r.id} 
+                    checked={selectedRoomIds.includes(r.id)} 
+                    onChange={handleMultiRoomChange} 
+                    disabled={r.status === 'closed' && !selectedRoomIds.includes(r.id)} 
+                    className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor={`room-${r.id}`} className="ml-3 text-sm font-bold text-gray-700 cursor-pointer">{r.name}</label>
                 </div>
               ))}
             </div>
           </FormField>
 
           {!isEditing && (
-            <div className="flex items-center gap-4 p-5 bg-indigo-50/50 rounded-2xl border border-indigo-100">
-                <input type="checkbox" id="isMultiDay" checked={formData.isMultiDay} onChange={handleCheckboxChange} className="h-6 w-6 rounded text-indigo-600"/>
-                <label htmlFor="isMultiDay" className="font-black text-indigo-900 text-sm">ต้องการจองต่อเนื่องหลายวัน</label>
+            <div className="flex items-center gap-4 p-5 bg-blue-50/50 rounded-2xl border border-blue-100">
+                <input type="checkbox" id="isMultiDay" checked={formData.isMultiDay} onChange={handleCheckboxChange} className="h-6 w-6 rounded border-gray-300 text-blue-600 focus:ring-blue-500"/>
+                <label htmlFor="isMultiDay" className="font-black text-blue-900 text-sm cursor-pointer">ต้องการจองต่อเนื่องหลายวัน</label>
             </div>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
              <FormField label={formData.isMultiDay ? "วันที่เริ่ม" : "วันที่จัดงาน"} icon="🗓️" required>
-                <input type="date" value={currentDate} onChange={e => setCurrentDate(e.target.value)} className="block w-full rounded-xl border p-3.5" required />
+                <input type="date" value={currentDate} onChange={e => setCurrentDate(e.target.value)} className={inputClasses} required />
             </FormField>
              {formData.isMultiDay && !isEditing && (
                 <FormField label="วันที่สิ้นสุด" icon="🗓️" required>
-                    <input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} min={currentDate} className="block w-full rounded-xl border p-3.5" required />
+                    <input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} min={currentDate} className={inputClasses} required />
                 </FormField>
              )}
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <FormField label="เริ่มเวลา" icon="⏰" required>
-              <select name="startTime" value={formData.startTime} onChange={handleInputChange} className="block w-full rounded-xl border p-3.5" required>
+              <select name="startTime" value={formData.startTime} onChange={handleInputChange} className={inputClasses} required>
                   <option value="">-- เลือกเวลา --</option>
                   {timeSlots.slice(0, -1).map(t => <option key={t} value={t}>{t} น.</option>)}
               </select>
             </FormField>
             <FormField label="ถึงเวลา" icon="⏰" required>
-              <select name="endTime" value={formData.endTime} onChange={handleInputChange} className="block w-full rounded-xl border p-3.5" required>
+              <select name="endTime" value={formData.endTime} onChange={handleInputChange} className={inputClasses} required>
                   <option value="">-- เลือกเวลา --</option>
                   {timeSlots.map(t => <option key={t} value={t} disabled={timeToMinutes(t) <= timeToMinutes(formData.startTime)}>{t} น.</option>)}
               </select>
@@ -229,19 +241,19 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <FormField label="ชื่อผู้จอง" icon="👤" required>
-              <input type="text" name="bookerName" value={formData.bookerName} onChange={handleInputChange} className="block w-full rounded-xl border p-3.5" required />
+              <input type="text" name="bookerName" value={formData.bookerName} onChange={handleInputChange} className={inputClasses} placeholder="กรอกชื่อ-นามสกุล" required />
             </FormField>
             <FormField label="เบอร์โทรศัพท์" icon="📱" required>
-              <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="block w-full rounded-xl border p-3.5" required />
+              <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className={inputClasses} placeholder="เช่น 0812345678" required />
             </FormField>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <FormField label="จำนวนผู้เข้าร่วม" icon="👥" required>
-              <input type="number" name="participants" min="1" value={formData.participants} onChange={handleInputChange} className="block w-full rounded-xl border p-3.5" required />
+              <input type="number" name="participants" min="1" value={formData.participants} onChange={handleInputChange} className={inputClasses} required />
             </FormField>
             <FormField label="รูปแบบการประชุม" icon="💻" required>
-              <select name="meetingType" value={formData.meetingType} onChange={handleInputChange} className="block w-full rounded-xl border p-3.5" required>
+              <select name="meetingType" value={formData.meetingType} onChange={handleInputChange} className={inputClasses} required>
                 <option value="Onsite">Onsite (ที่วิทยาลัย)</option>
                 <option value="Online">Online (ผ่านระบบออนไลน์)</option>
               </select>
@@ -249,20 +261,20 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
           </div>
 
           <FormField label="วัตถุประสงค์" icon="🎯" required>
-            <textarea name="purpose" value={formData.purpose} onChange={handleInputChange} rows={3} className="block w-full rounded-xl border p-3.5" required />
+            <textarea name="purpose" value={formData.purpose} onChange={handleInputChange} rows={3} className={inputClasses} placeholder="ระบุชื่องานหรือโครงการ..." required />
           </FormField>
 
           <FormField label="อุปกรณ์เพิ่มเติม" icon="🛠️">
-            <textarea name="equipment" value={formData.equipment} onChange={handleInputChange} rows={3} className="block w-full rounded-xl border p-3.5" placeholder="ระบุอุปกรณ์ที่ต้องการ เช่น ไมโครโฟนเสริม, โปรเจคเตอร์" />
+            <textarea name="equipment" value={formData.equipment} onChange={handleInputChange} rows={3} className={inputClasses} placeholder="ระบุอุปกรณ์ที่ต้องการ เช่น ไมโครโฟนเสริม, โปรเจคเตอร์" />
           </FormField>
 
           <FormField label="ลิงก์ไฟล์แนบ (ถ้ามี)" icon="📎">
-            <input type="url" name="attachmentUrl" value={formData.attachmentUrl} onChange={handleInputChange} className="block w-full rounded-xl border p-3.5" placeholder="https://example.com/file.pdf" />
+            <input type="url" name="attachmentUrl" value={formData.attachmentUrl} onChange={handleInputChange} className={inputClasses} placeholder="https://example.com/file.pdf" />
           </FormField>
           
-          <div className="flex justify-end gap-4 pt-10">
+          <div className="flex justify-end gap-4 pt-10 border-t border-gray-50">
             <Button type="button" variant="secondary" onClick={onCancel} disabled={loading}>ย้อนกลับ</Button>
-            <Button type="submit" variant="primary" loading={loading}>{isEditing ? 'บันทึกการแก้ไข' : 'ยืนยันการจอง'}</Button>
+            <Button type="submit" variant="primary" loading={loading} className="px-10">{isEditing ? 'บันทึกการแก้ไข' : 'ยืนยันการจอง'}</Button>
           </div>
         </form>
       </div>

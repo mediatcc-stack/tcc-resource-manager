@@ -7,6 +7,7 @@ import { sendLineNotification } from '../../services/notificationService';
 import { fetchData, saveData } from '../../services/apiService';
 import { v4 as uuidv4 } from 'uuid';
 import LoadingSpinner from '../shared/LoadingSpinner';
+import Button from '../shared/Button';
 
 interface EquipmentSystemProps {
   onBackToLanding: () => void;
@@ -79,7 +80,8 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
             setLastUpdated(new Date());
             fetchBorrowings(true);
             return true;
-        } catch (error: any) {
+        } catch (error: any)
+{
             showToast(`อัปเดตข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
             return false;
         }
@@ -126,13 +128,13 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
             showToast(`บันทึกข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
         }
     }, [borrowings, showToast, fetchBorrowings]);
-
+    
     const renderCurrentPage = () => {
         if (isLoading) {
              return (
-                <div className="flex flex-col items-center justify-center h-64 bg-white rounded-2xl shadow-xl">
+                <div className="flex flex-col items-center justify-center h-96">
                     <LoadingSpinner />
-                    <p className="mt-4 text-lg font-semibold text-gray-600">กำลังโหลด...</p>
+                    <p className="mt-4 text-lg font-semibold text-gray-500">กำลังโหลดข้อมูลการยืม...</p>
                 </div>
             );
         }
@@ -145,30 +147,44 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
             case 'list':
             default:
                 return (
-                    <div className="relative">
-                        {isSyncing && (
-                            <div className="absolute -top-4 right-0 flex items-center gap-2 text-[10px] font-black text-blue-500 animate-pulse uppercase">
-                                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                                Live Refreshing...
-                            </div>
-                        )}
-                        <BorrowingListPage 
-                            borrowings={borrowings} 
-                            onNewRequest={() => setCurrentPage('form')}
-                            onViewStats={() => setCurrentPage('statistics')}
-                            onChangeStatus={handleChangeStatus}
-                            onDeleteRequest={handleDeleteRequest}
-                            onNotifyOverdue={handleNotifyOverdue}
-                            onBackToLanding={onBackToLanding}
-                            showToast={showToast}
-                            lastUpdated={lastUpdated}
-                        />
-                    </div>
+                    <BorrowingListPage 
+                        borrowings={borrowings}
+                        onChangeStatus={handleChangeStatus}
+                        onDeleteRequest={handleDeleteRequest}
+                        onNotifyOverdue={handleNotifyOverdue}
+                        showToast={showToast}
+                        lastUpdated={lastUpdated}
+                    />
                 );
         }
     };
     
-    return <div>{renderCurrentPage()}</div>;
+    return (
+        <div className="max-w-7xl mx-auto space-y-8 animate-fade-in">
+             <div className="bg-white rounded-2xl shadow-lg p-5 flex items-center justify-between gap-6 flex-wrap border border-gray-100">
+                <div className="flex items-center gap-2">
+                    <Button 
+                        onClick={() => setCurrentPage('list')}
+                        className={`font-bold px-5 py-2.5 rounded-lg transition-all text-sm ${currentPage === 'list' ? 'bg-[#0D448D] text-white shadow' : 'bg-transparent text-slate-500 hover:bg-slate-100'}`}
+                    >
+                       📋 รายการยืมทั้งหมด
+                    </Button>
+                     <Button 
+                        onClick={() => setCurrentPage('statistics')}
+                        className={`font-bold px-5 py-2.5 rounded-lg transition-all text-sm ${currentPage === 'statistics' ? 'bg-[#0D448D] text-white shadow' : 'bg-transparent text-slate-500 hover:bg-slate-100'}`}
+                    >
+                       📊 สถิติการยืม
+                    </Button>
+                </div>
+                <Button onClick={() => setCurrentPage('form')} variant="primary" className="shadow-lg">
+                    + สร้างคำขอยืมอุปกรณ์
+                </Button>
+             </div>
+             <div>
+                {renderCurrentPage()}
+             </div>
+        </div>
+    );
 };
 
 export default EquipmentSystem;

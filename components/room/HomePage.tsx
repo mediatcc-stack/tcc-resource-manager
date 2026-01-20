@@ -99,7 +99,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
         
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
           <div className="flex items-center gap-2 text-[#0D448D]">
-            <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+            <span className="w-2 h-2 bg-sky-500 rounded-full animate-pulse"></span>
             <span className="text-sm font-bold tracking-wide uppercase">Thonburi Commercial College</span>
           </div>
           <Button 
@@ -143,22 +143,22 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
                 return (
                   <div key={index} onClick={() => item.currentMonth && handleDayClick(dateStr)}
                     className={`min-h-[80px] md:min-h-[115px] p-2 md:p-4 border-2 rounded-[1.5rem] cursor-pointer transition-all relative flex flex-col items-center
-                      ${!item.currentMonth ? 'bg-transparent text-gray-200 border-transparent opacity-20 pointer-events-none' : 'bg-white border-slate-100 hover:border-blue-400 hover:shadow-xl hover:-translate-y-1'}
-                      ${selected ? 'border-[#0D448D] bg-blue-50/50 shadow-inner' : ''} ${booked ? 'bg-orange-50/50 border-orange-100' : ''}`}>
+                      ${!item.currentMonth ? 'bg-transparent text-gray-200 border-transparent opacity-20 pointer-events-none' : 'bg-white border-slate-100 hover:border-sky-400 hover:shadow-xl hover:-translate-y-1'}
+                      ${selected ? 'border-sky-500 bg-sky-50/50 shadow-inner' : ''} ${booked ? 'bg-red-50/50 border-red-200' : ''}`}>
                     <span className={`text-base md:text-xl font-bold ${today ? 'text-green-600' : 'text-gray-700'} ${!item.currentMonth ? 'text-gray-200' : ''}`}>{item.day}</span>
                     {today && <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-1"></div>}
                     {booked && item.currentMonth && (<div className="mt-2 w-full space-y-1 hidden md:block">
-                        {bookingsOnDay.slice(0, 2).map((b, i) => (<div key={i} className="text-[10px] bg-white border border-orange-100 text-orange-700 px-1.5 py-1 rounded-lg truncate shadow-sm text-center font-bold">{b.purpose}</div>))}
+                        {bookingsOnDay.slice(0, 2).map((b, i) => (<div key={i} className="text-[10px] bg-white border border-red-100 text-red-700 px-1.5 py-1 rounded-lg truncate shadow-sm text-center font-bold">{b.purpose}</div>))}
                       </div>)}
-                    {booked && item.currentMonth && <div className="md:hidden w-2 h-2 bg-orange-400 rounded-full mt-2"></div>}
+                    {booked && item.currentMonth && <div className="md:hidden w-2 h-2 bg-red-400 rounded-full mt-2"></div>}
                   </div>
                 );
               })}
             </div>
             <div className="mt-12 flex flex-wrap justify-center gap-10 text-xs font-bold text-gray-400 uppercase tracking-widest">
               <div className="flex items-center gap-3"><div className="w-5 h-5 rounded-full border-2 border-green-500 bg-green-50"></div><span>วันนี้</span></div>
-              <div className="flex items-center gap-3"><div className="w-5 h-5 rounded-full border-2 border-orange-300 bg-orange-50"></div><span>มีการจอง</span></div>
-              <div className="flex items-center gap-3"><div className="w-5 h-5 rounded-full border-2 border-[#0D448D] bg-blue-50"></div><span>เลือกแล้ว</span></div>
+              <div className="flex items-center gap-3"><div className="w-5 h-5 rounded-full border-2 border-red-300 bg-red-50"></div><span>มีการจอง</span></div>
+              <div className="flex items-center gap-3"><div className="w-5 h-5 rounded-full border-2 border-sky-500 bg-sky-50"></div><span>เลือกแล้ว</span></div>
             </div>
           </div>
         </section>

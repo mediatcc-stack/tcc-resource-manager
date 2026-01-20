@@ -10,10 +10,10 @@ interface LandingPageProps {
 const LandingPage: React.FC<LandingPageProps> = ({ onSelectSystem }) => {
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] p-5 text-center animate-fade-in">
-      <h1 className="text-4xl md:text-6xl font-bold mb-4 text-shadow-md text-white">
+      <h1 className="text-4xl md:text-6xl font-black mb-4 text-[#0D448D] tracking-tight text-shadow-md">
         ระบบจองห้องและยืมอุปกรณ์
       </h1>
-      <p className="text-xl md:text-2xl text-white/95 mb-12 text-shadow">
+      <p className="text-xl md:text-2xl text-slate-600 font-medium mb-12">
         {APP_CONFIG.collegeName}
       </p>
       <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8">

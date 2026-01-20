@@ -16,7 +16,7 @@ const getStatusInfo = (status: BorrowStatus) => {
         case BorrowStatus.Pending:
             return { text: 'รออนุมัติ', icon: '⏳', color: 'yellow' };
         case BorrowStatus.Borrowing:
-            return { text: 'อยู่ระหว่างการยืม', icon: '➡️', color: 'blue' };
+            return { text: 'อยู่ระหว่างการยืม', icon: '➡️', color: 'sky' };
         case BorrowStatus.Returned:
             return { text: 'คืนแล้ว', icon: '✅', color: 'green' };
         case BorrowStatus.Overdue:
@@ -30,7 +30,7 @@ const getStatusInfo = (status: BorrowStatus) => {
 
 const colors = {
     yellow: { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-400' },
-    blue: { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-400' },
+    sky: { bg: 'bg-sky-100', text: 'text-sky-800', border: 'border-sky-400' },
     green: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-400' },
     red: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-400' },
     gray: { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-400' },

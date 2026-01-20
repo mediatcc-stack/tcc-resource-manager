@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import LandingPage from './components/landing/LandingPage';
 import RoomBookingSystem from './components/room/RoomBookingSystem';
@@ -41,11 +40,12 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="app-container flex flex-col min-h-screen bg-gradient-to-br from-[#5071A4] to-[#9AACC8]">
+    <div className="app-container flex flex-col min-h-screen">
       <Navbar currentSystem={currentSystem} onBackToLanding={goBackToLanding} />
       <main className="main-content flex-1 p-4 md:p-8 w-full">
         {renderSystem()}
       </main>
+      {/* FIX: Pass the 'removeToast' function to the 'onRemove' prop instead of an undefined variable. */}
       <ToastContainer messages={toastMessages} onRemove={removeToast} />
     </div>
   );

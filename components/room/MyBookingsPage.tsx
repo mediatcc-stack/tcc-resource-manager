@@ -15,9 +15,11 @@ interface MyBookingsPageProps {
   onAdminLogin: () => void;
 }
 
+const thaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+
 const getStatusInfo = (status: Booking['status']) => {
   switch(status) {
-      case 'จองแล้ว': return { text: 'จองแล้ว', bg: 'bg-blue-100', text_color: 'text-blue-800', border: 'border-blue-500' };
+      case 'จองแล้ว': return { text: 'จองแล้ว', bg: 'bg-sky-100', text_color: 'text-sky-800', border: 'border-sky-500' };
       case 'ยกเลิก': return { text: 'ยกเลิก', bg: 'bg-red-100', text_color: 'text-red-800', border: 'border-red-500' };
       case 'หมดเวลา': return { text: 'เสร็จสิ้น', bg: 'bg-gray-100', text_color: 'text-gray-800', border: 'border-gray-400' };
       default: return { text: status, bg: 'bg-gray-100', text_color: 'text-gray-800', border: 'border-gray-400' };
@@ -167,8 +169,20 @@ const BookingCard: React.FC<{
 const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onDeleteBookingGroup, onEditBooking, onBack, isAdmin, onAdminLogin }) => {
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
   const [purposeFilter, setPurposeFilter] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
+  const [monthFilter, setMonthFilter] = useState<string>('all');
+  const [yearFilter, setYearFilter] = useState<string>(new Date().getFullYear().toString());
   const [roomFilter, setRoomFilter] = useState('all');
+
+  // สร้างรายการปีที่มีข้อมูลการจองจริงในระบบ
+  const years = useMemo(() => {
+    const yearsSet = new Set<string>();
+    bookings.forEach(b => {
+      const year = new Date(b.date).getFullYear().toString();
+      yearsSet.add(year);
+    });
+    yearsSet.add(new Date().getFullYear().toString());
+    return Array.from(yearsSet).sort((a, b) => b.localeCompare(a));
+  }, [bookings]);
 
   const filteredAndGroupedBookings = useMemo(() => {
     // 1. แยกตาม Tab ก่อน
@@ -182,10 +196,15 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
 
     // 2. กรองตาม Search/Filter
     const filtered = bookingsInTab.filter(b => {
+        const bDate = new Date(b.date);
         const purposeMatch = purposeFilter ? b.purpose.toLowerCase().includes(purposeFilter.toLowerCase()) : true;
-        const dateMatch = dateFilter ? b.date === dateFilter : true;
         const roomMatch = roomFilter !== 'all' ? b.roomName === roomFilter : true;
-        return purposeMatch && dateMatch && roomMatch;
+        
+        // กรองตามเดือนและปี
+        const monthMatch = monthFilter === 'all' || (bDate.getMonth() + 1).toString() === monthFilter;
+        const yearMatch = yearFilter === 'all' || bDate.getFullYear().toString() === yearFilter;
+        
+        return purposeMatch && roomMatch && monthMatch && yearMatch;
     });
 
     // 3. จัดเรียง
@@ -215,15 +234,16 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
         }
     }
     return uniqueBookings;
-  }, [bookings, activeTab, purposeFilter, dateFilter, roomFilter]);
+  }, [bookings, activeTab, purposeFilter, monthFilter, yearFilter, roomFilter]);
 
   const clearFilters = () => {
     setPurposeFilter('');
-    setDateFilter('');
+    setMonthFilter('all');
+    setYearFilter(new Date().getFullYear().toString());
     setRoomFilter('all');
   };
   
-  const inputClasses = "block w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
+  const inputClasses = "block w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm";
   
   return (
     <div className="max-w-6xl mx-auto animate-fade-in">
@@ -263,23 +283,33 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
             </div>
             
             <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 mb-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
-                    <div>
-                        <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-2">🔍 ค้นหาชื่องาน</label>
-                        <input type="text" placeholder="ค้นหา..." value={purposeFilter} onChange={e => setPurposeFilter(e.target.value)} className={inputClasses}/>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                    <div className="lg:col-span-1">
+                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">🔍 ค้นหาชื่องาน</label>
+                        <input type="text" placeholder="พิมพ์ชื่องาน..." value={purposeFilter} onChange={e => setPurposeFilter(e.target.value)} className={inputClasses}/>
                     </div>
                      <div>
-                        <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-2">🗓️ กรองตามวันที่</label>
-                        <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)} className={inputClasses} />
+                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">🗓️ เดือนที่จัด</label>
+                        <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className={inputClasses}>
+                            <option value="all">ทุกเดือน</option>
+                            {thaiMonths.map((m, i) => <option key={i} value={(i+1).toString()}>{m}</option>)}
+                        </select>
                     </div>
                      <div>
-                        <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-2">🏢 กรองตามห้อง</label>
+                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">📅 ปี พ.ศ.</label>
+                        <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className={inputClasses}>
+                            <option value="all">ทุกปี</option>
+                            {years.map(y => <option key={y} value={y}>{parseInt(y) + 543}</option>)}
+                        </select>
+                    </div>
+                     <div>
+                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">🏢 กรองตามห้อง</label>
                         <select value={roomFilter} onChange={e => setRoomFilter(e.target.value)} className={inputClasses} >
                             <option value="all">ห้องทั้งหมด</option>
                             {ROOMS.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
                         </select>
                     </div>
-                    <Button onClick={clearFilters} variant="secondary">ล้างตัวกรอง</Button>
+                    <Button onClick={clearFilters} variant="secondary" className="w-full">ล้างตัวกรอง</Button>
                 </div>
             </div>
 
@@ -311,11 +341,11 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                     })
                 ) : (
                     <div className="text-center text-gray-500 py-16 bg-gray-50 rounded-lg">
-                        <p className="text-lg font-semibold">ไม่พบรายการในหน้านี้</p>
+                        <p className="text-lg font-semibold">ไม่พบรายการที่ค้นหา</p>
                         <p className="text-sm mt-1">
                             {activeTab === 'current' 
-                                ? 'ยังไม่มีรายการจองที่กำลังจะถึง' 
-                                : 'ยังไม่มีประวัติการจองที่เสร็จสิ้นหรือถูกยกเลิก'}
+                                ? 'ลองเปลี่ยนการเลือกเดือนหรือปีใหม่อีกครั้ง' 
+                                : 'ยังไม่มีประวัติการจองในช่วงเวลาที่เลือก'}
                         </p>
                     </div>
                 )}

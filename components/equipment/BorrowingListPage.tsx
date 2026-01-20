@@ -6,19 +6,16 @@ import BorrowingCard from './BorrowingCard';
 
 interface BorrowingListPageProps {
     borrowings: BorrowingRequest[];
-    onNewRequest: () => void;
-    onViewStats: () => void;
     onChangeStatus: (id: string, newStatus: BorrowStatus) => void;
     onDeleteRequest: (id: string) => void;
     onNotifyOverdue: (req: BorrowingRequest) => void;
-    onBackToLanding: () => void;
     showToast: (message: string, type: 'success' | 'error') => void;
     lastUpdated: Date | null;
 }
 
 const thaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
-const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNewRequest, onViewStats, onChangeStatus, onDeleteRequest, onNotifyOverdue, onBackToLanding, showToast, lastUpdated }) => {
+const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onChangeStatus, onDeleteRequest, onNotifyOverdue, showToast, lastUpdated }) => {
     const [isAdmin, setIsAdmin] = useState(false);
     const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
     const [nameFilter, setNameFilter] = useState('');
@@ -106,49 +103,30 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
     const inputClasses = "block w-full rounded-lg border border-gray-300 bg-white p-2.5 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm";
 
     return (
-        <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
-            {/* Header */}
-            <div className="flex flex-wrap justify-between items-center gap-4">
-                <div className="flex items-center gap-4">
-                    <Button onClick={onBackToLanding} variant="secondary">
-                        ← กลับหน้าหลัก
-                    </Button>
-                    <div className="flex items-center gap-3">
-                       <span className="text-2xl">📋</span>
-                       <h2 className="text-2xl font-bold text-gray-800">จัดการรายการยืมอุปกรณ์</h2>
-                    </div>
+        <div className="space-y-6">
+            <div className="flex items-center justify-between">
+                <div className="flex p-1 bg-slate-100 rounded-xl">
+                    <button 
+                        onClick={() => setActiveTab('current')}
+                        className={`flex-1 px-5 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'current' ? 'bg-white text-[#0D448D] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        รายการปัจจุบัน
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('history')}
+                        className={`flex-1 px-5 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'history' ? 'bg-white text-[#0D448D] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        ประวัติการยืม
+                    </button>
                 </div>
-                <div className="flex items-center gap-3">
-                    <Button onClick={onViewStats} variant="stats">
-                        📊 ดูสถิติการยืม
-                    </Button>
-                    {isAdmin && <span className="px-3 py-1 text-xs font-bold text-white bg-green-600 rounded-full shadow-sm">Admin Mode</span>}
-                    <Button onClick={handleAdminLogin} variant="secondary">
+                <div className="flex items-center gap-2">
+                    {isAdmin && <span className="px-3 py-1 text-xs font-bold text-white bg-green-600 rounded-full shadow-sm">Admin</span>}
+                    <Button onClick={handleAdminLogin} variant="secondary" size="sm">
                       {isAdmin ? 'ปิดโหมด' : '🔑 เจ้าหน้าที่'}
                     </Button>
-                    <Button onClick={onNewRequest} variant="primary">
-                        + ขอยืมอุปกรณ์
-                    </Button>
                 </div>
             </div>
 
-            {/* Tab Switcher */}
-            <div className="flex p-1 bg-gray-200/50 rounded-xl max-w-md">
-                <button 
-                    onClick={() => setActiveTab('current')}
-                    className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'current' ? 'bg-white text-[#0D448D] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                    รายการที่ดำเนินการอยู่
-                </button>
-                <button 
-                    onClick={() => setActiveTab('history')}
-                    className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'history' ? 'bg-white text-[#0D448D] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                    ประวัติการยืม-คืน
-                </button>
-            </div>
-
-            {/* Contacts Box */}
             {activeTab === 'current' && (
                 <div className="bg-green-50 border border-green-200 rounded-2xl p-6 animate-fade-in">
                     <h3 className="text-lg font-semibold text-green-800 mb-4 flex items-center gap-2">
@@ -167,7 +145,7 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
             )}
 
             {/* Filters Box */}
-            <div className="bg-gray-100 p-5 rounded-2xl border border-gray-200">
+            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                     <div className="lg:col-span-1">
                         <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider">🔍 ค้นหาชื่อ</label>
@@ -218,7 +196,7 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
                         />
                     )
                 ) : (
-                    <div className="text-center text-gray-500 py-24 bg-white/50 rounded-2xl border-2 border-dashed border-gray-200">
+                    <div className="text-center text-gray-500 py-24 bg-white rounded-2xl border-2 border-dashed border-gray-200">
                         <p className="text-xl font-semibold">ไม่พบรายการ</p>
                         <p className="text-sm mt-2">
                             ลองเปลี่ยนตัวกรองเดือนหรือปี หรือชื่อผู้ยืมใหม่อีกครั้ง
