@@ -1,6 +1,6 @@
 export type SystemType = 'landing' | 'room' | 'equipment';
 export type RoomPage = 'home' | 'booking' | 'mybookings' | 'statistics';
-export type EquipmentPage = 'list' | 'form';
+export type EquipmentPage = 'list' | 'form' | 'statistics';
 
 export interface Room {
   id: number;

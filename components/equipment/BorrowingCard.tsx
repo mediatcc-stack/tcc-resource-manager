@@ -7,6 +7,7 @@ interface BorrowingCardProps {
     req: BorrowingRequest;
     onChangeStatus: (id: string, newStatus: BorrowStatus) => void;
     onDeleteRequest: (id: string) => void;
+    onNotifyOverdue?: (req: BorrowingRequest) => void;
     isAdmin: boolean;
 }
 
@@ -36,7 +37,7 @@ const colors = {
 };
 
 
-const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDeleteRequest, isAdmin }) => {
+const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDeleteRequest, onNotifyOverdue, isAdmin }) => {
     const [isChangingStatus, setIsChangingStatus] = useState(false);
     
     const statusInfo = getStatusInfo(req.status);
@@ -73,6 +74,14 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
         }
     };
 
+    const handleNotifyClick = () => {
+        if (onNotifyOverdue) {
+            handleActionWithAuth(() => {
+                onNotifyOverdue(req);
+            });
+        }
+    };
+
     const InfoLine: React.FC<{icon: string, label: string, value: string | React.ReactNode}> = ({icon, label, value}) => (
         <div className="flex items-start text-sm">
             <span className="w-6 text-center">{icon}</span>
@@ -88,7 +97,18 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
                 
                 {/* Left Column - Main Info */}
                 <div className="md:col-span-2 space-y-2">
-                    <h3 className="text-lg font-bold text-[#0D448D]">{`ผู้ยืม: ${req.borrowerName}`}</h3>
+                    <div className="flex items-center gap-3">
+                        <h3 className="text-lg font-bold text-[#0D448D]">{`ผู้ยืม: ${req.borrowerName}`}</h3>
+                        {req.status === BorrowStatus.Overdue && (
+                             <button 
+                                onClick={handleNotifyClick}
+                                title="ส่งแจ้งเตือน LINE เพื่อติดตามคืนอุปกรณ์"
+                                className="bg-red-50 text-red-600 p-1.5 rounded-lg border border-red-200 hover:bg-red-100 transition-all flex items-center gap-1.5 text-xs font-black"
+                             >
+                                🔔 แจ้งเตือน LINE
+                             </button>
+                        )}
+                    </div>
                     <div className="space-y-1.5">
                         <InfoLine icon="📞" label="เบอร์" value={req.phone} />
                         <InfoLine icon="🏢" label="หน่วยงาน" value={req.department} />

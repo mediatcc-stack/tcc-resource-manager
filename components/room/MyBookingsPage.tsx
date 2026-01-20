@@ -37,7 +37,6 @@ const BookingCard: React.FC<{
   const statusInfo = getStatusInfo(booking.status);
 
   const handleStaffAction = (action: 'cancel' | 'delete' | 'edit') => {
-    // Edit action is available for everyone without a password
     if (action === 'edit') {
       onEditBooking(booking);
       return;
@@ -45,7 +44,7 @@ const BookingCard: React.FC<{
 
     const performAction = () => {
         if (action === 'cancel') {
-            const isGroup = booking.isMultiDay && booking.groupId;
+            const isGroup = !!booking.groupId;
             const confirmMessage = isGroup
                 ? `ยืนยันการยกเลิกการจองกลุ่ม "${booking.purpose}" ทั้งหมดใช่หรือไม่?`
                 : `ยืนยันการยกเลิกการจอง "${booking.purpose}" ใช่หรือไม่?`;
@@ -58,7 +57,7 @@ const BookingCard: React.FC<{
                 }
             }
         } else if (action === 'delete') {
-             const isGroup = booking.isMultiDay && booking.groupId;
+             const isGroup = !!booking.groupId;
              const confirmMessage = isGroup
                 ? `⚠️ ยืนยันการลบถาวร ⚠️\n\nการจองกลุ่ม "${booking.purpose}" ทั้งหมดจะถูกลบและไม่สามารถกู้คืนได้\n\nต้องการดำเนินการต่อใช่หรือไม่?`
                 : `⚠️ ยืนยันการลบถาวร ⚠️\n\nการจอง "${booking.purpose}" จะถูกลบและไม่สามารถกู้คืนได้\n\nต้องการดำเนินการต่อใช่หรือไม่?`;
@@ -78,11 +77,8 @@ const BookingCard: React.FC<{
         return;
     }
     
-    // For cancel/delete, prompt for password
     const password = prompt(`หากต้องการดำเนินการต่อ โปรดแจ้งงานสื่อ ฯ ประชาสัมพันธ์โดยตรง\n\n(สำหรับเจ้าหน้าที่) กรุณาใส่รหัสผ่าน:`);
-
     if (password === null) return;
-
     if (STAFF_PASSWORDS.includes(password)) {
         performAction();
     } else {
@@ -98,7 +94,7 @@ const BookingCard: React.FC<{
     : booking.roomName;
 
   return (
-      <div className={`bg-white p-5 rounded-xl shadow-md border-l-4 ${statusInfo.border} transition-shadow hover:shadow-lg`}>
+      <div className={`bg-white p-5 rounded-xl shadow-md border-l-4 ${statusInfo.border} transition-shadow hover:shadow-lg animate-fade-in`}>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-x-4 gap-y-3">
               <div className="md:col-span-3">
                   <h4 className="font-bold text-lg text-[#0D448D]" title={roomTitleTooltip}>{roomTitle}</h4>
@@ -169,33 +165,46 @@ const BookingCard: React.FC<{
 
 
 const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onDeleteBookingGroup, onEditBooking, onBack, isAdmin, onAdminLogin }) => {
+  const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
   const [purposeFilter, setPurposeFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [roomFilter, setRoomFilter] = useState('all');
 
   const filteredAndGroupedBookings = useMemo(() => {
-    const sortedBookings = [...bookings].sort((a, b) => {
-        const aIsActive = a.status === 'จองแล้ว';
-        const bIsActive = b.status === 'จองแล้ว';
-        if (aIsActive && !bIsActive) return -1;
-        if (!aIsActive && bIsActive) return 1;
-        const dateTimeA = new Date(`${a.date}T${a.startTime}`).getTime();
-        const dateTimeB = new Date(`${b.date}T${b.startTime}`).getTime();
-        if (aIsActive && bIsActive) return dateTimeA - dateTimeB;
-        return dateTimeB - dateTimeA;
-      });
-      
-    const filtered = sortedBookings.filter(b => {
+    // 1. แยกตาม Tab ก่อน
+    const bookingsInTab = bookings.filter(b => {
+        if (activeTab === 'current') {
+            return b.status === 'จองแล้ว';
+        } else {
+            return b.status === 'หมดเวลา' || b.status === 'ยกเลิก';
+        }
+    });
+
+    // 2. กรองตาม Search/Filter
+    const filtered = bookingsInTab.filter(b => {
         const purposeMatch = purposeFilter ? b.purpose.toLowerCase().includes(purposeFilter.toLowerCase()) : true;
         const dateMatch = dateFilter ? b.date === dateFilter : true;
         const roomMatch = roomFilter !== 'all' ? b.roomName === roomFilter : true;
         return purposeMatch && dateMatch && roomMatch;
-      });
+    });
 
+    // 3. จัดเรียง
+    const sorted = filtered.sort((a, b) => {
+        const dateTimeA = new Date(`${a.date}T${a.startTime}`).getTime();
+        const dateTimeB = new Date(`${b.date}T${b.startTime}`).getTime();
+        
+        if (activeTab === 'current') {
+            return dateTimeA - dateTimeB; // ปัจจุบัน: เอาที่ใกล้จะถึงขึ้นก่อน
+        } else {
+            return dateTimeB - dateTimeA; // ประวัติ: เอาที่เพิ่งผ่านไปขึ้นก่อน
+        }
+    });
+
+    // 4. Grouping
     const processedGroupIds = new Set<string>();
     const uniqueBookings: Booking[] = [];
 
-    for (const booking of filtered) {
+    for (const booking of sorted) {
         if (booking.groupId) {
             if (!processedGroupIds.has(booking.groupId)) {
                 uniqueBookings.push(booking);
@@ -206,7 +215,7 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
         }
     }
     return uniqueBookings;
-  }, [bookings, purposeFilter, dateFilter, roomFilter]);
+  }, [bookings, activeTab, purposeFilter, dateFilter, roomFilter]);
 
   const clearFilters = () => {
     setPurposeFilter('');
@@ -227,7 +236,7 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                   >
                     <span>←</span> กลับ
                   </button>
-                  <h2 className="text-xl md:text-2xl font-bold text-gray-800">รายการจองทั้งหมด</h2>
+                  <h2 className="text-xl md:text-2xl font-bold text-gray-800">จัดการรายการจองห้อง</h2>
                 </div>
                 <div className="flex items-center gap-2">
                   {isAdmin && <span className="px-3 py-1 text-xs font-bold text-white bg-green-600 rounded-full shadow-md">โหมดแอดมิน</span>}
@@ -235,6 +244,22 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                       {isAdmin ? 'ปิดโหมดแอดมิน' : '🔑 แอดมิน'}
                   </Button>
                 </div>
+            </div>
+
+            {/* Tab Switcher */}
+            <div className="flex p-1 bg-gray-100 rounded-xl mb-8 max-w-md">
+                <button 
+                    onClick={() => setActiveTab('current')}
+                    className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'current' ? 'bg-white text-[#0D448D] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    รายการปัจจุบัน
+                </button>
+                <button 
+                    onClick={() => setActiveTab('history')}
+                    className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'history' ? 'bg-white text-[#0D448D] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    ประวัติการใช้งาน
+                </button>
             </div>
             
             <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 mb-8">
@@ -286,8 +311,12 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                     })
                 ) : (
                     <div className="text-center text-gray-500 py-16 bg-gray-50 rounded-lg">
-                        <p className="text-lg font-semibold">ไม่พบรายการจอง</p>
-                        <p className="text-sm mt-1">{purposeFilter || dateFilter || roomFilter !== 'all' ? 'ไม่พบข้อมูลที่ตรงกับเงื่อนไขการค้นหา' : 'ยังไม่มีการจองในระบบ'}</p>
+                        <p className="text-lg font-semibold">ไม่พบรายการในหน้านี้</p>
+                        <p className="text-sm mt-1">
+                            {activeTab === 'current' 
+                                ? 'ยังไม่มีรายการจองที่กำลังจะถึง' 
+                                : 'ยังไม่มีประวัติการจองที่เสร็จสิ้นหรือถูกยกเลิก'}
+                        </p>
                     </div>
                 )}
             </div>

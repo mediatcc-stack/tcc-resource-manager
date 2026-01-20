@@ -18,10 +18,16 @@ interface BookingFormProps {
 
 const timeSlots = Array.from({ length: 12 }, (_, i) => `${(i + 7).toString().padStart(2, '0')}:00`); // 07:00 to 18:00
 
-// Moved FormField outside the component to prevent re-definition on re-renders, fixing the focus loss issue.
+// Helper: Convert "HH:mm" to total minutes since start of day
+const timeToMinutes = (timeStr: string): number => {
+  if (!timeStr) return 0;
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return (hours * 60) + (minutes || 0);
+};
+
 const FormField: React.FC<{label: string, icon: string, required?: boolean, children: React.ReactNode}> = ({ label, icon, required, children }) => (
-  <div>
-    <label className="flex items-center text-sm font-semibold text-gray-700 mb-2">
+  <div className="animate-fade-in">
+    <label className="flex items-center text-sm font-bold text-gray-700 mb-2">
       <span className="mr-2 text-xl">{icon}</span>
       {label} {required && <span className="text-red-500 ml-1">*</span>}
     </label>
@@ -86,38 +92,10 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     }
 }, [bookingToEdit, rooms, room, date, existingBookings]);
 
-  
-  useEffect(() => {
-    if (formData.isMultiDay && !isEditing) {
-      setFormData(prev => ({...prev, endDate: currentDate}));
-    }
-  }, [currentDate, formData.isMultiDay, isEditing]);
-
-  const bookedSlotsByRoom = useMemo(() => {
-    const slotsMap = new Map<number, Set<string>>();
-    for (const r of rooms) {
-      const bookingsOnDate = existingBookings.filter(b => 
-          b.roomName === r.name && 
-          b.date === currentDate && 
-          b.status === 'จองแล้ว' &&
-          b.id !== bookingToEdit?.id
-      );
-      const slots = new Set<string>();
-      bookingsOnDate.forEach(b => {
-        const start = timeSlots.indexOf(b.startTime);
-        const end = timeSlots.indexOf(b.endTime);
-        for (let i = start; i < end; i++) {
-          slots.add(timeSlots[i]);
-        }
-      });
-      slotsMap.set(r.id, slots);
-    }
-    return slotsMap;
-  }, [existingBookings, rooms, currentDate, bookingToEdit]);
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (error) setError(''); // Clear error when user types
   };
   
   const handleMultiRoomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -127,7 +105,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
             ? [...prev, roomId]
             : prev.filter(id => id !== roomId)
     );
-};
+  };
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const isChecked = e.target.checked;
@@ -143,54 +121,72 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     setError('');
     
     if (selectedRoomIds.length === 0) {
-      setError('กรุณาเลือกอย่างน้อยหนึ่งห้องประชุม');
+      setError('⚠️ กรุณาเลือกอย่างน้อยหนึ่งห้องประชุม');
       return;
     }
 
-    if (!formData.bookerName || !formData.startTime || !formData.endTime || !formData.purpose || formData.participants <= 0) {
-      setError('กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบถ้วน');
+    if (!formData.bookerName || !formData.startTime || !formData.endTime || !formData.purpose) {
+      setError('⚠️ กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบถ้วน');
       return;
     }
 
-    if (formData.startTime >= formData.endTime) {
-      setError('เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มต้น');
+    const startMinutes = timeToMinutes(formData.startTime);
+    const endMinutes = timeToMinutes(formData.endTime);
+
+    if (startMinutes >= endMinutes) {
+      setError('⚠️ เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มต้น');
       return;
+    }
+
+    // Check for past time if booking for today
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (currentDate === todayStr) {
+        const now = new Date();
+        const currentMinutes = (now.getHours() * 60) + now.getMinutes();
+        if (startMinutes < currentMinutes && !isEditing) {
+            setError('⚠️ ไม่สามารถจองย้อนหลังในเวลาที่ผ่านมาแล้วของวันนี้ได้');
+            return;
+        }
     }
     
     setLoading(true);
-
-    if (isEditing && onUpdate && bookingToEdit) {
-        onUpdate(bookingToEdit, formData, selectedRoomIds);
-        setLoading(false);
-        return;
-    }
-
 
     const firstDate = new Date(currentDate);
     const lastDate = formData.isMultiDay ? new Date(formData.endDate) : new Date(currentDate);
 
     if (lastDate < firstDate) {
-        setError('วันที่สิ้นสุดต้องไม่ก่อนวันที่เริ่มต้น');
+        setError('⚠️ วันที่สิ้นสุดต้องไม่ก่อนวันที่เริ่มต้น');
         setLoading(false);
         return;
     }
 
-    const startIdx = timeSlots.indexOf(formData.startTime);
-    const endIdx = timeSlots.indexOf(formData.endTime);
-
+    // --- Core Overlap Check Logic ---
     for (const roomId of selectedRoomIds) {
-      const roomName = rooms.find(r => r.id === roomId)?.name;
-      if (!roomName) continue;
+      const roomObj = rooms.find(r => r.id === roomId);
+      if (!roomObj) continue;
 
       for (let d = new Date(firstDate); d <= lastDate; d.setDate(d.getDate() + 1)) {
           const checkDateStr = d.toISOString().split('T')[0];
-          const bookingsOnThisDay = existingBookings.filter(b => b.roomName === roomName && b.date === checkDateStr && b.status === 'จองแล้ว');
           
-          for (const existingBooking of bookingsOnThisDay) {
-              const existingStartIdx = timeSlots.indexOf(existingBooking.startTime);
-              const existingEndIdx = timeSlots.indexOf(existingBooking.endTime);
-              if (Math.max(startIdx, existingStartIdx) < Math.min(endIdx, existingEndIdx)) {
-                  setError(`เกิดข้อขัดแย้ง: ${roomName} มีการจองทับซ้อนในวันที่ ${d.toLocaleDateString('th-TH')}`);
+          const conflictBookings = existingBookings.filter(b => 
+              b.roomName === roomObj.name && 
+              b.date === checkDateStr && 
+              b.status === 'จองแล้ว'
+          );
+
+          for (const existing of conflictBookings) {
+              // Skip self or group-mates when editing
+              if (isEditing && bookingToEdit) {
+                  if (existing.id === bookingToEdit.id) continue;
+                  if (bookingToEdit.groupId && existing.groupId === bookingToEdit.groupId) continue;
+              }
+
+              const exStart = timeToMinutes(existing.startTime);
+              const exEnd = timeToMinutes(existing.endTime);
+
+              // Overlap check: (NewStart < ExistEnd) AND (NewEnd > ExistStart)
+              if (startMinutes < exEnd && endMinutes > exStart) {
+                  setError(`❌ ตรวจพบการจองซ้อน: "${roomObj.name}" มีผู้จองแล้วในช่วงเวลา ${existing.startTime} - ${existing.endTime} (ผู้จอง: ${existing.bookerName}) กรุณาเลือกเวลาอื่น`);
                   setLoading(false);
                   return;
               }
@@ -198,6 +194,12 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
       }
     }
     
+    if (isEditing && onUpdate && bookingToEdit) {
+        onUpdate(bookingToEdit, formData, selectedRoomIds);
+        setLoading(false);
+        return;
+    }
+
     const bookingsToCreate = [];
     const hasMultipleSelections = selectedRoomIds.length > 1 || formData.isMultiDay;
     const groupId = hasMultipleSelections ? uuidv4() : undefined;
@@ -207,7 +209,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
       const roomName = rooms.find(r => r.id === roomId)?.name;
       if (!roomName) continue;
 
-      for (let d = new Date(firstDate); d <= lastDate; d.setDate(d.getDate() + 1)) {
+      const createDate = new Date(firstDate);
+      for (let d = new Date(createDate); d <= lastDate; d.setDate(d.getDate() + 1)) {
           bookingsToCreate.push({ 
               ...formData, 
               roomName,
@@ -223,25 +226,37 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     setLoading(false);
   };
 
-  const inputClasses = "block w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-200 disabled:cursor-not-allowed";
+  const inputClasses = "block w-full rounded-xl border border-gray-200 bg-gray-50 p-3.5 text-gray-800 transition-all duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:bg-white disabled:bg-gray-200 disabled:cursor-not-allowed font-medium";
   
   return (
-    <div className="max-w-4xl mx-auto animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12">
-        <div className="mb-8 pb-5 border-b border-gray-100">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">{isEditing ? '✏️' : '📝'}</span>
-            <h2 className="text-2xl font-bold text-[#0D448D]">{isEditing ? 'แก้ไขข้อมูลการจอง' : 'แบบฟอร์มการจอง'}</h2>
+    <div className="max-w-4xl mx-auto animate-fade-in px-4 md:px-0 mb-20">
+      <div className="bg-white rounded-[2.5rem] shadow-2xl p-8 md:p-12 border border-gray-100">
+        <div className="mb-10 pb-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-blue-50 rounded-2xl text-2xl">
+                {isEditing ? '✏️' : '📝'}
+            </div>
+            <div>
+                <h2 className="text-2xl font-black text-[#0D448D] tracking-tight">{isEditing ? 'แก้ไขข้อมูลการจอง' : 'กรอกแบบฟอร์มการจอง'}</h2>
+                <p className="text-sm text-gray-400 font-bold uppercase tracking-wider">Conference Room Booking Form</p>
+            </div>
           </div>
+          <button type="button" onClick={onCancel} className="text-gray-400 hover:text-gray-600 font-bold text-sm">ยกเลิกและกลับหน้าหลัก</button>
         </div>
       
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {error && <p className="text-red-600 bg-red-50 p-4 rounded-lg font-semibold border border-red-200">{error}</p>}
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {error && (
+            <div className="bg-red-50 border-2 border-red-100 p-5 rounded-2xl flex items-start gap-4 animate-shake">
+                <span className="text-2xl">🚫</span>
+                <p className="text-red-700 font-black text-sm leading-relaxed">{error}</p>
+            </div>
+          )}
           
-          <FormField label="ห้องประชุม" icon="🏢" required>
-            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 max-h-48 overflow-y-auto space-y-3">
+          <FormField label="เลือกห้องประชุมที่ต้องการ" icon="🏢" required>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-5 bg-slate-50 rounded-3xl border border-slate-100 max-h-60 overflow-y-auto shadow-inner">
               {rooms.map(r => (
-                <div key={r.id} className="flex items-center">
+                <div key={r.id} 
+                     className={`flex items-center p-3 rounded-xl border-2 transition-all ${selectedRoomIds.includes(r.id) ? 'bg-white border-[#0D448D] shadow-sm' : 'border-transparent bg-transparent hover:bg-white/50'}`}>
                   <input
                     type="checkbox"
                     id={`room-${r.id}`}
@@ -249,113 +264,91 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
                     checked={selectedRoomIds.includes(r.id)}
                     onChange={handleMultiRoomChange}
                     disabled={r.status === 'closed' && !selectedRoomIds.includes(r.id)}
-                    className="h-4 w-4 rounded border-gray-300 text-[#0D448D] focus:ring-[#0D448D]"
+                    className="h-5 w-5 rounded-md border-gray-300 text-[#0D448D] focus:ring-[#0D448D]"
                   />
-                  <label htmlFor={`room-${r.id}`} className="ml-3 text-sm font-medium text-gray-800">
-                    {r.name} {r.status === 'closed' && '(งดใช้ชั่วคราว)'}
+                  <label htmlFor={`room-${r.id}`} className={`ml-3 text-sm font-black ${selectedRoomIds.includes(r.id) ? 'text-[#0D448D]' : 'text-gray-500'} ${r.status === 'closed' ? 'opacity-40 italic' : ''}`}>
+                    {r.name} {r.status === 'closed' && '(งดใช้)'}
                   </label>
                 </div>
               ))}
             </div>
           </FormField>
 
-
           {!isEditing && (
-            <div>
-                <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
-                    <input type="checkbox" id="isMultiDay" name="isMultiDay" checked={formData.isMultiDay} onChange={handleCheckboxChange} className="h-5 w-5 rounded border-gray-300 text-[#0D448D] focus:ring-[#0D448D]"/>
-                    <label htmlFor="isMultiDay" className="font-semibold text-gray-800">จองหลายวันต่อเนื่อง (เช่น อบรม/สัมมนา 3 วัน)</label>
-                </div>
+            <div className="flex items-center gap-4 p-5 bg-indigo-50/50 rounded-2xl border border-indigo-100 group transition-all hover:bg-indigo-50">
+                <input type="checkbox" id="isMultiDay" name="isMultiDay" checked={formData.isMultiDay} onChange={handleCheckboxChange} className="h-6 w-6 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
+                <label htmlFor="isMultiDay" className="font-black text-indigo-900 text-sm cursor-pointer">ต้องการจองต่อเนื่องหลายวัน (เช่น อบรม 2-3 วัน)</label>
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <FormField label={formData.isMultiDay ? "วันเริ่มต้น" : "วันที่"} icon="🗓️" required>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+             <FormField label={formData.isMultiDay ? "วันที่เริ่ม" : "วันที่จัดงาน"} icon="🗓️" required>
                 <input type="date" value={currentDate} onChange={e => setCurrentDate(e.target.value)} min={isEditing ? undefined : new Date().toISOString().split('T')[0]} className={inputClasses} required disabled={isEditing}/>
             </FormField>
              {formData.isMultiDay && !isEditing && (
-                <FormField label="วันสิ้นสุด" icon="🗓️" required>
+                <FormField label="วันที่สิ้นสุด" icon="🗓️" required>
                     <input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} min={currentDate} className={inputClasses} required />
                 </FormField>
              )}
           </div>
           
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <FormField label="เวลาเริ่มต้น" icon="⏰" required>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <FormField label="เริ่มเวลา" icon="⏰" required>
               <select name="startTime" value={formData.startTime} onChange={handleInputChange} className={inputClasses} required>
                   <option value="">-- เลือกเวลา --</option>
-                  {timeSlots.slice(0, -1).map(t => <option key={t} value={t}>{t}</option>)}
+                  {timeSlots.slice(0, -1).map(t => <option key={t} value={t}>{t} น.</option>)}
               </select>
             </FormField>
-            <FormField label="เวลาสิ้นสุด" icon="⏰" required>
+            <FormField label="ถึงเวลา" icon="⏰" required>
               <select name="endTime" value={formData.endTime} onChange={handleInputChange} className={inputClasses} required>
                   <option value="">-- เลือกเวลา --</option>
-                  {timeSlots.map(t => <option key={t} value={t} disabled={t <= formData.startTime}>{t}</option>)}
+                  {timeSlots.map(t => <option key={t} value={t} disabled={timeToMinutes(t) <= timeToMinutes(formData.startTime)}>{t} น.</option>)}
               </select>
             </FormField>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField label="ชื่อ-นามสกุลผู้จอง" icon="👤" required>
-              <input type="text" name="bookerName" placeholder="กรอกชื่อ-นามสกุล" value={formData.bookerName} onChange={handleInputChange} className={inputClasses} required />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <FormField label="ชื่อผู้จอง / ผู้ประสานงาน" icon="👤" required>
+              <input type="text" name="bookerName" placeholder="ระบุชื่อ-นามสกุล" value={formData.bookerName} onChange={handleInputChange} className={inputClasses} required />
             </FormField>
-            <FormField label="เบอร์โทรศัพท์" icon="📱">
-              <input type="tel" name="phone" placeholder="0812345678" value={formData.phone} onChange={handleInputChange} className={inputClasses} />
+            <FormField label="เบอร์โทรศัพท์ที่ติดต่อได้" icon="📱" required>
+              <input type="tel" name="phone" placeholder="08x-xxx-xxxx" value={formData.phone} onChange={handleInputChange} className={inputClasses} required />
             </FormField>
           </div>
           
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <FormField label="จำนวนผู้เข้าร่วม" icon="👥" required>
-              <input type="number" name="participants" min="1" placeholder="1" value={formData.participants} onChange={handleInputChange} className={inputClasses} required />
+              <div className="relative">
+                <input type="number" name="participants" min="1" placeholder="1" value={formData.participants} onChange={handleInputChange} className={`${inputClasses} pr-12`} required />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">คน</span>
+              </div>
             </FormField>
-            <FormField label="รูปแบบการประชุม" icon="💻" required>
+            <FormField label="รูปแบบงาน" icon="💻" required>
               <select name="meetingType" value={formData.meetingType} onChange={handleInputChange} className={inputClasses} required>
                   <option value="Onsite">Onsite (ที่วิทยาลัย)</option>
-                  <option value="Online">Online</option>
+                  <option value="Online">Online / Hybrid</option>
               </select>
             </FormField>
           </div>
 
-          <FormField label="วัตถุประสงค์การใช้งาน" icon="🎯" required>
-            <textarea name="purpose" value={formData.purpose} onChange={handleInputChange} rows={3} className={inputClasses} placeholder="ระบุวัตถุประสงค์ เช่น ประชุมฝ่ายบริหาร, จัดอบรมบุคลากร" required />
+          <FormField label="ชื่องาน / วัตถุประสงค์" icon="🎯" required>
+            <textarea name="purpose" value={formData.purpose} onChange={handleInputChange} rows={3} className={inputClasses} placeholder="ระบุรายละเอียด เช่น ประชุมวางแผนงบประมาณปี 2568" required />
           </FormField>
           
-          <FormField label="อุปกรณ์เพิ่มเติมที่ต้องการ (ถ้ามี)" icon="🛠️">
-            <input type="text" name="equipment" value={formData.equipment} onChange={handleInputChange} className={inputClasses} placeholder="เช่น ไมโครโฟน 4 ตัว, Notebook 1 เครื่อง" />
+          <FormField label="อุปกรณ์ที่ต้องเตรียมเพิ่มเติม" icon="🛠️">
+            <input type="text" name="equipment" value={formData.equipment} onChange={handleInputChange} className={inputClasses} placeholder="เช่น ป้ายชื่อหน้าห้อง, ไมค์ลอย 2 ตัว" />
           </FormField>
 
-          <div>
-              <FormField label="แนบลิงก์เอกสาร (ถ้ามี)" icon="🔗">
-                  <input 
-                      type="url" 
-                      name="attachmentUrl" 
-                      value={formData.attachmentUrl} 
-                      onChange={handleInputChange} 
-                      className={inputClasses} 
-                      placeholder="https://docs.google.com/..." 
-                  />
-              </FormField>
-              <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800 space-y-2">
-                  <p className="font-bold flex items-center gap-2">📌 วิธีการแนบเอกสาร:</p>
-                  <ol className="list-decimal list-inside pl-2 space-y-1">
-                      <li>อัปโหลดไฟล์ของคุณไปยัง <strong>Google Drive</strong> หรือ <strong>Dropbox</strong></li>
-                      <li>ตั้งสิทธิ์ให้เป็น <strong>"แชร์ให้ทุกคนที่มีลิงก์ดูได้"</strong></li>
-                      <li>คัดลอกลิงก์มาวางข้างบน</li>
-                  </ol>
-                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                      <p className="font-semibold flex items-center gap-2">💡 เคล็ดลับ:</p>
-                      <ul className="list-disc list-inside pl-2 text-xs mt-1">
-                          <li><strong>Google Drive:</strong> คลิกขวาที่ไฟล์ → แชร์ → เปลี่ยนเป็น "ทุกคนที่มีลิงก์" → คัดลอกลิงก์</li>
-                          <li><strong>Dropbox:</strong> คลิกขวาที่ไฟล์ → แชร์ → สร้างลิงก์ → คัดลอกลิงก์</li>
-                      </ul>
-                  </div>
-              </div>
-          </div>
+          <FormField label="ลิงก์เอกสารประกอบ (ถ้ามี)" icon="🔗">
+              <input type="url" name="attachmentUrl" value={formData.attachmentUrl} onChange={handleInputChange} className={inputClasses} placeholder="เช่น Google Drive หรือลิงก์โครงการ" />
+          </FormField>
           
-          <div className="flex justify-end gap-4 pt-6">
-            <Button type="button" variant="secondary" onClick={onCancel} disabled={loading}>ยกเลิก</Button>
-            <Button type="submit" variant="primary" loading={loading}>
-                {isEditing ? 'บันทึกการเปลี่ยนแปลง' : 'ยืนยันการจอง'}
+          <div className="flex flex-col md:flex-row justify-end gap-4 pt-10 border-t border-gray-100">
+            <Button type="button" variant="secondary" onClick={onCancel} className="w-full md:w-auto px-10 py-4 rounded-2xl" disabled={loading}>
+              ย้อนกลับ
+            </Button>
+            <Button type="submit" variant="primary" loading={loading} className="w-full md:w-auto px-12 py-4 rounded-2xl shadow-xl shadow-blue-200">
+                {isEditing ? 'บันทึกการแก้ไข' : 'ยืนยันการจองห้อง'}
             </Button>
           </div>
         </form>

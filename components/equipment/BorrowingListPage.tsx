@@ -7,15 +7,18 @@ import BorrowingCard from './BorrowingCard';
 interface BorrowingListPageProps {
     borrowings: BorrowingRequest[];
     onNewRequest: () => void;
+    onViewStats: () => void;
     onChangeStatus: (id: string, newStatus: BorrowStatus) => void;
     onDeleteRequest: (id: string) => void;
+    onNotifyOverdue: (req: BorrowingRequest) => void;
     onBackToLanding: () => void;
     showToast: (message: string, type: 'success' | 'error') => void;
     lastUpdated: Date | null;
 }
 
-const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNewRequest, onChangeStatus, onDeleteRequest, onBackToLanding, showToast, lastUpdated }) => {
+const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNewRequest, onViewStats, onChangeStatus, onDeleteRequest, onNotifyOverdue, onBackToLanding, showToast, lastUpdated }) => {
     const [isAdmin, setIsAdmin] = useState(false);
+    const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
     const [nameFilter, setNameFilter] = useState('');
     const [dateFilter, setDateFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('ทั้งหมด');
@@ -42,33 +45,43 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
     };
 
     const filteredBorrowings = useMemo(() => {
-        // Sort by active status first, then by creation date
-        const sorted = [...borrowings].sort((a, b) => {
-            const statusOrder = {
-                [BorrowStatus.Pending]: 1,
-                [BorrowStatus.Borrowing]: 2,
-                [BorrowStatus.Overdue]: 3,
-                [BorrowStatus.Returned]: 4,
-                [BorrowStatus.Cancelled]: 5,
-            };
-            
-            const orderA = statusOrder[a.status] || 99;
-            const orderB = statusOrder[b.status] || 99;
-
-            if (orderA !== orderB) {
-                return orderA - orderB;
+        const borrowingsInTab = borrowings.filter(b => {
+            if (activeTab === 'current') {
+                return b.status === BorrowStatus.Pending || 
+                       b.status === BorrowStatus.Borrowing || 
+                       b.status === BorrowStatus.Overdue;
+            } else {
+                return b.status === BorrowStatus.Returned || 
+                       b.status === BorrowStatus.Cancelled;
             }
-
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         });
 
-        return sorted.filter(b => {
+        const filtered = borrowingsInTab.filter(b => {
             const nameMatch = nameFilter ? b.borrowerName.toLowerCase().includes(nameFilter.toLowerCase()) : true;
             const dateMatch = dateFilter ? b.borrowDate === dateFilter || b.returnDate === dateFilter : true;
             const statusMatch = statusFilter !== 'ทั้งหมด' ? b.status === statusFilter : true;
             return nameMatch && dateMatch && statusMatch;
         });
-    }, [borrowings, nameFilter, dateFilter, statusFilter]);
+
+        return filtered.sort((a, b) => {
+            if (activeTab === 'current') {
+                const priority = {
+                    [BorrowStatus.Overdue]: 1,
+                    [BorrowStatus.Borrowing]: 2,
+                    [BorrowStatus.Pending]: 3,
+                    [BorrowStatus.Returned]: 4,
+                    [BorrowStatus.Cancelled]: 5,
+                };
+                const orderA = priority[a.status] || 99;
+                const orderB = priority[b.status] || 99;
+                
+                if (orderA !== orderB) return orderA - orderB;
+                return new Date(a.borrowDate).getTime() - new Date(b.borrowDate).getTime();
+            } else {
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            }
+        });
+    }, [borrowings, activeTab, nameFilter, dateFilter, statusFilter]);
     
     const inputClasses = "block w-full rounded-lg border border-gray-300 bg-white p-2.5 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
 
@@ -82,10 +95,13 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
                     </Button>
                     <div className="flex items-center gap-3">
                        <span className="text-2xl">📋</span>
-                       <h2 className="text-2xl font-bold text-gray-800">รายการขอยืมทั้งหมด</h2>
+                       <h2 className="text-2xl font-bold text-gray-800">จัดการรายการยืมอุปกรณ์</h2>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
+                    <Button onClick={onViewStats} variant="stats">
+                        📊 ดูสถิติการยืม
+                    </Button>
                     {isAdmin && <span className="px-3 py-1 text-xs font-bold text-white bg-green-600 rounded-full shadow-sm">Admin Mode</span>}
                     <Button onClick={handleAdminLogin} variant="secondary">
                       {isAdmin ? 'ปิดโหมด' : '🔑 เจ้าหน้าที่'}
@@ -96,21 +112,39 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
                 </div>
             </div>
 
-            {/* Contacts Box */}
-            <div className="bg-green-50 border border-green-200 rounded-2xl p-6">
-                <h3 className="text-lg font-semibold text-green-800 mb-4 flex items-center gap-2">
-                    <span className="text-xl">📞</span>
-                    สามารถติดต่อสอบถามอุปกรณ์เพิ่มเติมได้ที่
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {CONTACTS.map((contact, index) => (
-                        <div key={index} className="bg-white p-3 rounded-lg border border-green-100 shadow-sm">
-                            <p className="font-semibold text-gray-700 text-sm">{contact.name}</p>
-                            <p className="text-xs text-gray-500">{contact.position}</p>
-                        </div>
-                    ))}
-                </div>
+            {/* Tab Switcher */}
+            <div className="flex p-1 bg-gray-200/50 rounded-xl max-w-md">
+                <button 
+                    onClick={() => setActiveTab('current')}
+                    className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'current' ? 'bg-white text-[#0D448D] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    รายการที่ดำเนินการอยู่
+                </button>
+                <button 
+                    onClick={() => setActiveTab('history')}
+                    className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'history' ? 'bg-white text-[#0D448D] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    ประวัติการยืม-คืน
+                </button>
             </div>
+
+            {/* Contacts Box */}
+            {activeTab === 'current' && (
+                <div className="bg-green-50 border border-green-200 rounded-2xl p-6 animate-fade-in">
+                    <h3 className="text-lg font-semibold text-green-800 mb-4 flex items-center gap-2">
+                        <span className="text-xl">📞</span>
+                        สามารถติดต่อสอบถามอุปกรณ์เพิ่มเติมได้ที่
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {CONTACTS.map((contact, index) => (
+                            <div key={index} className="bg-white p-3 rounded-lg border border-green-100 shadow-sm">
+                                <p className="font-semibold text-gray-700 text-sm">{contact.name}</p>
+                                <p className="text-xs text-gray-500">{contact.position}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Filters Box */}
             <div className="bg-gray-100 p-5 rounded-2xl border border-gray-200">
@@ -127,7 +161,13 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
                         <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-1">📊 กรองตามสถานะ</label>
                         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={inputClasses} >
                             <option value="ทั้งหมด">ทั้งหมด</option>
-                            {Object.values(BorrowStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                            {Object.values(BorrowStatus)
+                                .filter(s => {
+                                    if (activeTab === 'current') return s !== BorrowStatus.Returned && s !== BorrowStatus.Cancelled;
+                                    return s === BorrowStatus.Returned || s === BorrowStatus.Cancelled;
+                                })
+                                .map(s => <option key={s} value={s}>{s}</option>)
+                            }
                         </select>
                     </div>
                     <Button onClick={clearFilters} variant="secondary">🔄 ล้างตัวกรอง</Button>
@@ -135,7 +175,7 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
             </div>
 
             {/* Borrowing List */}
-            <div className="space-y-4">
+            <div className="space-y-4 min-h-[400px]">
                 {filteredBorrowings.length > 0 ? (
                     filteredBorrowings.map(req => 
                         <BorrowingCard 
@@ -143,13 +183,18 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
                             req={req}
                             onChangeStatus={onChangeStatus}
                             onDeleteRequest={onDeleteRequest}
+                            onNotifyOverdue={onNotifyOverdue}
                             isAdmin={isAdmin}
                         />
                     )
                 ) : (
-                    <div className="text-center text-gray-500 py-20 bg-white rounded-2xl shadow-sm">
-                        <p className="text-xl font-semibold">ไม่พบรายการขอยืม</p>
-                        <p className="text-sm mt-2">{nameFilter || dateFilter || statusFilter !== 'ทั้งหมด' ? 'ไม่พบข้อมูลที่ตรงกับเงื่อนไขการค้นหา' : 'ยังไม่มีการขอยืมอุปกรณ์ในระบบ'}</p>
+                    <div className="text-center text-gray-500 py-24 bg-white/50 rounded-2xl border-2 border-dashed border-gray-200">
+                        <p className="text-xl font-semibold">ไม่พบรายการในหน้านี้</p>
+                        <p className="text-sm mt-2">
+                            {activeTab === 'current' 
+                                ? 'ไม่มีอุปกรณ์ที่กำลังถูกยืมหรือรออนุมัติในขณะนี้' 
+                                : 'ยังไม่มีประวัติการคืนหรือยกเลิกรายการอุปกรณ์'}
+                        </p>
                     </div>
                 )}
             </div>

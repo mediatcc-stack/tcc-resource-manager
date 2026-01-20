@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Booking } from '../../types';
 import { ROOMS } from '../../constants';
 import Button from '../shared/Button';
+import * as XLSX from 'https://esm.sh/xlsx';
 
 interface StatisticsPageProps {
   bookings: Booking[];
@@ -9,7 +10,7 @@ interface StatisticsPageProps {
 }
 
 const StatCard: React.FC<{icon: string, title: string, value: string | number, description: string, color: string}> = ({icon, title, value, description, color}) => (
-    <div className={`p-6 rounded-2xl border bg-white shadow-sm`}>
+    <div className={`p-6 rounded-2xl border bg-white shadow-sm transition-transform hover:-translate-y-1`}>
         <div className="flex items-center gap-4">
             <div className={`p-3 rounded-xl bg-opacity-10 ${color.replace('text', 'bg').replace('-600', '-100')}`}>
                 <span className={`text-2xl ${color}`}>{icon}</span>
@@ -24,84 +25,213 @@ const StatCard: React.FC<{icon: string, title: string, value: string | number, d
 );
 
 const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => {
+  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+
+  const years = useMemo(() => {
+    const yearsSet = new Set<string>();
+    bookings.forEach(b => {
+      const year = new Date(b.date).getFullYear().toString();
+      yearsSet.add(year);
+    });
+    yearsSet.add(new Date().getFullYear().toString());
+    return Array.from(yearsSet).sort((a, b) => b.localeCompare(a));
+  }, [bookings]);
+
+  const filteredBookings = useMemo(() => {
+    return bookings.filter(b => {
+        const bDate = new Date(b.date);
+        const yearMatch = bDate.getFullYear().toString() === selectedYear;
+        const monthMatch = selectedMonth === 'all' || (bDate.getMonth() + 1).toString() === selectedMonth;
+        return yearMatch && monthMatch;
+    });
+  }, [bookings, selectedYear, selectedMonth]);
+
   const stats = useMemo(() => {
-    const activeBookings = bookings.filter(b => b.status === 'จองแล้ว' || b.status === 'หมดเวลา');
+    const completed = filteredBookings.filter(b => b.status === 'หมดเวลา' || b.status === 'จองแล้ว').length;
+    const cancelled = filteredBookings.filter(b => b.status === 'ยกเลิก').length;
     
     const bookingsByRoom = ROOMS.map(room => ({
       name: room.name,
-      count: activeBookings.filter(b => b.roomName === room.name).length,
+      count: filteredBookings.filter(b => b.roomName === room.name && (b.status === 'หมดเวลา' || b.status === 'จองแล้ว')).length,
     })).sort((a,b) => b.count - a.count);
 
-    const totalBookings = activeBookings.length;
-    const maxBookings = bookingsByRoom[0]?.count || 1;
+    const monthlyData = Array.from({ length: 12 }, (_, i) => {
+        const month = i + 1;
+        return {
+            month: month,
+            count: filteredBookings.filter(b => new Date(b.date).getMonth() === i && (b.status === 'หมดเวลา' || b.status === 'จองแล้ว')).length
+        };
+    });
+
+    const maxMonthlyCount = Math.max(...monthlyData.map(d => d.count), 1);
+    const maxRoomCount = Math.max(...bookingsByRoom.map(r => r.count), 1);
     
     return {
-      totalBookings,
+      total: filteredBookings.length,
+      completed,
+      cancelled,
       bookingsByRoom,
-      maxBookings
+      monthlyData,
+      maxMonthlyCount,
+      maxRoomCount
     };
-  }, [bookings]);
+  }, [filteredBookings]);
+
+  const handleExportExcel = () => {
+    const dataToExport = filteredBookings.map((b, index) => ({
+        'ลำดับ': index + 1,
+        'วันที่': new Date(b.date).toLocaleDateString('th-TH'),
+        'เวลา': `${b.startTime} - ${b.endTime}`,
+        'ห้องประชุม': b.roomName,
+        'ชื่องาน/วัตถุประสงค์': b.purpose,
+        'ผู้จอง': b.bookerName,
+        'เบอร์โทรศัพท์': b.phone,
+        'จำนวนผู้เข้าร่วม': b.participants,
+        'รูปแบบ': b.meetingType,
+        'สถานะ': b.status,
+        'อุปกรณ์เพิ่มเติม': b.equipment || '-'
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Room_Bookings");
+    
+    const fileName = `รายงานการจองห้องประชุม_${selectedYear}_${selectedMonth}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  };
+
+  const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 
   return (
     <div className="max-w-6xl mx-auto animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
-        <div className="flex items-center gap-4 mb-6 pb-5 border-b border-gray-200">
-          <button 
-            onClick={onBack}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-all active:scale-95 flex items-center gap-2"
-          >
-            <span>←</span> กลับ
-          </button>
-          <h2 className="text-xl md:text-2xl font-bold text-gray-800">สถิติการใช้งานห้องประชุม</h2>
+      <div className="bg-white rounded-2xl shadow-xl p-6 md:p-10">
+        <div className="flex flex-wrap justify-between items-center gap-4 mb-8 pb-6 border-b border-gray-100">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={onBack}
+              className="p-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-all active:scale-90"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <div>
+                <h2 className="text-2xl font-bold text-gray-800 tracking-tight">สรุปสถิติและรายงาน</h2>
+                <p className="text-sm text-gray-500 font-medium">ภาพรวมการใช้งานห้องประชุมของวิทยาลัย</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+             <div className="flex gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100">
+                <select 
+                    value={selectedMonth} 
+                    onChange={e => setSelectedMonth(e.target.value)}
+                    className="bg-white border border-gray-200 rounded-lg text-sm font-bold p-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                    <option value="all">ทุกเดือน</option>
+                    {thaiMonths.map((m, i) => <option key={i} value={(i+1).toString()}>{m}</option>)}
+                </select>
+                <select 
+                    value={selectedYear} 
+                    onChange={e => setSelectedYear(e.target.value)}
+                    className="bg-white border border-gray-200 rounded-lg text-sm font-bold p-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                    {years.map(y => <option key={y} value={y}>พ.ศ. {parseInt(y) + 543}</option>)}
+                </select>
+             </div>
+             <Button onClick={handleExportExcel} variant="stats" className="flex items-center gap-2">
+                <span>📥</span>
+                <span>ส่งออก Excel</span>
+             </Button>
+          </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
             <StatCard 
-                icon="📈"
-                title="การจองทั้งหมด"
-                value={stats.totalBookings}
-                description="นับเฉพาะรายการที่สำเร็จและจองแล้ว"
+                icon="📊"
+                title="รายการจองรวม"
+                value={stats.total}
+                description="รวมทุกสถานะในช่วงเวลาที่เลือก"
                 color="text-blue-600"
             />
              <StatCard 
-                icon="🏆"
-                title="ห้องยอดนิยม"
-                value={stats.bookingsByRoom[0]?.name || '-'}
-                description="ห้องที่มีการจองมากที่สุด"
+                icon="✅"
+                title="ใช้งานสำเร็จ"
+                value={stats.completed}
+                description="จองแล้ว และ หมดเวลาแล้ว"
                 color="text-green-600"
             />
              <StatCard 
-                icon="✅"
-                title="จำนวนครั้งที่ใช้"
-                value={stats.bookingsByRoom[0]?.count || 0}
-                description={`ของห้อง ${stats.bookingsByRoom[0]?.name || 'ยอดนิยม'}`}
-                color="text-orange-600"
+                icon="❌"
+                title="ยกเลิกการจอง"
+                value={stats.cancelled}
+                description="รายการที่ไม่เกิดขึ้นจริง"
+                color="text-red-600"
             />
         </div>
-        
-        <div>
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">อันดับการใช้งานห้องทั้งหมด</h3>
-             <div className="space-y-4">
-                {stats.bookingsByRoom.map((room, index) => (
-                    <div key={room.name} className="flex items-center gap-4">
-                        <div className={`font-bold w-10 text-center ${index < 3 ? 'text-blue-600 text-lg' : 'text-gray-400'}`}>
-                            #{index + 1}
-                        </div>
-                        <div className="flex-1">
-                            <div className="flex justify-between items-center mb-1">
-                                <p className="font-semibold text-gray-800 text-sm">{room.name}</p>
-                                <p className="font-bold text-blue-600 text-sm">{room.count} ครั้ง</p>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <span>📅</span> สถิติการใช้งานรายเดือน (ปี พ.ศ. {parseInt(selectedYear) + 543})
+                </h3>
+                <div className="flex items-end justify-between h-48 gap-1 pt-4">
+                    {stats.monthlyData.map((d, i) => (
+                        <div key={i} className="flex-1 flex flex-col items-center group">
+                            <div 
+                                className={`w-full max-w-[20px] rounded-t-sm transition-all duration-500 relative ${selectedMonth === (i+1).toString() ? 'bg-blue-600' : 'bg-blue-200 group-hover:bg-blue-300'}`}
+                                style={{ height: `${(d.count / stats.maxMonthlyCount) * 100}%`, minHeight: d.count > 0 ? '4px' : '0' }}
+                            >
+                                {d.count > 0 && (
+                                    <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-blue-700 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {d.count}
+                                    </span>
+                                )}
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2.5">
-                                <div 
-                                    className="bg-gradient-to-r from-blue-400 to-blue-600 h-2.5 rounded-full transition-all duration-500" 
-                                    style={{ width: `${(room.count / stats.maxBookings) * 100}%` }}
-                                ></div>
-                            </div>
+                            <span className={`text-[10px] mt-2 font-bold ${selectedMonth === (i+1).toString() ? 'text-blue-700' : 'text-gray-400'}`}>
+                                {thaiMonths[i]}
+                            </span>
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
+
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <span>🏢</span> อันดับห้องที่ถูกจองมากที่สุด
+                </h3>
+                <div className="space-y-4">
+                    {stats.bookingsByRoom.map((room, index) => (
+                        <div key={room.name} className="flex items-center gap-4">
+                            <div className={`font-bold w-8 text-center ${index < 3 ? 'text-[#0D448D]' : 'text-gray-300'}`}>
+                                {index + 1}
+                            </div>
+                            <div className="flex-1">
+                                <div className="flex justify-between items-center mb-1">
+                                    <p className="font-bold text-gray-700 text-xs truncate max-w-[200px]">{room.name}</p>
+                                    <p className="font-black text-[#0D448D] text-xs">{room.count} ครั้ง</p>
+                                </div>
+                                <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                    <div 
+                                        className="bg-[#0D448D] h-full rounded-full transition-all duration-700 ease-out" 
+                                        style={{ width: `${(room.count / stats.maxRoomCount) * 100}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {stats.total === 0 && (
+                         <div className="text-center py-10 text-gray-400 italic text-sm">
+                            ไม่มีข้อมูลในเดือนที่เลือก
+                         </div>
+                    )}
+                </div>
+            </div>
+        </div>
+
+        <div className="mt-10 p-4 bg-blue-50 rounded-xl border border-blue-100 text-center">
+             <p className="text-xs text-blue-800 font-bold">
+                ⚠️ ข้อมูลเหล่านี้สรุปผลตามวันที่จัดกิจกรรม ไม่ใช่ตามวันที่ทำรายการจองในระบบ
+             </p>
         </div>
 
       </div>

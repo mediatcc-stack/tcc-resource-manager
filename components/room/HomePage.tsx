@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Room, Booking } from '../../types';
 import BookingDetailsModal from './BookingDetailsModal';
 import RoomAvailabilityTimeline from './RoomAvailabilityTimeline';
+import Button from '../shared/Button';
 
 interface HomePageProps {
   rooms: Room[];
@@ -9,9 +10,10 @@ interface HomePageProps {
   onSelectRoom: (room: Room, date: string) => void;
   onBackToLanding: () => void;
   onNavigateToMyBookings: () => void;
+  onQuickBook: () => void;
 }
 
-const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNavigateToMyBookings }) => {
+const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNavigateToMyBookings, onQuickBook }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   
@@ -100,6 +102,13 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
             <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
             <span className="text-sm font-bold tracking-wide uppercase">Thonburi Commercial College</span>
           </div>
+          <Button 
+            onClick={onQuickBook}
+            className="flex items-center gap-2 rounded-2xl px-6 py-3 shadow-lg hover:shadow-blue-200"
+          >
+            <span className="text-xl">+</span>
+            <span>จองห้องประชุม / กรอกแบบฟอร์ม</span>
+          </Button>
         </div>
 
         <section className="mb-16">
