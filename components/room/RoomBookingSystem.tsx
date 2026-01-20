@@ -48,7 +48,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
     }
   }, [showToast]);
 
-  // Smart Polling Logic: Only poll when tab is visible
   useEffect(() => {
     const startPolling = () => {
         if (pollTimer.current) clearInterval(pollTimer.current);
@@ -56,7 +55,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
             if (!document.hidden) {
                 fetchBookings(true);
             }
-        }, 30000); // 30 seconds
+        }, 30000);
     };
 
     const handleVisibilityChange = () => {
@@ -66,7 +65,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
                 pollTimer.current = null;
             }
         } else {
-            fetchBookings(true); // Fetch once immediately when returned
+            fetchBookings(true);
             startPolling();
         }
     };
@@ -105,6 +104,82 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
     return () => clearInterval(interval);
   }, [bookings]);
 
+  const updateBookingList = async (newList: Booking[]): Promise<boolean> => {
+    try {
+      await saveData('rooms', newList);
+      setBookings(newList);
+      setLastUpdated(new Date());
+      fetchBookings(true);
+      return true;
+    } catch (error: any) {
+      showToast(`อัปเดตข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
+      fetchBookings();
+      return false;
+    }
+  };
+
+  const handleBookingUpdate = useCallback(async (original: Booking, formData: any, selectedRoomIds: number[]) => {
+    setIsLoading(true);
+    try {
+      // 1. Remove old version (group or single)
+      let newList = bookings.filter(b => original.groupId ? b.groupId !== original.groupId : b.id !== original.id);
+
+      // 2. Create new versions
+      const newBookings: Booking[] = [];
+      const hasMultiple = selectedRoomIds.length > 1 || formData.isMultiDay;
+      const groupId = hasMultiple ? (original.groupId || uuidv4()) : undefined;
+      
+      const firstDate = new Date(formData.date);
+      const lastDate = formData.isMultiDay ? new Date(formData.endDate) : firstDate;
+
+      for (const rid of selectedRoomIds) {
+        const rName = ROOMS.find(r => r.id === rid)?.name || original.roomName;
+        for (let d = new Date(firstDate); d <= lastDate; d.setDate(d.getDate() + 1)) {
+          newBookings.push({
+            ...formData,
+            id: uuidv4(),
+            roomName: rName,
+            date: d.toISOString().split('T')[0],
+            groupId,
+            status: 'จองแล้ว',
+            createdAt: original.createdAt,
+          });
+        }
+      }
+
+      const success = await updateBookingList([...newList, ...newBookings]);
+      if (success) {
+        showToast('แก้ไขข้อมูลการจองเรียบร้อยแล้ว', 'success');
+        setCurrentPage('home');
+        setEditingBooking(null);
+      }
+    } catch (e: any) {
+      showToast('เกิดข้อผิดพลาดในการแก้ไข', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [bookings, showToast]);
+
+  const handleCancelBooking = useCallback(async (id: string) => {
+    const updated = bookings.map(b => b.id === id ? { ...b, status: 'ยกเลิก' as const } : b);
+    if (await updateBookingList(updated)) showToast('ยกเลิกรายการจองแล้ว', 'success');
+  }, [bookings]);
+
+  const handleCancelBookingGroup = useCallback(async (groupId: string) => {
+    const updated = bookings.map(b => b.groupId === groupId ? { ...b, status: 'ยกเลิก' as const } : b);
+    if (await updateBookingList(updated)) showToast('ยกเลิกรายการจองกลุ่มแล้ว', 'success');
+  }, [bookings]);
+
+  const handleDeleteBooking = useCallback(async (id: string) => {
+    const updated = bookings.filter(b => b.id !== id);
+    if (await updateBookingList(updated)) showToast('ลบรายการถาวรแล้ว', 'success');
+  }, [bookings]);
+
+  const handleDeleteBookingGroup = useCallback(async (groupId: string) => {
+    const updated = bookings.filter(b => b.groupId !== groupId);
+    if (await updateBookingList(updated)) showToast('ลบรายการกลุ่มถาวรแล้ว', 'success');
+  }, [bookings]);
+
   const handleSelectRoom = useCallback((room: Room, date: string) => {
     setSelectedRoom(room);
     setSelectedDate(date);
@@ -136,27 +211,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       setLastUpdated(new Date());
 
       const firstBooking = createdBookings[0];
-      const roomNames = [...new Set(createdBookings.map(b => b.roomName))];
-      const roomString = roomNames.length > 1
-        ? `ห้อง (${roomNames.length}): ${roomNames.join(', ')}`
-        : `ห้อง: ${roomNames[0]}`;
-      
-      const timeString = `${firstBooking.startTime} - ${firstBooking.endTime}`;
-      const dateInfo = firstBooking.isMultiDay && firstBooking.dateRange
-          ? `${firstBooking.dateRange}`
-          : `${new Date(firstBooking.date).toLocaleDateString('th-TH')}`;
-
-      const notifyMessage = [
-          "------",
-          "📌 มีการจองห้องใหม่",
-          "",
-          `ชื่องาน: ${firstBooking.purpose}`,
-          roomString,
-          `ช่วงเวลา: ${dateInfo} | ${timeString}`,
-          "",
-          `ผู้จอง: ${firstBooking.bookerName}`,
-          "------",
-      ].join('\n');
+      const notifyMessage = `📌 มีการจองห้องใหม่\nเรื่อง: ${firstBooking.purpose}\nผู้จอง: ${firstBooking.bookerName}`;
 
       await sendLineNotification(notifyMessage);
       setCurrentPage('home');
@@ -164,22 +219,8 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       fetchBookings(true);
     } catch (error: any) {
       showToast(`บันทึกการจองไม่สำเร็จ: ${error.message}`, 'error');
-      fetchBookings();
     }
   }, [bookings, showToast, fetchBookings]);
-  
-  const updateBookingList = async (newList: Booking[]): Promise<boolean> => {
-    try {
-      await saveData('rooms', newList);
-      setBookings(newList);
-      setLastUpdated(new Date());
-      return true;
-    } catch (error: any) {
-      showToast(`อัปเดตข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
-      fetchBookings();
-      return false;
-    }
-  };
 
   const handleAdminLogin = () => {
     if (isAdmin) {
@@ -215,7 +256,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
             date={editingBooking ? editingBooking.date : selectedDate} 
             existingBookings={bookings}
             onSubmit={handleBookingSubmit}
-            onUpdate={async (b, f, r) => { /* Reuse update logic from previous implementation */ }}
+            onUpdate={handleBookingUpdate}
             bookingToEdit={editingBooking}
             onCancel={() => { setCurrentPage(editingBooking ? 'mybookings' : 'home'); setEditingBooking(null); }}
             showToast={showToast}
@@ -224,10 +265,10 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       case 'mybookings':
         return <MyBookingsPage 
                   bookings={bookings} 
-                  onCancelBooking={async (id) => { /* logic */ }}
-                  onCancelBookingGroup={async (gid) => { /* logic */ }}
-                  onDeleteBooking={async (id) => { /* logic */ }}
-                  onDeleteBookingGroup={async (gid) => { /* logic */ }}
+                  onCancelBooking={handleCancelBooking}
+                  onCancelBookingGroup={handleCancelBookingGroup}
+                  onDeleteBooking={handleDeleteBooking}
+                  onDeleteBookingGroup={handleDeleteBookingGroup}
                   onEditBooking={(b) => { setEditingBooking(b); setCurrentPage('booking'); }}
                   onBack={() => setCurrentPage('home')}
                   isAdmin={isAdmin}
@@ -269,7 +310,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
               <button 
                 onClick={() => fetchBookings(true)}
                 className="text-xs text-gray-400 font-medium flex items-center gap-2 hover:text-blue-500 transition-colors"
-                title="คลิกเพื่ออัปเดตข้อมูลตอนนี้"
               >
                 <span className={`w-2 h-2 ${isSyncing ? 'bg-blue-400' : 'bg-green-400'} rounded-full`}></span>
                 อัปเดตเมื่อ: {lastUpdated.toLocaleTimeString('th-TH')}

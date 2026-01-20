@@ -72,25 +72,38 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
         };
     }, [fetchBorrowings]);
 
-    useEffect(() => {
-        const interval = window.setInterval(() => {
-            const today = new Date().toISOString().split('T')[0];
-            let hasChanged = false;
-            const updatedBorrowings = borrowings.map(b => {
-                if (b.status === BorrowStatus.Borrowing && b.returnDate < today) {
-                    hasChanged = true;
-                    return { ...b, status: BorrowStatus.Overdue };
-                }
-                return b;
-            });
-            if (hasChanged) {
-                saveData('equipment', updatedBorrowings).then(() => {
-                    setBorrowings(updatedBorrowings);
-                });
-            }
-        }, 60 * 60 * 1000); 
-        return () => clearInterval(interval);
+    const updateBorrowingList = async (newList: BorrowingRequest[]): Promise<boolean> => {
+        try {
+            await saveData('equipment', newList);
+            setBorrowings(newList);
+            setLastUpdated(new Date());
+            fetchBorrowings(true);
+            return true;
+        } catch (error: any) {
+            showToast(`อัปเดตข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
+            return false;
+        }
+    };
+
+    const handleChangeStatus = useCallback(async (id: string, newStatus: BorrowStatus) => {
+        const updated = borrowings.map(b => b.id === id ? { ...b, status: newStatus } : b);
+        if (await updateBorrowingList(updated)) showToast('เปลี่ยนสถานะเรียบร้อย', 'success');
     }, [borrowings]);
+
+    const handleDeleteRequest = useCallback(async (id: string) => {
+        const updated = borrowings.filter(b => b.id !== id);
+        if (await updateBorrowingList(updated)) showToast('ลบรายการถาวรแล้ว', 'success');
+    }, [borrowings]);
+
+    const handleNotifyOverdue = useCallback(async (req: BorrowingRequest) => {
+        const msg = `⚠️ แจ้งเตือน: เลยกำหนดคืนอุปกรณ์\nผู้ยืม: ${req.borrowerName}\nอุปกรณ์: ${req.equipmentList}\nกำหนดคืน: ${new Date(req.returnDate).toLocaleDateString('th-TH')}\nโปรดติดต่อคืนด่วนครับ`;
+        try {
+            await sendLineNotification(msg);
+            showToast('ส่งแจ้งเตือน LINE สำเร็จ', 'success');
+        } catch (e) {
+            showToast('ส่งแจ้งเตือนไม่สำเร็จ', 'error');
+        }
+    }, [showToast]);
 
     const handleFormSubmit = useCallback(async (newRequestData: Omit<BorrowingRequest, 'id' | 'createdAt' | 'status'>) => {
         const createdRequest: BorrowingRequest = {
@@ -105,17 +118,7 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
             await saveData('equipment', updatedBorrowings);
             setBorrowings(updatedBorrowings);
             setLastUpdated(new Date());
-
-            const notifyMessage = [
-                "------",
-                "📢 มีคำขอยืมอุปกรณ์ใหม่",
-                "",
-                `ผู้ยืม: ${createdRequest.borrowerName}`,
-                `อุปกรณ์: ${createdRequest.equipmentList}`,
-                "------"
-            ].join('\n');
-
-            await sendLineNotification(notifyMessage);
+            await sendLineNotification(`📢 มีคำขอยืมอุปกรณ์ใหม่\nผู้ยืม: ${createdRequest.borrowerName}\nอุปกรณ์: ${createdRequest.equipmentList}`);
             setCurrentPage('list');
             showToast('ส่งคำขอยืมอุปกรณ์สำเร็จ', 'success');
             fetchBorrowings(true);
@@ -153,9 +156,9 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
                             borrowings={borrowings} 
                             onNewRequest={() => setCurrentPage('form')}
                             onViewStats={() => setCurrentPage('statistics')}
-                            onChangeStatus={async (id, s) => { /* logic */ }}
-                            onDeleteRequest={async (id) => { /* logic */ }}
-                            onNotifyOverdue={async (r) => { /* logic */ }}
+                            onChangeStatus={handleChangeStatus}
+                            onDeleteRequest={handleDeleteRequest}
+                            onNotifyOverdue={handleNotifyOverdue}
                             onBackToLanding={onBackToLanding}
                             showToast={showToast}
                             lastUpdated={lastUpdated}
