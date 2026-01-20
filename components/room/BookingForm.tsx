@@ -76,7 +76,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
             participants: bookingToEdit.participants,
             meetingType: bookingToEdit.meetingType,
             purpose: bookingToEdit.purpose,
-            equipment: bookingToEdit.equipment,
+            equipment: bookingToEdit.equipment || '',
             attachmentUrl: bookingToEdit.attachmentUrl || '',
             startTime: bookingToEdit.startTime,
             endTime: bookingToEdit.endTime,
@@ -236,8 +236,28 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
             </FormField>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <FormField label="จำนวนผู้เข้าร่วม" icon="👥" required>
+              <input type="number" name="participants" min="1" value={formData.participants} onChange={handleInputChange} className="block w-full rounded-xl border p-3.5" required />
+            </FormField>
+            <FormField label="รูปแบบการประชุม" icon="💻" required>
+              <select name="meetingType" value={formData.meetingType} onChange={handleInputChange} className="block w-full rounded-xl border p-3.5" required>
+                <option value="Onsite">Onsite (ที่วิทยาลัย)</option>
+                <option value="Online">Online (ผ่านระบบออนไลน์)</option>
+              </select>
+            </FormField>
+          </div>
+
           <FormField label="วัตถุประสงค์" icon="🎯" required>
             <textarea name="purpose" value={formData.purpose} onChange={handleInputChange} rows={3} className="block w-full rounded-xl border p-3.5" required />
+          </FormField>
+
+          <FormField label="อุปกรณ์เพิ่มเติม" icon="🛠️">
+            <textarea name="equipment" value={formData.equipment} onChange={handleInputChange} rows={3} className="block w-full rounded-xl border p-3.5" placeholder="ระบุอุปกรณ์ที่ต้องการ เช่น ไมโครโฟนเสริม, โปรเจคเตอร์" />
+          </FormField>
+
+          <FormField label="ลิงก์ไฟล์แนบ (ถ้ามี)" icon="📎">
+            <input type="url" name="attachmentUrl" value={formData.attachmentUrl} onChange={handleInputChange} className="block w-full rounded-xl border p-3.5" placeholder="https://example.com/file.pdf" />
           </FormField>
           
           <div className="flex justify-end gap-4 pt-10">

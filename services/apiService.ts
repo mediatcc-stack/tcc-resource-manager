@@ -1,33 +1,35 @@
-
 import { Booking, BorrowingRequest } from '../types';
 
+// ใช้ URL ของ Worker จาก Cloudflare โดยตรงเพื่อความเสถียรหลังจากย้ายโดเมน mediatcc.com ออก
+// ตรวจสอบชื่อ Worker ในหน้า Cloudflare Workers ของคุณว่าชื่อ 'tcc-line-notifier' ถูกต้องหรือไม่
 const WORKER_BASE_URL = 'https://tcc-line-notifier.media-tcc.workers.dev';
 
 type DataType = 'rooms' | 'equipment';
 
-/**
- * A helper function to handle fetch responses.
- * If the response is not OK, it attempts to parse a JSON error from the body.
- * This provides more specific error messages from the worker.
- */
 const handleResponse = async (response: Response, errorMessagePrefix: string): Promise<any> => {
     if (!response.ok) {
-        const errorBody = await response.json().catch(() => ({ error: `เกิดข้อผิดพลาดจากเซิร์ฟเวอร์! สถานะ: ${response.status}` }));
-        throw new Error(`${errorMessagePrefix}: ${errorBody.error || response.statusText}`);
+        let errorMsg = `HTTP Error: ${response.status}`;
+        try {
+            const errorBody = await response.json();
+            errorMsg = errorBody.error || errorMsg;
+        } catch (e) {
+            // response might not be JSON
+        }
+        throw new Error(`${errorMessagePrefix}: ${errorMsg}`);
     }
     return response.json();
 };
 
-
-// --- Data Fetching and Saving ---
-
 export const fetchData = async (type: DataType): Promise<any[]> => {
     try {
-        const response = await fetch(`${WORKER_BASE_URL}/data?type=${type}`);
+        const response = await fetch(`${WORKER_BASE_URL}/data?type=${type}`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        });
         return await handleResponse(response, `ดึงข้อมูล ${type} ไม่สำเร็จ`);
     } catch (error) {
-        console.error(`[apiService] Error fetching ${type} data:`, error);
-        throw error; // Re-throw for the component to catch and display
+        console.error(`[apiService] Fetch error for ${type}:`, error);
+        throw error;
     }
 };
 
@@ -37,19 +39,17 @@ export const saveData = async (type: DataType, data: Booking[] | BorrowingReques
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify(data),
         });
         await handleResponse(response, `บันทึกข้อมูล ${type} ไม่สำเร็จ`);
         return true;
     } catch (error) {
-        console.error(`[apiService] Error saving ${type} data:`, error);
-        throw error; // Re-throw for the component to catch
+        console.error(`[apiService] Save error for ${type}:`, error);
+        throw error;
     }
 };
-
-
-// --- File Uploading ---
 
 export const uploadFile = async (file: File): Promise<string> => {
     const formData = new FormData();
@@ -62,11 +62,11 @@ export const uploadFile = async (file: File): Promise<string> => {
         });
         const result = await handleResponse(response, 'อัปโหลดไฟล์ไม่สำเร็จ');
         if (!result.url) {
-            throw new Error('อัปโหลดไฟล์ไม่สำเร็จ: ไม่พบ URL ในการตอบกลับ');
+            throw new Error('อัปโหลดสำเร็จแต่ไม่พบ URL ในการตอบกลับ');
         }
         return result.url;
     } catch (error) {
-        console.error('[apiService] Error uploading file:', error);
-        throw error; // Re-throw for the component to catch
+        console.error('[apiService] Upload error:', error);
+        throw error;
     }
 };
