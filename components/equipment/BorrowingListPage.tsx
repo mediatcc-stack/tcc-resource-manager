@@ -16,12 +16,26 @@ interface BorrowingListPageProps {
     lastUpdated: Date | null;
 }
 
+const thaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+
 const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNewRequest, onViewStats, onChangeStatus, onDeleteRequest, onNotifyOverdue, onBackToLanding, showToast, lastUpdated }) => {
     const [isAdmin, setIsAdmin] = useState(false);
     const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
     const [nameFilter, setNameFilter] = useState('');
-    const [dateFilter, setDateFilter] = useState('');
+    const [monthFilter, setMonthFilter] = useState<string>('all');
+    const [yearFilter, setYearFilter] = useState<string>(new Date().getFullYear().toString());
     const [statusFilter, setStatusFilter] = useState('ทั้งหมด');
+
+    // สร้างรายการปีที่มีข้อมูลยืมจริงในระบบ
+    const years = useMemo(() => {
+        const yearsSet = new Set<string>();
+        borrowings.forEach(b => {
+            const year = new Date(b.borrowDate).getFullYear().toString();
+            yearsSet.add(year);
+        });
+        yearsSet.add(new Date().getFullYear().toString());
+        return Array.from(yearsSet).sort((a, b) => b.localeCompare(a));
+    }, [borrowings]);
 
     const handleAdminLogin = () => {
         if (isAdmin) {
@@ -40,7 +54,8 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
 
     const clearFilters = () => {
         setNameFilter('');
-        setDateFilter('');
+        setMonthFilter('all');
+        setYearFilter(new Date().getFullYear().toString());
         setStatusFilter('ทั้งหมด');
     };
 
@@ -57,10 +72,15 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
         });
 
         const filtered = borrowingsInTab.filter(b => {
+            const bDate = new Date(b.borrowDate);
             const nameMatch = nameFilter ? b.borrowerName.toLowerCase().includes(nameFilter.toLowerCase()) : true;
-            const dateMatch = dateFilter ? b.borrowDate === dateFilter || b.returnDate === dateFilter : true;
             const statusMatch = statusFilter !== 'ทั้งหมด' ? b.status === statusFilter : true;
-            return nameMatch && dateMatch && statusMatch;
+            
+            // กรองตามเดือนและปี
+            const monthMatch = monthFilter === 'all' || (bDate.getMonth() + 1).toString() === monthFilter;
+            const yearMatch = yearFilter === 'all' || bDate.getFullYear().toString() === yearFilter;
+            
+            return nameMatch && statusMatch && monthMatch && yearMatch;
         });
 
         return filtered.sort((a, b) => {
@@ -81,9 +101,9 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
                 return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
             }
         });
-    }, [borrowings, activeTab, nameFilter, dateFilter, statusFilter]);
+    }, [borrowings, activeTab, nameFilter, monthFilter, yearFilter, statusFilter]);
     
-    const inputClasses = "block w-full rounded-lg border border-gray-300 bg-white p-2.5 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
+    const inputClasses = "block w-full rounded-lg border border-gray-300 bg-white p-2.5 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm";
 
     return (
         <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
@@ -148,17 +168,27 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
 
             {/* Filters Box */}
             <div className="bg-gray-100 p-5 rounded-2xl border border-gray-200">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                    <div className="lg:col-span-1">
+                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider">🔍 ค้นหาชื่อ</label>
+                        <input type="text" placeholder="ชื่อผู้ยืม..." value={nameFilter} onChange={e => setNameFilter(e.target.value)} className={inputClasses}/>
+                    </div>
                     <div>
-                        <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-1">🔍 ค้นหาชื่อผู้ยืม</label>
-                        <input type="text" placeholder="ค้นหา..." value={nameFilter} onChange={e => setNameFilter(e.target.value)} className={inputClasses}/>
+                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider">🗓️ เดือนที่ยืม</label>
+                        <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className={inputClasses}>
+                            <option value="all">ทุกเดือน</option>
+                            {thaiMonths.map((m, i) => <option key={i} value={(i+1).toString()}>{m}</option>)}
+                        </select>
                     </div>
-                     <div>
-                        <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-1">🗓️ กรองตามวันที่ยืม</label>
-                        <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)} className={inputClasses} />
+                    <div>
+                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider">📅 ปี พ.ศ.</label>
+                        <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className={inputClasses}>
+                            <option value="all">ทุกปี</option>
+                            {years.map(y => <option key={y} value={y}>{parseInt(y) + 543}</option>)}
+                        </select>
                     </div>
-                     <div>
-                        <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-1">📊 กรองตามสถานะ</label>
+                    <div>
+                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider">📊 สถานะ</label>
                         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={inputClasses} >
                             <option value="ทั้งหมด">ทั้งหมด</option>
                             {Object.values(BorrowStatus)
@@ -170,7 +200,7 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
                             }
                         </select>
                     </div>
-                    <Button onClick={clearFilters} variant="secondary">🔄 ล้างตัวกรอง</Button>
+                    <Button onClick={clearFilters} variant="secondary" className="w-full">🔄 ล้างค่า</Button>
                 </div>
             </div>
 
@@ -189,11 +219,9 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onNew
                     )
                 ) : (
                     <div className="text-center text-gray-500 py-24 bg-white/50 rounded-2xl border-2 border-dashed border-gray-200">
-                        <p className="text-xl font-semibold">ไม่พบรายการในหน้านี้</p>
+                        <p className="text-xl font-semibold">ไม่พบรายการ</p>
                         <p className="text-sm mt-2">
-                            {activeTab === 'current' 
-                                ? 'ไม่มีอุปกรณ์ที่กำลังถูกยืมหรือรออนุมัติในขณะนี้' 
-                                : 'ยังไม่มีประวัติการคืนหรือยกเลิกรายการอุปกรณ์'}
+                            ลองเปลี่ยนตัวกรองเดือนหรือปี หรือชื่อผู้ยืมใหม่อีกครั้ง
                         </p>
                     </div>
                 )}
