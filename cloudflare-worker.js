@@ -7,12 +7,16 @@ const corsHeaders = {
 
 // ฟังก์ชันช่วยจัดรูปแบบวันที่ไทย (YYYY-MM-DD -> 21 มกราคม 2569)
 const formatThaiDate = (dateStr) => {
-  const [y, m, d] = dateStr.split('-');
-  const months = ["", "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
-  return `${parseInt(d)} ${months[parseInt(m)]} ${parseInt(y) + 543}`;
+  try {
+    const [y, m, d] = dateStr.split('-');
+    const months = ["", "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+    return `${parseInt(d)} ${months[parseInt(m)]} ${parseInt(y) + 543}`;
+  } catch (e) {
+    return dateStr;
+  }
 };
 
-// ฟังก์ชันสร้างข้อความวันที่แบบเต็ม (D-M-YYYY พ.ศ.) สำหรับตัวอย่างและปุ่ม
+// ฟังก์ชันสร้างข้อความวันที่แบบเต็ม (D-M-YYYY พ.ศ.)
 const getFullThaiDateStr = (date) => {
   const d = date.getDate();
   const m = date.getMonth() + 1;
@@ -20,13 +24,19 @@ const getFullThaiDateStr = (date) => {
   return `${d}-${m}-${y}`;
 };
 
-// ฟังก์ชันดึงวันที่เป้าหมาย (โหมด ยืดหยุ่นรองรับการค้นหาในประโยค)
+// ฟังก์ชันดึงวันที่เป้าหมาย
 const parseTargetDate = (rawText) => {
-  // ลบ Mention ออกก่อนประมวลผล
-  const text = rawText.replace(/@[\w\s.-]+/, '').trim();
+  // ลบ Mention ออก และทำเป็นตัวพิมพ์เล็กเพื่อเช็คคำสั่งง่ายๆ
+  const text = rawText.replace(/@[\w\s.-]+/, '').trim().toLowerCase();
   const bkkTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
   
-  // 1. ค้นหารูปแบบวันที่เต็มในข้อความ (เช่น 21-1-2569)
+  // เช็คคำสั่งช่วยเหลือเบื้องต้น
+  const helpKeywords = ['เมนู', 'help', 'ช่วยเหลือ', 'สวัสดี', 'จอง', 'ห้อง'];
+  if (helpKeywords.includes(text) || text === '') {
+    return null; // ส่งกลับ null เพื่อให้เข้าสู่ Help Menu
+  }
+
+  // 1. ค้นหารูปแบบวันที่ (เช่น 21-1-2569 หรือ 21/1/2569)
   const fullDateMatch = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
   if (fullDateMatch) {
     let [_, d, m, y] = fullDateMatch;
@@ -44,18 +54,32 @@ const parseTargetDate = (rawText) => {
 };
 
 const sendLineReply = async (env, replyToken, messages) => {
-  if (!env.CHANNEL_ACCESS_TOKEN) return;
+  if (!env.CHANNEL_ACCESS_TOKEN) {
+    console.error("Missing CHANNEL_ACCESS_TOKEN in environment variables!");
+    return;
+  }
+  
   const msgs = Array.isArray(messages) ? messages : [
     typeof messages === 'string' ? { type: 'text', text: messages } : messages
   ];
-  await fetch('https://api.line.me/v2/bot/message/reply', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
-    },
-    body: JSON.stringify({ replyToken, messages: msgs }),
-  });
+
+  try {
+    const response = await fetch('https://api.line.me/v2/bot/message/reply', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
+      },
+      body: JSON.stringify({ replyToken, messages: msgs }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      console.error("LINE API Error:", err);
+    }
+  } catch (e) {
+    console.error("Failed to send LINE reply:", e);
+  }
 };
 
 export default {
@@ -66,19 +90,25 @@ export default {
     const path = url.pathname;
 
     try {
+      // ตรวจสอบ Webhook ของ LINE
       if (path === '/webhook' && request.method === 'POST') {
         const body = await request.json();
+        
+        // วนลูปจัดการแต่ละ Event
         for (const event of body.events) {
           if (event.type === 'message' && event.message.type === 'text') {
             const rawText = event.message.text;
+            
+            // เช็คว่าเป็นการคุยส่วนตัว หรือมีการ Tag บอทในกลุ่ม
             const botMention = event.message.mention?.mentionees?.find(m => m.isSelf);
-            const isMentioned = botMention || event.source.type === 'user';
+            const isPrivateChat = event.source.type === 'user';
+            const isMentioned = botMention || isPrivateChat;
 
             if (isMentioned) {
               const targetDate = parseTargetDate(rawText);
 
               if (targetDate) {
-                // ส่วนประมวลผลรายงาน
+                // ดึงข้อมูลการจอง
                 const data = await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json') || [];
                 const bookings = data.filter(b => b.date === targetDate && b.status === 'จองแล้ว');
                 const displayDate = formatThaiDate(targetDate);
@@ -94,14 +124,14 @@ export default {
                 }
                 await sendLineReply(env, event.replyToken, msg);
               } else {
-                // --- Help Menu & Quick Replies (3 ปุ่มตามคำขอ) ---
+                // --- ระบบแนะนำ (Help Menu) ---
                 const bkkNow = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
                 const tomorrow = new Date(bkkNow); tomorrow.setDate(bkkNow.getDate() + 1);
                 const tomorrowStr = getFullThaiDateStr(tomorrow);
 
                 const helpResponse = {
                   type: 'text',
-                  text: `🤖 สวัสดีครับ! ต้องการดูรายงานการจองห้องใช่ไหมครับ?\n\n💡 แนะนำ:\n📍 ดูวันอื่นให้พิมพ์ "วัน-เดือน-ปี" (พ.ศ.)\n📝 เช่น: ขอรายงาน ${tomorrowStr}\n\n👇 หรือเลือกเมนูด้านล่างนี้ครับ:`,
+                  text: `🤖 สวัสดีครับ! ผมคือบอทรายงานการจองห้อง\n\n💡 วิธีใช้งาน:\n📍 พิมพ์วันที่เพื่อดูรายงาน (เช่น ${tomorrowStr})\n📊 หรือกดเลือกเมนูด้านล่างนี้ครับ:`,
                   quickReply: {
                     items: [
                       {
@@ -110,7 +140,7 @@ export default {
                       },
                       {
                         type: 'action',
-                        action: { type: 'message', label: `🗓️ ดูของพรุ่งนี้`, text: `ขอรายงาน ${tomorrowStr}` }
+                        action: { type: 'message', label: '🗓️ ของพรุ่งนี้', text: `ขอรายงาน ${tomorrowStr}` }
                       },
                       {
                         type: 'action',
@@ -127,11 +157,12 @@ export default {
         return new Response('OK');
       }
 
-      // API Routes
+      // API สำหรับหน้าเว็บ (คงเดิม)
       if (path === '/data') {
         const type = url.searchParams.get('type');
         const KV = type === 'rooms' ? env.ROOM_BOOKINGS_KV : env.EQUIPMENT_BORROWINGS_KV;
         if (!KV) return new Response(JSON.stringify({ error: 'KV Binding missing' }), { status: 500, headers: corsHeaders });
+        
         if (request.method === 'GET') {
           const data = await KV.get(`${type}_data`, 'json') || [];
           return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -157,6 +188,7 @@ export default {
 
       return new Response('TCC API is online', { headers: corsHeaders });
     } catch (e) {
+      console.error("Worker Error:", e.message);
       return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
     }
   }
