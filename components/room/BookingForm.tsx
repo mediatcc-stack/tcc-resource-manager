@@ -61,14 +61,26 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
   useEffect(() => {
     if (bookingToEdit) {
         let roomIdsToSelect: number[] = [];
+        let endDateForForm = bookingToEdit.date; // Default to the single booking date
+
         if (bookingToEdit.groupId) {
+            // Find all bookings in the same group
             const groupBookings = existingBookings.filter(b => b.groupId === bookingToEdit.groupId);
+            
+            // Re-select all rooms that were part of the group
             const uniqueRoomNames = [...new Set(groupBookings.map(b => b.roomName))];
             roomIdsToSelect = rooms.filter(r => uniqueRoomNames.includes(r.name)).map(r => r.id);
+
+            // If it's a multi-day booking, find the latest date in the group
+            if (bookingToEdit.isMultiDay && groupBookings.length > 0) {
+                endDateForForm = groupBookings.reduce((max, b) => (b.date > max ? b.date : max), groupBookings[0].date);
+            }
         } else {
+            // It's a single booking, find its room ID
             const roomToEdit = rooms.find(r => r.name === bookingToEdit.roomName);
             if (roomToEdit) roomIdsToSelect = [roomToEdit.id];
         }
+
         setSelectedRoomIds(roomIdsToSelect);
         setCurrentDate(bookingToEdit.date);
         setFormData({
@@ -82,7 +94,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
             startTime: bookingToEdit.startTime,
             endTime: bookingToEdit.endTime,
             isMultiDay: bookingToEdit.isMultiDay || false,
-            endDate: bookingToEdit.date,
+            endDate: endDateForForm, // Use the correctly determined end date
         });
     } else {
         setSelectedRoomIds([room.id]);
@@ -205,18 +217,16 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
             </div>
           </FormField>
 
-          {!isEditing && (
-            <div className="flex items-center gap-4 p-5 bg-blue-50/50 rounded-2xl border border-blue-100">
-                <input type="checkbox" id="isMultiDay" checked={formData.isMultiDay} onChange={handleCheckboxChange} className="h-6 w-6 rounded border-gray-300 text-blue-600 focus:ring-blue-500"/>
-                <label htmlFor="isMultiDay" className="font-black text-blue-900 text-sm cursor-pointer">ต้องการจองต่อเนื่องหลายวัน</label>
-            </div>
-          )}
+          <div className="flex items-center gap-4 p-5 bg-blue-50/50 rounded-2xl border border-blue-100">
+              <input type="checkbox" id="isMultiDay" checked={formData.isMultiDay} onChange={handleCheckboxChange} className="h-6 w-6 rounded border-gray-300 text-blue-600 focus:ring-blue-500"/>
+              <label htmlFor="isMultiDay" className="font-black text-blue-900 text-sm cursor-pointer">ต้องการจองต่อเนื่องหลายวัน</label>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
              <FormField label={formData.isMultiDay ? "วันที่เริ่ม" : "วันที่จัดงาน"} icon="🗓️" required>
                 <input type="date" value={currentDate} onChange={e => setCurrentDate(e.target.value)} className={inputClasses} required />
             </FormField>
-             {formData.isMultiDay && !isEditing && (
+             {formData.isMultiDay && (
                 <FormField label="วันที่สิ้นสุด" icon="🗓️" required>
                     <input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} min={currentDate} className={inputClasses} required />
                 </FormField>
