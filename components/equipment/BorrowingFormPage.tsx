@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BorrowingRequest } from '../../types';
 import Button from '../shared/Button';
 import { EQUIPMENT_CATEGORIES } from '../../constants';
+import ThaiDatePicker from '../shared/ThaiDatePicker';
 
 interface BorrowingFormPageProps {
     onSubmit: (newRequest: Omit<BorrowingRequest, 'id' | 'createdAt' | 'status'>) => void;
@@ -25,7 +26,7 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
         department: '',
         purpose: '',
         borrowDate: new Date().toISOString().split('T')[0],
-        returnDate: new Date(Date.now() + 86400000).toISOString().split('T')[0], // Default to next day
+        returnDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
         equipmentList: '',
         notes: '',
     });
@@ -34,6 +35,10 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleDateChange = (name: string, value: string) => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
@@ -46,7 +51,8 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
             return;
         }
         
-        const today = new Date().toISOString().split('T')[0];
+        const bkkTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
+        const today = bkkTime.toISOString().split('T')[0];
         if (borrowDate < today) {
             setError('ไม่สามารถเลือกวันที่ยืมย้อนหลังได้');
             return;
@@ -58,7 +64,6 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
         }
 
         setLoading(true);
-        // Simulate API call delay
         setTimeout(() => {
             onSubmit(formData);
             setLoading(false);
@@ -112,12 +117,20 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
                     </FormField>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormField icon="🗓️" label="วันที่เริ่มยืม" required>
-                            <input type="date" name="borrowDate" value={formData.borrowDate} onChange={handleInputChange} className={inputClasses} min={new Date().toISOString().split('T')[0]} required />
-                        </FormField>
-                        <FormField icon="🗓️" label="วันที่คืน" required>
-                            <input type="date" name="returnDate" value={formData.returnDate} onChange={handleInputChange} className={inputClasses} min={formData.borrowDate} required />
-                        </FormField>
+                        <ThaiDatePicker 
+                            label="วันที่เริ่มยืม" 
+                            icon="🗓️" 
+                            value={formData.borrowDate} 
+                            onChange={(val) => handleDateChange('borrowDate', val)} 
+                            required 
+                        />
+                        <ThaiDatePicker 
+                            label="วันที่คืน" 
+                            icon="🗓️" 
+                            value={formData.returnDate} 
+                            onChange={(val) => handleDateChange('returnDate', val)} 
+                            required 
+                        />
                     </div>
 
                     <FormField icon="📦" label="ระบุอุปกรณ์ที่ต้องการยืม" required>

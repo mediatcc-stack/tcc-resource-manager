@@ -5,48 +5,59 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
 };
 
-// ฟังก์ชันช่วยจัดการวันที่แบบยืดหยุ่น
-const parseTargetDate = (text) => {
-  const bkk = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-  const today = new Date(bkk.getFullYear(), bkk.getMonth(), bkk.getDate());
+// ฟังก์ชันช่วยจัดรูปแบบวันที่ไทย (เพื่อความแม่นยำใน Cloudflare)
+const formatThaiDate = (dateStr) => {
+  const [y, m, d] = dateStr.split('-');
+  const months = ["", "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+  return `${parseInt(d)} ${months[parseInt(m)]} ${parseInt(y) + 543}`;
+};
+
+// ฟังก์ชันดึงวันที่เป้าหมาย
+const parseTargetDate = (rawText) => {
+  // 1. ทำความสะอาดข้อความ (ลบ Mention และช่องว่างส่วนเกิน)
+  const text = rawText.replace(/@[\w\s.-]+/, '').trim();
+  const bkkTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
+  const today = new Date(bkkTime.getFullYear(), bkkTime.getMonth(), bkkTime.getDate());
   
-  // 1. ตรวจสอบ Keyword พิเศษ
+  // 2. เช็ค Keyword พิเศษ
   if (text.includes('พรุ่งนี้')) {
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
+    today.setDate(today.getDate() + 1);
+    return today.toISOString().split('T')[0];
+  }
+  if (text.includes('มะรืน')) {
+    today.setDate(today.getDate() + 2);
+    return today.toISOString().split('T')[0];
   }
   if (text.includes('เมื่อวาน')) {
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    return yesterday.toISOString().split('T')[0];
+    today.setDate(today.getDate() - 1);
+    return today.toISOString().split('T')[0];
   }
 
-  // 2. ค้นหารูปแบบ วว/ดด/ปปปป หรือ วว-ดด-ปปปป (พ.ศ. หรือ ค.ศ.)
+  // 3. ค้นหา Full Date (วว/ดด/ปปปป)
   const fullDateMatch = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
   if (fullDateMatch) {
     let [_, d, m, y] = fullDateMatch;
     let year = parseInt(y);
-    if (year > 2500) year -= 543; // แปลง พ.ศ. -> ค.ศ.
-    if (year < 100) year += 2000; // กรณีพิมพ์แค่ 68 -> 2025
+    if (year > 2500) year -= 543;
+    if (year < 100) year += 2000;
     return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
 
-  // 3. ค้นหาตัวเลขวันที่ในประโยค (เช่น "วันที่ 22", "รายงาน 22", "จองห้องวันที่ 22")
-  // ค้นหาตัวเลข 1-2 หลักที่อยู่หลังคำสำคัญ หรือถ้ามีคำว่ารายงาน ให้หาเลขตัวแรกที่เจอ
-  const dateMatch = text.match(/(?:วันที่|วัน|ของวัน|รายงาน|เลข)\s*(\d{1,2})/) || text.match(/(\d{1,2})/);
-  
-  if (dateMatch && (text.includes('รายงาน') || text.includes('วันที่') || text.includes('จอง'))) {
-    const d = dateMatch[1].padStart(2, '0');
-    const m = (bkk.getMonth() + 1).toString().padStart(2, '0');
-    const y = bkk.getFullYear();
-    
-    // ตรวจสอบเบื้องต้นว่าถ้าเลขวันที่น้อยกว่าวันนี้ อาจหมายถึงเดือนหน้า (Option เสริม)
-    // ในที่นี้เรายึดเดือนปัจจุบันเป็นหลักก่อน
-    return `${y}-${m}-${d}`;
+  // 4. ค้นหาตัวเลขโดดๆ (เช่น "วันที่ 22" หรือ "รายงาน 22")
+  // ค้นหาตัวเลข 1 หรือ 2 หลักที่อยู่ในประโยค
+  const numbers = text.match(/\d{1,2}/g);
+  if (numbers && numbers.length > 0) {
+    // เลือกตัวเลขตัวแรกที่เจอ (โดยปกติคือวันที่)
+    const day = parseInt(numbers[0]);
+    if (day >= 1 && day <= 31) {
+      const year = bkkTime.getFullYear();
+      const month = (bkkTime.getMonth() + 1).toString().padStart(2, '0');
+      return `${year}-${month}-${day.toString().padStart(2, '0')}`;
+    }
   }
 
-  return bkk.toISOString().split('T')[0];
+  // ถ้าไม่เจออะไรเลย ให้ยึด "วันนี้"
+  return bkkTime.toISOString().split('T')[0];
 };
 
 const sendLineReply = async (env, replyToken, messages) => {
@@ -74,26 +85,20 @@ export default {
         const body = await request.json();
         for (const event of body.events) {
           if (event.type === 'message' && event.message.type === 'text') {
-            const text = event.message.text.trim();
+            const rawText = event.message.text;
             const isMentioned = event.message.mention?.mentionees?.some(m => m.isSelf) || event.source.type === 'user';
 
-            if (isMentioned && (text.includes('รายงาน') || text.includes('จอง') || text.match(/\d{1,2}/))) {
-              const targetDate = parseTargetDate(text);
+            if (isMentioned && (rawText.includes('รายงาน') || rawText.includes('จอง') || rawText.match(/\d+/))) {
+              const targetDate = parseTargetDate(rawText);
               const data = await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json') || [];
-              
-              // กรองรายการจองตามวันที่
               const bookings = data.filter(b => b.date === targetDate && b.status === 'จองแล้ว');
               
-              const dateObj = new Date(targetDate);
-              const displayDate = dateObj.toLocaleDateString('th-TH', { 
-                day: 'numeric', month: 'long', year: 'numeric' 
-              });
-
-              let msg = `🔎 ตรวจสอบรายการจอง\n📅 ประจำวันที่: ${displayDate}\n`;
-              if (targetDate === new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"})).toISOString().split('T')[0]) {
-                msg += `(วันนี้)\n`;
-              }
-              msg += `\n`;
+              const displayDate = formatThaiDate(targetDate);
+              const todayIso = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"})).toISOString().split('T')[0];
+              
+              let msg = `📅 รายงานจองห้องประชุม\n📌 วันที่: ${displayDate}`;
+              if (targetDate === todayIso) msg += ` (วันนี้)`;
+              msg += `\n\n`;
               
               if (bookings.length > 0) {
                 bookings.sort((a,b) => a.startTime.localeCompare(b.startTime)).forEach((b, i) => {
@@ -101,18 +106,17 @@ export default {
                 });
                 msg += `✨ รวมทั้งหมด ${bookings.length} รายการ`;
               } else {
-                msg += "✅ ไม่พบรายการจองครับ ว่างทุกห้อง!";
+                msg += "✅ ไม่มีรายการจองครับ ว่างทุกห้อง!";
               }
               
               await sendLineReply(env, event.replyToken, msg);
-            } else if (isMentioned) {
-              await sendLineReply(env, event.replyToken, "สวัสดีครับ! ผมบอท TCC Notify 🚀\n\n🔹 พิมพ์ 'รายงาน' (ดูวันนี้)\n🔹 พิมพ์ 'รายงาน พรุ่งนี้'\n🔹 พิมพ์ 'ขอรายงานวันที่ 22'\n🔹 หรือ 'รายงาน 22/1/68' ครับ");
             }
           }
         }
         return new Response('OK');
       }
 
+      // API สำหรับหน้าเว็บ (จัดการผ่าน App.tsx)
       if (path === '/data') {
         const type = url.searchParams.get('type');
         const KV = type === 'rooms' ? env.ROOM_BOOKINGS_KV : env.EQUIPMENT_BORROWINGS_KV;

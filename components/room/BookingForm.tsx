@@ -1,8 +1,9 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Room, Booking } from '../../types';
 import Button from '../shared/Button';
 import { ROOMS } from '../../constants';
 import { v4 as uuidv4 } from 'uuid';
+import ThaiDatePicker from '../shared/ThaiDatePicker';
 
 interface BookingFormProps {
   room: Room;
@@ -24,7 +25,6 @@ const timeToMinutes = (timeStr: string): number => {
   return (hours * 60) + (minutes || 0);
 };
 
-// สไตล์สำหรับ Label และ Icon
 const FormField: React.FC<{label: string, icon: string, required?: boolean, children: React.ReactNode}> = ({ label, icon, required, children }) => (
   <div className="animate-fade-in group">
     <label className="flex items-center text-sm font-bold text-gray-600 mb-2 group-focus-within:text-blue-600 transition-colors">
@@ -61,22 +61,16 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
   useEffect(() => {
     if (bookingToEdit) {
         let roomIdsToSelect: number[] = [];
-        let endDateForForm = bookingToEdit.date; // Default to the single booking date
+        let endDateForForm = bookingToEdit.date;
 
         if (bookingToEdit.groupId) {
-            // Find all bookings in the same group
             const groupBookings = existingBookings.filter(b => b.groupId === bookingToEdit.groupId);
-            
-            // Re-select all rooms that were part of the group
             const uniqueRoomNames = [...new Set(groupBookings.map(b => b.roomName))];
             roomIdsToSelect = rooms.filter(r => uniqueRoomNames.includes(r.name)).map(r => r.id);
-
-            // If it's a multi-day booking, find the latest date in the group
             if (bookingToEdit.isMultiDay && groupBookings.length > 0) {
                 endDateForForm = groupBookings.reduce((max, b) => (b.date > max ? b.date : max), groupBookings[0].date);
             }
         } else {
-            // It's a single booking, find its room ID
             const roomToEdit = rooms.find(r => r.name === bookingToEdit.roomName);
             if (roomToEdit) roomIdsToSelect = [roomToEdit.id];
         }
@@ -94,13 +88,13 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
             startTime: bookingToEdit.startTime,
             endTime: bookingToEdit.endTime,
             isMultiDay: bookingToEdit.isMultiDay || false,
-            endDate: endDateForForm, // Use the correctly determined end date
+            endDate: endDateForForm,
         });
     } else {
         setSelectedRoomIds([room.id]);
         setCurrentDate(date);
     }
-}, [bookingToEdit, rooms, room, date, existingBookings]);
+  }, [bookingToEdit, rooms, room, date, existingBookings]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -115,7 +109,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const isChecked = e.target.checked;
-    setFormData(prev => ({ ...prev, isMultiDay: isChecked, endDate: isChecked ? prev.endDate : currentDate }));
+    setFormData(prev => ({ ...prev, isMultiDay: isChecked, endDate: isChecked ? (prev.endDate || currentDate) : currentDate }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -223,13 +217,21 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-             <FormField label={formData.isMultiDay ? "วันที่เริ่ม" : "วันที่จัดงาน"} icon="🗓️" required>
-                <input type="date" value={currentDate} onChange={e => setCurrentDate(e.target.value)} className={inputClasses} required />
-            </FormField>
+             <ThaiDatePicker 
+                label={formData.isMultiDay ? "วันที่เริ่ม" : "วันที่จัดงาน"} 
+                icon="🗓️" 
+                value={currentDate} 
+                onChange={setCurrentDate} 
+                required 
+             />
              {formData.isMultiDay && (
-                <FormField label="วันที่สิ้นสุด" icon="🗓️" required>
-                    <input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange} min={currentDate} className={inputClasses} required />
-                </FormField>
+                <ThaiDatePicker 
+                  label="วันที่สิ้นสุด" 
+                  icon="🗓️" 
+                  value={formData.endDate} 
+                  onChange={(val) => setFormData(prev => ({...prev, endDate: val}))} 
+                  required 
+                />
              )}
           </div>
           
