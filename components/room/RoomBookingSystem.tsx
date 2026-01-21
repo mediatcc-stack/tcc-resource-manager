@@ -211,7 +211,11 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       setLastUpdated(new Date());
 
       const firstBooking = createdBookings[0];
-      const notifyMessage = `📌 มีการจองห้องใหม่\nเรื่อง: ${firstBooking.purpose}\nผู้จอง: ${firstBooking.bookerName}`;
+      const roomNames = [...new Set(createdBookings.map(b => b.roomName))].join(', ');
+      const dateInfo = firstBooking.isMultiDay && firstBooking.dateRange ? firstBooking.dateRange : new Date(firstBooking.date).toLocaleDateString('th-TH');
+      const timeInfo = `${firstBooking.startTime} - ${firstBooking.endTime}`;
+      
+      const notifyMessage = `📢 มีการจองห้องใหม่\n\nห้อง: ${roomNames}\nวันที่: ${dateInfo}\nเวลา: ${timeInfo}\n\nเรื่อง: ${firstBooking.purpose}\nผู้จอง: ${firstBooking.bookerName}\n\n🔗 ตรวจสอบรายละเอียดในระบบ`;
 
       await sendLineNotification(notifyMessage);
       setCurrentPage('home');

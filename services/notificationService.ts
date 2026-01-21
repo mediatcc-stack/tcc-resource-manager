@@ -1,5 +1,6 @@
-// !!! สำคัญ: โปรดตรวจสอบให้แน่ใจว่า URL นี้ตรงกับ URL ของ Worker ที่คุณใช้งานจริง
-const WORKER_BASE_URL = 'https://tcc-line-notifier.media-tcc.workers.dev';
+import { WORKER_BASE_URL } from '../constants';
+
+// !!! สำคัญ: URL ของ Worker ถูกจัดการจากไฟล์ constants.ts แล้ว
 const LINE_NOTIFIER_ENDPOINT = `${WORKER_BASE_URL}/notify`;
 
 export const sendLineNotification = async (message: string): Promise<void> => {

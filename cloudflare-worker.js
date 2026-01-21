@@ -49,44 +49,63 @@ const sendLineReply = async (env, replyToken, message) => {
 const handleScheduled = async (env) => {
   if (!env.ROOM_BOOKINGS_KV) return;
 
-  // Use Bangkok Standard Time (UTC+7)
-  const nowBKK = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
-  const currentHourBKK = nowBKK.getHours();
+  // Create a date object representing the current time in Bangkok (UTC+7)
+  const bkkTime = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
+  const currentHourBKK = bkkTime.getHours();
 
-  // Only run this logic at 8 AM
+  // Only run this logic at 8 AM Bangkok time
   if (currentHourBKK !== 8) {
     return;
   }
 
   const allBookings = await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json') || [];
-  let bookingsModified = false;
-  const todayBKKStr = nowBKK.toISOString().split('T')[0];
+  
+  // Create YYYY-MM-DD string for today in Bangkok
+  const year = bkkTime.getFullYear();
+  const month = (bkkTime.getMonth() + 1).toString().padStart(2, '0');
+  const day = bkkTime.getDate().toString().padStart(2, '0');
+  const todayBKKStr = `${year}-${month}-${day}`;
 
-  for (const booking of allBookings) {
-    // Check for bookings on the current day that haven't had a reminder sent
-    if (booking.status === 'จองแล้ว' && booking.date === todayBKKStr && !booking.reminderSent) {
-      
-      const reminderMessage = [
-        `------`,
-        `📢 แจ้งเตือนการจอง (วันนี้)`,
-        ``,
-        `ห้อง: ${booking.roomName}`,
-        `วันที่: ${new Date(booking.date).toLocaleDateString('th-TH')}`,
-        `เวลา: ${booking.startTime} - ${booking.endTime}`,
-        ``,
-        `ชื่องาน: ${booking.purpose}`,
-        `ผู้จอง: ${booking.bookerName}`,
-        `------`,
-      ].join('\n');
+  // 1. Find all bookings for today that need a reminder
+  const todaysBookings = allBookings.filter(booking => 
+    booking.status === 'จองแล้ว' && 
+    booking.date === todayBKKStr && 
+    !booking.reminderSent
+  );
 
-      await sendLinePush(env, reminderMessage);
-      booking.reminderSent = true;
-      bookingsModified = true;
-    }
-  }
+  // 2. If there are bookings, create one summary message
+  if (todaysBookings.length > 0) {
+    // Sort by start time
+    todaysBookings.sort((a, b) => a.startTime.localeCompare(b.startTime));
 
-  if (bookingsModified) {
-    await env.ROOM_BOOKINGS_KV.put('rooms_data', JSON.stringify(allBookings));
+    const todayFormatted = new Date(todayBKKStr).toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' });
+    let summaryMessage = `📢 รายงานการขอใช้ห้อง (วันนี้ - ${todayFormatted})\n\n`;
+
+    todaysBookings.forEach((booking, index) => {
+      summaryMessage += `รายการที่ ${index + 1}:\n`;
+      summaryMessage += `ห้อง: ${booking.roomName}\n`;
+      summaryMessage += `เวลา: ${booking.startTime} - ${booking.endTime}\n`;
+      summaryMessage += `ชื่องาน: ${booking.purpose}\n`;
+      summaryMessage += `ผู้จอง: ${booking.bookerName}\n`;
+      if (index < todaysBookings.length - 1) {
+          summaryMessage += `------\n\n`;
+      }
+    });
+
+    // 3. Send the single message
+    await sendLinePush(env, summaryMessage.trim());
+
+    // 4. Mark them as sent
+    const todaysBookingIds = new Set(todaysBookings.map(b => b.id));
+    const updatedAllBookings = allBookings.map(booking => {
+      if (todaysBookingIds.has(booking.id)) {
+        return { ...booking, reminderSent: true };
+      }
+      return booking;
+    });
+
+    // 5. Save the updated list
+    await env.ROOM_BOOKINGS_KV.put('rooms_data', JSON.stringify(updatedAllBookings));
   }
 };
 
@@ -140,25 +159,59 @@ export default {
         for (const event of data.events) {
             if (event.type === 'message' && event.message.type === 'text') {
                 const text = event.message.text.toLowerCase();
-                if (text.includes('ประชุม') || text.includes('วันนี้') || text.includes('จองห้อง')) {
+                if (text.includes('ประชุม') || text.includes('วันนี้') || text.includes('จองห้อง') || text.includes('รายงาน')) {
                     const allBookings = await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json') || [];
-                    const today = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"})).toISOString().split('T')[0];
                     
-                    const todayBookings = allBookings
-                        .filter(b => b.date === today && b.status === 'จองแล้ว')
+                    let targetDateStr;
+                    let dateForDisplay;
+
+                    const dateRegex = /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/;
+                    const match = text.match(dateRegex);
+
+                    if (match) {
+                        let day = parseInt(match[1], 10);
+                        let month = parseInt(match[2], 10);
+                        let year = parseInt(match[3], 10);
+
+                        if (year > 2500) {
+                            year -= 543;
+                        }
+
+                        if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+                             const targetDate = new Date(year, month - 1, day);
+                             targetDateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+                             dateForDisplay = targetDate.toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' });
+                        }
+                    }
+
+                    if (!targetDateStr) {
+                        const todayBKK = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
+                        const year = todayBKK.getFullYear();
+                        const month = (todayBKK.getMonth() + 1).toString().padStart(2, '0');
+                        const day = todayBKK.getDate().toString().padStart(2, '0');
+                        targetDateStr = `${year}-${month}-${day}`;
+                        dateForDisplay = new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok' });
+                    }
+                    
+                    const targetBookings = allBookings
+                        .filter(b => b.date === targetDateStr && b.status === 'จองแล้ว')
                         .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
-                    let replyMessage = `🗓️ สรุปรายการจองห้องประชุม วันที่ ${new Date(today).toLocaleDateString('th-TH')}:\n\n`;
-                    if (todayBookings.length > 0) {
-                        todayBookings.forEach(b => {
+                    let replyMessage;
+                    if (targetBookings.length > 0) {
+                        replyMessage = `🗓️ สรุปรายการขอใช้ห้อง วันที่ ${dateForDisplay}:\n\n`;
+                        targetBookings.forEach((b, index) => {
+                            replyMessage += `รายการที่ ${index + 1}:\n`;
                             replyMessage += `ห้อง: ${b.roomName}\n`;
                             replyMessage += `เวลา: ${b.startTime} - ${b.endTime}\n`;
                             replyMessage += `เรื่อง: ${b.purpose}\n`;
                             replyMessage += `ผู้จอง: ${b.bookerName}\n`;
-                            replyMessage += `------\n`;
+                            if (index < targetBookings.length - 1) {
+                                replyMessage += `------\n\n`;
+                            }
                         });
                     } else {
-                        replyMessage = `✅ วันนี้(${new Date(today).toLocaleDateString('th-TH')}) ไม่มีรายการจองห้องประชุมครับ`;
+                        replyMessage = `✅ วันที่ ${dateForDisplay} ไม่มีรายการจองห้องประชุมครับ`;
                     }
                     await sendLineReply(env, event.replyToken, replyMessage.trim());
                 }

@@ -1,8 +1,5 @@
 import { Booking, BorrowingRequest } from '../types';
-
-// ใช้ URL ของ Worker จาก Cloudflare โดยตรงเพื่อความเสถียรหลังจากย้ายโดเมน mediatcc.com ออก
-// ตรวจสอบชื่อ Worker ในหน้า Cloudflare Workers ของคุณว่าชื่อ 'tcc-line-notifier' ถูกต้องหรือไม่
-const WORKER_BASE_URL = 'https://tcc-line-notifier.media-tcc.workers.dev';
+import { WORKER_BASE_URL } from '../constants';
 
 type DataType = 'rooms' | 'equipment';
 

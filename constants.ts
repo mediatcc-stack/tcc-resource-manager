@@ -1,5 +1,7 @@
 import { Room } from './types';
 
+export const WORKER_BASE_URL = 'https://tcc-resource-manager.media-tcc.workers.dev';
+
 export const APP_CONFIG = {
   systemTitle: "ระบบจองห้องประชุม",
   equipmentTitle: "ระบบขอยืมอุปกรณ์งานสื่อฯ – ประชาสัมพันธ์",

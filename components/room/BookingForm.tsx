@@ -162,7 +162,6 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     setLoading(false);
   };
 
-  // ปรับปรุง Input Classes ให้สว่างขึ้น (พื้นหลังขาว เส้นขอบชัด)
   const inputClasses = "block w-full rounded-xl border border-gray-200 bg-white p-3.5 text-gray-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all duration-200 placeholder-gray-400";
 
   return (
@@ -269,7 +268,17 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
           </FormField>
 
           <FormField label="ลิงก์ไฟล์แนบ (ถ้ามี)" icon="📎">
-            <input type="url" name="attachmentUrl" value={formData.attachmentUrl} onChange={handleInputChange} className={inputClasses} placeholder="https://example.com/file.pdf" />
+            <input 
+              type="url" 
+              name="attachmentUrl" 
+              value={formData.attachmentUrl} 
+              onChange={handleInputChange} 
+              className={inputClasses}
+              placeholder="https://docs.google.com/document/d/..."
+            />
+            <p className="text-xs text-gray-500 mt-2 px-1">
+              กรุณาอัปโหลดเอกสาร (PDF, DOCX) ขึ้น Google Drive แล้วตั้งค่าการแชร์เป็น "ทุกคนที่มีลิงก์" จากนั้นคัดลอกลิงก์มาวางที่นี่
+            </p>
           </FormField>
           
           <div className="flex justify-end gap-4 pt-10 border-t border-gray-50">
