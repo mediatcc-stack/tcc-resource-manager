@@ -9,24 +9,26 @@ const handleResponse = async (response: Response, errorMessagePrefix: string): P
         try {
             const errorBody = await response.json();
             errorMsg = errorBody.error || errorMsg;
-        } catch (e) {
-            // response might not be JSON
-        }
+        } catch (e) { }
         throw new Error(`${errorMessagePrefix}: ${errorMsg}`);
     }
-    return response.json();
+    return await response.json();
 };
 
 export const fetchData = async (type: DataType): Promise<any[]> => {
     try {
         const response = await fetch(`${WORKER_BASE_URL}/data?type=${type}`, {
             method: 'GET',
-            headers: { 'Accept': 'application/json' }
+            mode: 'cors', // เพิ่มโหมด CORS ให้ชัดเจน
+            headers: { 
+                'Accept': 'application/json'
+            }
         });
-        return await handleResponse(response, `ดึงข้อมูล ${type} ไม่สำเร็จ`);
-    } catch (error) {
+        const data = await handleResponse(response, `ดึงข้อมูล ${type} ไม่สำเร็จ`);
+        return Array.isArray(data) ? data : [];
+    } catch (error: any) {
         console.error(`[apiService] Fetch error for ${type}:`, error);
-        throw error;
+        throw new Error('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ (Network Error) โปรดตรวจสอบการ Deploy โค้ดใน Cloudflare Worker');
     }
 };
 
@@ -34,36 +36,32 @@ export const saveData = async (type: DataType, data: Booking[] | BorrowingReques
     try {
         const response = await fetch(`${WORKER_BASE_URL}/data?type=${type}`, {
             method: 'POST',
+            mode: 'cors',
             headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(data),
         });
         await handleResponse(response, `บันทึกข้อมูล ${type} ไม่สำเร็จ`);
         return true;
-    } catch (error) {
+    } catch (error: any) {
         console.error(`[apiService] Save error for ${type}:`, error);
         throw error;
     }
 };
 
 export const uploadFile = async (file: File): Promise<string> => {
+    // ระบบอัปโหลดไฟล์ (หากยังไม่ได้ผูก R2 ใน Dashboard จะยังใช้งานไม่ได้ แต่จะไม่ทำให้ระบบหลักล่ม)
     const formData = new FormData();
     formData.append('file', file);
-
     try {
         const response = await fetch(`${WORKER_BASE_URL}/upload`, {
             method: 'POST',
             body: formData,
         });
         const result = await handleResponse(response, 'อัปโหลดไฟล์ไม่สำเร็จ');
-        if (!result.url) {
-            throw new Error('อัปโหลดสำเร็จแต่ไม่พบ URL ในการตอบกลับ');
-        }
         return result.url;
     } catch (error) {
-        console.error('[apiService] Upload error:', error);
         throw error;
     }
 };

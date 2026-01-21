@@ -1,17 +1,14 @@
+
 import { Room } from './types';
 
-export const WORKER_BASE_URL = 'https://tcc-resource-manager.media-tcc.workers.dev';
+// แก้ไข URL ให้ตรงกับหน้า Cloudflare Dashboard ของคุณ
+export const WORKER_BASE_URL = 'https://tcc-line-notifier.media-tcc.workers.dev';
 
 export const APP_CONFIG = {
   systemTitle: "ระบบจองห้องประชุม",
   equipmentTitle: "ระบบขอยืมอุปกรณ์งานสื่อฯ – ประชาสัมพันธ์",
   collegeName: "วิทยาลัยพณิชยการธนบุรี",
 };
-
-// --- การจัดการ Group ID จะทำที่ Cloudflare Worker Secrets ---
-// โดยการตั้งชื่อตัวแปรให้ขึ้นต้นด้วย GROUP_ID
-// เช่น GROUP_ID, GROUP_ID_1, GROUP_ID_2
-// ----------------------------------------------------
 
 export const ROOMS: Room[] = [
   { id: 1, name: "ห้องประชุมธีรธรรมานันท์", status: 'available' },

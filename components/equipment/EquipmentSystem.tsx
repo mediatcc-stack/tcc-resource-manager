@@ -20,20 +20,28 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
     const [isLoading, setIsLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    const [error, setError] = useState<string | null>(null);
     
     const pollTimer = useRef<number | null>(null);
 
     const fetchBorrowings = useCallback(async (isBackground = false) => {
-        if (!isBackground) setIsLoading(true);
-        else setIsSyncing(true);
+        if (!isBackground) {
+            setIsLoading(true);
+            setError(null);
+        } else {
+            setIsSyncing(true);
+        }
         
         try {
             const data = await fetchData('equipment') as BorrowingRequest[];
             setBorrowings(data);
             setLastUpdated(new Date());
+            setError(null);
         } catch (error: any) {
-             if (!isBackground) {
-                showToast(`โหลดข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
+            const errorMessage = `โหลดข้อมูลไม่สำเร็จ: ${error.message}`;
+            if (!isBackground) {
+               setError(errorMessage);
+               showToast(errorMessage, 'error');
             }
         } finally {
             setIsLoading(false);
@@ -80,9 +88,9 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
             setLastUpdated(new Date());
             fetchBorrowings(true);
             return true;
-        } catch (error: any)
-{
+        } catch (error: any) {
             showToast(`อัปเดตข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
+            fetchBorrowings(true);
             return false;
         }
     };
@@ -135,6 +143,17 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
                 <div className="flex flex-col items-center justify-center h-96">
                     <LoadingSpinner />
                     <p className="mt-4 text-lg font-semibold text-gray-500">กำลังโหลดข้อมูลการยืม...</p>
+                </div>
+            );
+        }
+        
+        if (error && borrowings.length === 0) {
+            return (
+                <div className="flex flex-col items-center justify-center h-96 bg-white rounded-2xl shadow-xl text-center p-4">
+                    <p className="text-4xl mb-4">🚨</p>
+                    <p className="text-xl font-bold text-red-600 mb-2">เกิดข้อผิดพลาด</p>
+                    <p className="text-sm text-gray-500 mb-6">{error}</p>
+                    <Button onClick={() => fetchBorrowings(false)}>ลองใหม่อีกครั้ง</Button>
                 </div>
             );
         }

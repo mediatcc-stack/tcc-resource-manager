@@ -10,6 +10,7 @@ import { fetchData, saveData } from '../../services/apiService';
 import { v4 as uuidv4 } from 'uuid';
 import NavButton from './NavButton';
 import LoadingSpinner from '../shared/LoadingSpinner';
+import Button from '../shared/Button';
 
 interface RoomBookingSystemProps {
   onBackToLanding: () => void;
@@ -26,21 +27,35 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
   const [isAdmin, setIsAdmin] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'error' | 'syncing'>('connected');
   
   const pollTimer = useRef<number | null>(null);
 
   const fetchBookings = useCallback(async (isBackground = false) => {
-    if (!isBackground) setIsLoading(true);
-    else setIsSyncing(true);
+    if (!isBackground) {
+        setIsLoading(true);
+        setError(null);
+    } else {
+        setIsSyncing(true);
+        setConnectionStatus('syncing');
+    }
     
     try {
       const data = await fetchData('rooms') as Booking[];
       setBookings(data);
       setLastUpdated(new Date());
-    } catch (error: any) {
+      setError(null);
+      setConnectionStatus('connected');
+    } catch (err: any) {
+      const errorMessage = err.message || 'เกิดข้อผิดพลาดในการดึงข้อมูล';
+      setConnectionStatus('error');
       if (!isBackground) {
-        showToast(`โหลดข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
-        setBookings([]);
+        setError(errorMessage);
+        showToast(errorMessage, 'error');
+      } else {
+        // หากเป็นการซิงค์เบื้องหลังล้มเหลว แค่แจ้งเตือนเบาๆ
+        console.warn('Background sync failed:', errorMessage);
       }
     } finally {
       setIsLoading(false);
@@ -113,7 +128,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       return true;
     } catch (error: any) {
       showToast(`อัปเดตข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
-      fetchBookings();
+      fetchBookings(true);
       return false;
     }
   };
@@ -121,14 +136,10 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
   const handleBookingUpdate = useCallback(async (original: Booking, formData: any, selectedRoomIds: number[]) => {
     setIsLoading(true);
     try {
-      // 1. Remove old version (group or single)
       let newList = bookings.filter(b => original.groupId ? b.groupId !== original.groupId : b.id !== original.id);
-
-      // 2. Create new versions
       const newBookings: Booking[] = [];
       const hasMultiple = selectedRoomIds.length > 1 || formData.isMultiDay;
       const groupId = hasMultiple ? (original.groupId || uuidv4()) : undefined;
-      
       const firstDate = new Date(formData.date);
       const lastDate = formData.isMultiDay ? new Date(formData.endDate) : firstDate;
 
@@ -214,7 +225,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       const roomNames = [...new Set(createdBookings.map(b => b.roomName))].join(', ');
       const dateInfo = firstBooking.isMultiDay && firstBooking.dateRange ? firstBooking.dateRange : new Date(firstBooking.date).toLocaleDateString('th-TH');
       const timeInfo = `${firstBooking.startTime} - ${firstBooking.endTime}`;
-      
       const notifyMessage = `📢 มีการจองห้องใหม่\n\nห้อง: ${roomNames}\nวันที่: ${dateInfo}\nเวลา: ${timeInfo}\n\nเรื่อง: ${firstBooking.purpose}\nผู้จอง: ${firstBooking.bookerName}\n\n🔗 ตรวจสอบรายละเอียดในระบบ`;
 
       await sendLineNotification(notifyMessage);
@@ -246,7 +256,34 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       return (
         <div className="flex flex-col items-center justify-center h-64 bg-white rounded-2xl shadow-xl">
           <LoadingSpinner />
-          <p className="mt-4 text-lg font-semibold text-gray-600">กำลังโหลดข้อมูลการจอง...</p>
+          <p className="mt-4 text-lg font-semibold text-gray-600">กำลังดึงข้อมูลล่าสุดจากเซิร์ฟเวอร์...</p>
+        </div>
+      );
+    }
+
+    if (error && bookings.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[400px] bg-white rounded-3xl shadow-xl text-center p-10 border-2 border-red-50">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6">
+            <span className="text-4xl">🔌</span>
+          </div>
+          <p className="text-2xl font-black text-red-600 mb-4">โหลดข้อมูลไม่สำเร็จ</p>
+          <div className="bg-red-50 p-4 rounded-xl mb-8 max-w-md mx-auto">
+            <p className="text-sm text-red-700 font-medium break-words leading-relaxed">
+               {error}
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button onClick={() => fetchBookings(false)} className="px-8 py-3">
+              🔄 ลองใหม่อีกครั้ง
+            </Button>
+            <Button variant="secondary" onClick={onBackToLanding} className="px-8 py-3">
+              🏠 กลับหน้าหลัก
+            </Button>
+          </div>
+          <p className="mt-8 text-xs text-gray-400 font-bold uppercase tracking-widest">
+            หากยังพบปัญหากรุณาติดต่อฝ่ายไอที
+          </p>
         </div>
       );
     }
@@ -296,33 +333,47 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
   };
   
   return (
-    <div>
-      <div className="bg-white rounded-xl shadow-lg p-4 mb-6 flex items-center justify-between gap-6 flex-wrap border border-gray-100">
-        <div className="flex items-center justify-center gap-6 flex-wrap">
-          <NavButton page="home" label="หน้าแรก/ปฏิทิน" icon="🏠" currentPage={currentPage} setCurrentPage={setCurrentPage} />
-          <NavButton page="mybookings" label="รายการจองทั้งหมด" icon="📋" currentPage={currentPage} setCurrentPage={setCurrentPage} />
-          <NavButton page="statistics" label="สถิติ" icon="📊" currentPage={currentPage} setCurrentPage={setCurrentPage} />
+    <div className="animate-fade-in">
+      <div className="bg-white rounded-2xl shadow-lg p-4 mb-8 flex items-center justify-between gap-6 flex-wrap border border-gray-100">
+        <div className="flex items-center justify-center gap-3 md:gap-6 flex-wrap">
+          <NavButton page="home" label="หน้าแรก" icon="🏠" currentPage={currentPage} setCurrentPage={setCurrentPage} />
+          <NavButton page="mybookings" label="จัดการจอง" icon="📋" currentPage={currentPage} setCurrentPage={setCurrentPage} />
+          <NavButton page="statistics" label="สรุปรายงาน" icon="📊" currentPage={currentPage} setCurrentPage={setCurrentPage} />
         </div>
         <div className="flex items-center gap-4">
-            {isSyncing && (
-                <div className="flex items-center gap-2 text-[10px] font-bold text-blue-500 animate-pulse uppercase tracking-widest">
-                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                    Syncing...
-                </div>
-            )}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-100 shadow-sm">
+                <span className={`w-2.5 h-2.5 rounded-full ${
+                    connectionStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 
+                    connectionStatus === 'syncing' ? 'bg-blue-500 animate-pulse' : 
+                    'bg-red-500'
+                }`}></span>
+                <span className="text-[10px] font-black text-gray-500 uppercase tracking-tighter">
+                    {connectionStatus === 'connected' ? 'Connected' : 
+                     connectionStatus === 'syncing' ? 'Syncing...' : 
+                     'Offline'}
+                </span>
+            </div>
             {lastUpdated && (
               <button 
-                onClick={() => fetchBookings(true)}
-                className="text-xs text-gray-400 font-medium flex items-center gap-2 hover:text-blue-500 transition-colors"
+                onClick={() => fetchBookings(false)}
+                title="กดเพื่อรีเฟรชข้อมูลใหม่"
+                className="group text-xs text-gray-400 font-bold flex items-center gap-2 hover:text-blue-600 transition-all p-2 rounded-lg hover:bg-blue-50"
               >
-                <span className={`w-2 h-2 ${isSyncing ? 'bg-blue-400' : 'bg-green-400'} rounded-full`}></span>
-                อัปเดตเมื่อ: {lastUpdated.toLocaleTimeString('th-TH')}
-                <span className="text-lg">🔄</span>
+                {lastUpdated.toLocaleTimeString('th-TH')}
+                <span className={`text-lg transition-transform duration-500 ${isSyncing ? 'animate-spin' : 'group-hover:rotate-180'}`}>🔄</span>
               </button>
             )}
         </div>
       </div>
       {renderCurrentPage()}
+      
+      {/* แจ้งเตือนหากรายการว่างเปล่าแต่โหลดสำเร็จ */}
+      {!isLoading && !error && bookings.length === 0 && currentPage === 'home' && (
+        <div className="mt-8 p-6 bg-blue-50 border-2 border-dashed border-blue-200 rounded-3xl text-center">
+            <p className="text-blue-800 font-bold mb-1">🔍 เชื่อมต่อสำเร็จ แต่ไม่พบข้อมูลการจองในระบบ</p>
+            <p className="text-xs text-blue-500">หากคุณมั่นใจว่าเคยมีการจอง กรุณาตรวจสอบว่าใช้ Worker URL ที่ถูกต้องหรือไม่</p>
+        </div>
+      )}
     </div>
   );
 };
