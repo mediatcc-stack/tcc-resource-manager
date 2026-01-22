@@ -1,3 +1,4 @@
+
 // cloudflare-worker.js
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,25 +25,30 @@ const getFullThaiDateStr = (date) => {
   return `${d}-${m}-${y}`;
 };
 
-// ฟังก์ชันดึงวันที่เป้าหมาย
+// ฟังก์ชันดึงวันที่เป้าหมาย และตรวจสอบความตั้งใจในการเรียกรายงาน
 const parseTargetDate = (rawText) => {
   const text = rawText.replace(/@[\w\s.-]+/, '').trim().toLowerCase();
   const bkkTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
   
-  const helpKeywords = ['เมนู', 'help', 'ช่วยเหลือ', 'สวัสดี', 'จอง', 'ห้อง', 'ปุ่ม'];
-  if (helpKeywords.some(k => text.includes(k)) || text === '') {
+  // คีย์เวิร์ดที่ต้องมีเพื่อให้บอทส่งรายงาน ป้องกันบอทแทรกเวลาคนคุยกันปกติ
+  const reportKeywords = ['รายงาน', 'เช็ค', 'ขอ', 'ดู', 'list', 'จอง', 'ห้อง', 'ว่างไหม'];
+  const hasKeyword = reportKeywords.some(k => text.includes(k));
+
+  if (!hasKeyword && text !== 'วันนี้') {
     return null;
   }
 
+  // รูปแบบวันที่ 22/01/2026 หรือ 22-01-2026
   const fullDateMatch = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
   if (fullDateMatch) {
     let [_, d, m, y] = fullDateMatch;
     let year = parseInt(y);
+    // แปลงจาก พ.ศ. เป็น ค.ศ.
     if (year > 2500) year -= 543;
     return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
 
-  if (text.includes('รายงานวันนี้') || text === 'วันนี้') {
+  if (text.includes('วันนี้') || text === 'รายงานวันนี้') {
     return bkkTime.toISOString().split('T')[0];
   }
 
@@ -71,9 +77,12 @@ export default {
         for (const event of body.events) {
           if (event.type === 'message' && event.message.type === 'text') {
             const rawText = event.message.text;
-            const isMentioned = event.message.mention?.mentionees?.find(m => m.isSelf) || event.source.type === 'user';
+            // ตรวจสอบว่าบอทถูก Mention (แท็ก) หรือไม่ หากอยู่ในกลุ่ม
+            const isMentioned = event.message.mention?.mentionees?.find(m => m.isSelf);
+            const isDirectChat = event.source.type === 'user';
 
-            if (isMentioned) {
+            // บอทจะตอบเฉพาะเมื่อมีการแท็ก หรือคุยส่วนตัวเท่านั้น
+            if (isMentioned || isDirectChat) {
               const targetDate = parseTargetDate(rawText);
               if (targetDate) {
                 const data = await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json') || [];
@@ -82,15 +91,16 @@ export default {
                 let msg = `📅 รายงานจองห้องประชุม\n📌 วันที่: ${displayDate}\n\n`;
                 if (bookings.length > 0) {
                   bookings.sort((a,b) => a.startTime.localeCompare(b.startTime)).forEach((b, i) => {
-                    msg += `${i+1}. ⏰ ${b.startTime}-${b.endTime}\n🏢 ${b.roomName}\n📝 ${b.purpose}\n👤 ${b.bookerName}\n\n`;
+                    // เพิ่มข้อมูล รูปแบบ: Onsite/Online ในรายงานสรุปด้วย
+                    msg += `${i+1}. ⏰ ${b.startTime}-${b.endTime}\n📍 ${b.roomName}\n📝 ${b.purpose}\n👤 ${b.bookerName}\n💻 รูปแบบ: ${b.meetingType || 'Onsite'}\n\n`;
                   });
                   msg += `✨ รวมทั้งหมด ${bookings.length} รายการ`;
                 } else {
                   msg += "✅ ไม่มีรายการจองครับ ว่างทุกห้อง!";
                 }
                 await sendLineReply(env, event.replyToken, { type: 'text', text: msg });
-              } else {
-                // --- ส่ง Flex Message (การ์ดเมนูสวยงาม) ---
+              } else if (rawText.includes('เมนู') || rawText.includes('ช่วย') || rawText.trim() === '' || isMentioned) {
+                // หากแท็กเฉยๆ หรือถามหาเมนู ให้ส่ง Flex Message
                 const bkkNow = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
                 const tomorrow = new Date(bkkNow); tomorrow.setDate(bkkNow.getDate() + 1);
                 const tomorrowStr = getFullThaiDateStr(tomorrow);
@@ -118,7 +128,7 @@ export default {
                       layout: "vertical",
                       contents: [
                         { type: "text", text: "สวัสดีครับ! ผมบอทรายงานจองห้อง", weight: "bold", size: "md", color: "#0D448D" },
-                        { type: "text", text: "เลือกดูรายงานหรือเข้าสู่ระบบเว็บจองได้จากปุ่มด้านล่างนี้เลยครับ", size: "xs", color: "#8c8c8c", wrap: true, margin: "md" }
+                        { type: "text", text: "พิมพ์ 'รายงานวันนี้' หรือแท็กผมตามด้วยวันที่เพื่อดูสรุปจองได้เลยครับ", size: "xs", color: "#8c8c8c", wrap: true, margin: "md" }
                       ]
                     },
                     footer: {
@@ -170,8 +180,15 @@ export default {
 
       if (path === '/notify' && request.method === 'POST') {
         const { message } = await request.json();
-        const targets = Object.keys(env).filter(k => k === 'GROUP_ID' || k.startsWith('GROUP_ID_')).map(k => env[k]);
-        await Promise.all(targets.map(id => 
+        // แก้ไขปัญหา "มันขึ้น 2 รายการ": คัดกรอง ID ที่ซ้ำกันออกโดยใช้ Set
+        const allTargetIds = Object.keys(env)
+          .filter(k => k === 'GROUP_ID' || k.startsWith('GROUP_ID_'))
+          .map(k => env[k])
+          .filter(id => id); // ตัดค่าว่างทิ้ง
+
+        const uniqueTargets = [...new Set(allTargetIds)];
+
+        await Promise.all(uniqueTargets.map(id => 
           fetch('https://api.line.me/v2/bot/message/push', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}` },

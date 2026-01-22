@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { RoomPage, Booking, Room } from '../../types';
 import { ROOMS, STAFF_PASSWORDS } from '../../constants';
@@ -54,7 +55,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
         setError(errorMessage);
         showToast(errorMessage, 'error');
       } else {
-        // หากเป็นการซิงค์เบื้องหลังล้มเหลว แค่แจ้งเตือนเบาๆ
         console.warn('Background sync failed:', errorMessage);
       }
     } finally {
@@ -225,7 +225,9 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       const roomNames = [...new Set(createdBookings.map(b => b.roomName))].join(', ');
       const dateInfo = firstBooking.isMultiDay && firstBooking.dateRange ? firstBooking.dateRange : new Date(firstBooking.date).toLocaleDateString('th-TH');
       const timeInfo = `${firstBooking.startTime} - ${firstBooking.endTime}`;
-      const notifyMessage = `📢 มีการจองห้องใหม่\n\nห้อง: ${roomNames}\nวันที่: ${dateInfo}\nเวลา: ${timeInfo}\n\nเรื่อง: ${firstBooking.purpose}\nผู้จอง: ${firstBooking.bookerName}\n\n🔗 ตรวจสอบรายละเอียดในระบบ`;
+      
+      // ปรับปรุง Template ข้อความแจ้งเตือน: เพิ่ม รูปแบบ และเปลี่ยน Emoji
+      const notifyMessage = `📌 มีการจองห้องใหม่\n\nห้อง: ${roomNames}\nวันที่: ${dateInfo}\nเวลา: ${timeInfo}\nรูปแบบ: ${firstBooking.meetingType}\n\nเรื่อง: ${firstBooking.purpose}\nผู้จอง: ${firstBooking.bookerName}\n\n🔗 ตรวจสอบรายละเอียดในระบบ`;
 
       await sendLineNotification(notifyMessage);
       setCurrentPage('home');
@@ -366,14 +368,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
         </div>
       </div>
       {renderCurrentPage()}
-      
-      {/* แจ้งเตือนหากรายการว่างเปล่าแต่โหลดสำเร็จ */}
-      {!isLoading && !error && bookings.length === 0 && currentPage === 'home' && (
-        <div className="mt-8 p-6 bg-blue-50 border-2 border-dashed border-blue-200 rounded-3xl text-center">
-            <p className="text-blue-800 font-bold mb-1">🔍 เชื่อมต่อสำเร็จ แต่ไม่พบข้อมูลการจองในระบบ</p>
-            <p className="text-xs text-blue-500">หากคุณมั่นใจว่าเคยมีการจอง กรุณาตรวจสอบว่าใช้ Worker URL ที่ถูกต้องหรือไม่</p>
-        </div>
-      )}
     </div>
   );
 };
