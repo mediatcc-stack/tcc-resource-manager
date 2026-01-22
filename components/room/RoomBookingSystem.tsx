@@ -187,7 +187,9 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
   }, [bookings]);
 
   const handleDeleteBookingGroup = useCallback(async (groupId: string) => {
-    const updated = bookings.filter(b => b.groupId === groupId);
+    // FIX: เปลี่ยนจาก filter(b => b.groupId === groupId) เป็น filter(b => b.groupId !== groupId)
+    // เพื่อเอาอันที่มี groupId นี้ออกไปจากลิสต์
+    const updated = bookings.filter(b => b.groupId !== groupId);
     if (await updateBookingList(updated)) showToast('ลบรายการกลุ่มถาวรแล้ว', 'success');
   }, [bookings]);
 
@@ -226,7 +228,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       const dateInfo = firstBooking.isMultiDay && firstBooking.dateRange ? firstBooking.dateRange : new Date(firstBooking.date).toLocaleDateString('th-TH');
       const timeInfo = `${firstBooking.startTime} - ${firstBooking.endTime}`;
       
-      // ปรับปรุง Template ข้อความแจ้งเตือนให้สวยงามและครบถ้วน
       const notifyMessage = `📢 แจ้งเตือนการจองห้องใหม่\n\n📍 ห้อง: ${roomNames}\n📅 วันที่: ${dateInfo}\n⏰ เวลา: ${timeInfo}\n💻 รูปแบบ: ${firstBooking.meetingType}\n\n🎯 เรื่อง: ${firstBooking.purpose}\n👤 ผู้จอง: ${firstBooking.bookerName}\n\n🌐 ตรวจสอบ: https://tcc-resource-manager.pages.dev`;
 
       await sendLineNotification(notifyMessage);
