@@ -87,7 +87,7 @@ export default {
       if (path === '/webhook' && request.method === 'POST') {
         const body = await request.json();
         for (const event of body.events) {
-          if (event.type === 'message' && event.message.type === 'text' && event.source.type === 'group') {
+          if (event.type === 'message' && event.message.type === 'text' && (event.source.type === 'group' || event.source.type === 'room')) {
             const messageText = event.message.text.trim().toLowerCase();
             const groupId = event.source.groupId;
             const replyToken = event.replyToken;
