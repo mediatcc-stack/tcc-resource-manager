@@ -18,13 +18,32 @@ interface MyBookingsPageProps {
 
 const thaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
-const getStatusInfo = (status: Booking['status']) => {
+const getStatusInfo = (status: Booking['status'], isToday: boolean) => {
+  if (isToday && status === 'จองแล้ว') {
+    return { text: 'กำลังดำเนินงาน (วันนี้)', bg: 'bg-rose-100', text_color: 'text-rose-800', border: 'border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.2)]' };
+  }
+
   switch(status) {
       case 'จองแล้ว': return { text: 'จองแล้ว', bg: 'bg-sky-100', text_color: 'text-sky-800', border: 'border-sky-500' };
-      case 'ยกเลิก': return { text: 'ยกเลิก', bg: 'bg-red-100', text_color: 'text-red-800', border: 'border-red-500' };
-      case 'หมดเวลา': return { text: 'เสร็จสิ้น', bg: 'bg-gray-100', text_color: 'text-gray-800', border: 'border-gray-400' };
+      case 'ยกเลิก': return { text: 'ยกเลิก', bg: 'bg-red-50', text_color: 'text-red-400', border: 'border-gray-200 opacity-60' };
+      case 'หมดเวลา': return { text: 'เสร็จสิ้น', bg: 'bg-gray-100', text_color: 'text-gray-500', border: 'border-gray-300 opacity-70' };
       default: return { text: status, bg: 'bg-gray-100', text_color: 'text-gray-800', border: 'border-gray-400' };
   }
+};
+
+// ฟังก์ชันสำหรับดึงสีของป้ายรูปแบบการประชุม
+const getMeetingTypeDisplay = (type: string[] | string) => {
+    const types = Array.isArray(type) ? type : [type];
+    
+    if (types.includes('Onsite') && types.includes('Online')) {
+        return { text: 'ออนไซต์ และ ออนไลน์', color: 'bg-purple-100 text-purple-700 border-purple-200' };
+    }
+    
+    if (types.includes('Online')) {
+        return { text: 'ออนไลน์', color: 'bg-blue-100 text-blue-700 border-blue-200' };
+    }
+    
+    return { text: 'ออนไซต์', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' };
 };
 
 const BookingCard: React.FC<{
@@ -36,8 +55,10 @@ const BookingCard: React.FC<{
   onDeleteBookingGroup: (groupId: string) => void;
   onEditBooking: (booking: Booking) => void;
   groupDetails?: { roomCount: number; roomNames: string[] };
-}> = ({ booking, isAdmin, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onDeleteBookingGroup, onEditBooking, groupDetails }) => {
-  const statusInfo = getStatusInfo(booking.status);
+  isToday: boolean;
+}> = ({ booking, isAdmin, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onDeleteBookingGroup, onEditBooking, groupDetails, isToday }) => {
+  const statusInfo = getStatusInfo(booking.status, isToday);
+  const typeDisplay = getMeetingTypeDisplay(booking.meetingType);
 
   const handleStaffAction = (action: 'cancel' | 'delete' | 'edit') => {
     if (action === 'edit') {
@@ -62,8 +83,8 @@ const BookingCard: React.FC<{
         } else if (action === 'delete') {
              const isGroup = !!booking.groupId;
              const confirmMessage = isGroup
-                ? `⚠️ ยืนยันการลบถาวร ⚠️\n\nการจองกลุ่ม "${booking.purpose}" ทั้งหมดจะถูกลบและไม่สามารถกู้คืนได้\n\nต้องการดำเนินการต่อใช่หรือไม่?`
-                : `⚠️ ยืนยันการลบถาวร ⚠️\n\nการจอง "${booking.purpose}" จะถูกลบและไม่สามารถกู้คืนได้\n\nต้องการดำเนินการต่อใช่หรือไม่?`;
+                ? `⚠️ ยืนยันการลบถาวร ⚠️\n\nการจองกลุ่ม "${booking.purpose}" ทั้งหมดจะถูกลบออกจากระบบ\n\nต้องการดำเนินการต่อใช่หรือไม่?`
+                : `⚠️ ยืนยันการลบถาวร ⚠️\n\nการจอง "${booking.purpose}" จะถูกลบออกจากระบบ\n\nต้องการดำเนินการต่อใช่หรือไม่?`;
 
             if (confirm(confirmMessage)) {
                 if (isGroup) {
@@ -92,66 +113,69 @@ const BookingCard: React.FC<{
   const roomTitle = groupDetails && groupDetails.roomNames.length > 1
     ? groupDetails.roomNames.join(', ')
     : booking.roomName;
-  const roomTitleTooltip = groupDetails && groupDetails.roomNames.length > 1
-    ? `ห้องทั้งหมด:\n- ${groupDetails.roomNames.join('\n- ')}`
-    : booking.roomName;
 
   return (
-      <div className={`bg-white p-5 rounded-xl shadow-md border-l-4 ${statusInfo.border} transition-shadow hover:shadow-lg animate-fade-in`}>
+      <div className={`bg-white p-5 rounded-2xl shadow-md border-l-8 ${statusInfo.border} transition-all hover:shadow-xl animate-fade-in relative overflow-hidden group`}>
+          {isToday && booking.status === 'จองแล้ว' && (
+              <div className="absolute top-0 right-0">
+                  <div className="bg-rose-500 text-white text-[10px] font-black px-4 py-1 rounded-bl-xl shadow-lg flex items-center gap-1.5 animate-pulse">
+                      <span className="w-1.5 h-1.5 bg-white rounded-full"></span> วันนี้
+                  </div>
+              </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-5 gap-x-4 gap-y-3">
               <div className="md:col-span-3">
-                  <h4 className="font-bold text-lg text-[#0D448D]" title={roomTitleTooltip}>{roomTitle}</h4>
-                  <p className="text-sm text-gray-600 mt-1 uppercase tracking-tight font-black">หน่วยงาน / งาน: <span className="font-medium text-gray-800">{booking.bookerName} {booking.phone ? `(${booking.phone})` : ''}</span></p>
-                  <p className="text-sm text-gray-500 break-words mt-1">วัตถุประสงค์: {booking.purpose}</p>
+                  <h4 className={`font-bold text-lg ${isToday ? 'text-rose-900' : 'text-[#0D448D]'}`}>{roomTitle}</h4>
+                  <p className="text-sm text-gray-600 mt-1 uppercase tracking-tight font-black">
+                      หน่วยงาน: <span className="font-medium text-gray-800">{booking.bookerName} {booking.phone ? `(${booking.phone})` : ''}</span>
+                  </p>
+                  <p className="text-sm text-gray-500 break-words mt-1">
+                      <span className="font-bold">วัตถุประสงค์:</span> {booking.purpose}
+                  </p>
                   
-                  <div className="mt-3 pt-3 border-t border-gray-100 space-y-2 text-sm">
+                  <div className="mt-3 pt-3 border-t border-gray-100 space-y-2 text-[13px]">
                       <div className="flex items-center text-gray-600">
-                          <span className="w-6 text-center text-lg">👥</span>
+                          <span className="w-6 text-center">👤</span>
                           <span className="font-semibold w-24">ผู้เข้าร่วม:</span>
                           <span>{booking.participants} คน</span>
                       </div>
                       <div className="flex items-center text-gray-600">
-                          <span className="w-6 text-center text-lg">💻</span>
+                          <span className="w-6 text-center">💻</span>
                           <span className="font-semibold w-24">รูปแบบ:</span>
-                          <span>{booking.meetingType}</span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black border ${typeDisplay.color}`}>
+                             {typeDisplay.text}
+                          </span>
                       </div>
-                      {booking.equipment && (
-                          <div className="flex items-start text-gray-600">
-                              <span className="w-6 text-center text-lg pt-0.5">🛠️</span>
-                              <span className="font-semibold w-24 flex-shrink-0">อุปกรณ์เพิ่มเติม:</span>
-                              <span className="break-words">{booking.equipment}</span>
-                          </div>
-                      )}
                       {booking.attachmentUrl && (
-                          <div className="flex items-start text-gray-600">
-                              <span className="w-6 text-center text-lg pt-0.5">📎</span>
-                              <span className="font-semibold w-24 flex-shrink-0">ไฟล์แนบ:</span>
-                              <a 
-                                  href={booking.attachmentUrl} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:text-blue-800 hover:underline break-all"
-                              >
-                                  ดูไฟล์
-                              </a>
-                          </div>
+                        <div className="flex items-center text-blue-600">
+                            <span className="w-6 text-center">📎</span>
+                            <span className="font-semibold w-24">ไฟล์แนบ:</span>
+                            <a href={booking.attachmentUrl} target="_blank" rel="noopener noreferrer" className="underline truncate max-w-[150px]">
+                                คลิกดูไฟล์
+                            </a>
+                        </div>
                       )}
                   </div>
               </div>
               <div className="md:col-span-2 flex flex-col md:items-end text-left md:text-right">
-                <span className={`mb-2 px-3 py-1 text-xs font-semibold rounded-full ${statusInfo.bg} ${statusInfo.text_color}`}>{statusInfo.text}</span>
-                  <p className="font-semibold text-gray-800 text-sm">🗓️ {booking.isMultiDay && booking.dateRange ? `ช่วงวันที่: ${booking.dateRange}` : `วันที่: ${new Date(booking.date).toLocaleDateString('th-TH')}`}</p>
-                  <p className="text-sm text-gray-600">⏰ เวลา: {booking.startTime} - {booking.endTime}</p>
+                <span className={`mb-3 px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full ${statusInfo.bg} ${statusInfo.text_color}`}>
+                    {statusInfo.text}
+                </span>
+                  <p className={`font-black text-sm ${isToday ? 'text-rose-600' : 'text-gray-800'}`}>
+                      🗓️ {booking.isMultiDay && booking.dateRange ? booking.dateRange : new Date(booking.date).toLocaleDateString('th-TH')}
+                  </p>
+                  <p className="text-sm font-bold text-gray-600 mt-1">⏰ เวลา: {booking.startTime} - {booking.endTime} น.</p>
               </div>
               
-              <div className="md:col-span-5 flex justify-end gap-2 border-t border-gray-100 pt-3 mt-2">
+              <div className="md:col-span-5 flex justify-end gap-2 border-t border-gray-100 pt-3 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     {booking.status === 'จองแล้ว' && (
                         <>
                           <Button size="sm" variant="primary" onClick={() => handleStaffAction('edit')}>
-                            แก้ไข
+                            แก้ไขข้อมูล
                           </Button>
                           <Button size="sm" variant="secondary" onClick={() => handleStaffAction('cancel')}>
-                            ยกเลิกการจอง
+                            ยกเลิกรายการ
                           </Button>
                         </>
                     )}
@@ -171,7 +195,6 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
   const [purposeFilter, setPurposeFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState<string>('all');
-  // FIX: เปลี่ยนค่าเริ่มต้นจากปีปัจจุบันเป็น 'all' เพื่อให้แสดงข้อมูลประวัติทั้งหมดทันที
   const [yearFilter, setYearFilter] = useState<string>('all');
   const [roomFilter, setRoomFilter] = useState('all');
 
@@ -185,119 +208,128 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
     return Array.from(yearsSet).sort((a, b) => b.localeCompare(a));
   }, [bookings]);
 
-  const filteredAndGroupedBookings = useMemo(() => {
-    const bookingsInTab = bookings.filter(b => {
-        if (activeTab === 'current') {
-            return b.status === 'จองแล้ว';
-        } else {
-            return b.status === 'หมดเวลา' || b.status === 'ยกเลิก';
-        }
-    });
-
-    const filtered = bookingsInTab.filter(b => {
+  // ฟังก์ชันแยกข้อมูลเป็น วันนี้, เร็วๆ นี้, ประวัติ
+  const groupedData = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    // กรองพื้นฐานตาม Filter UI
+    const filtered = bookings.filter(b => {
         const bDate = new Date(b.date);
         const purposeMatch = purposeFilter ? b.purpose.toLowerCase().includes(purposeFilter.toLowerCase()) : true;
         const roomMatch = roomFilter !== 'all' ? b.roomName === roomFilter : true;
         const monthMatch = monthFilter === 'all' || (bDate.getMonth() + 1).toString() === monthFilter;
         const yearMatch = yearFilter === 'all' || bDate.getFullYear().toString() === yearFilter;
-        
         return purposeMatch && roomMatch && monthMatch && yearMatch;
     });
 
-    const sorted = filtered.sort((a, b) => {
-        const dateTimeA = new Date(`${a.date}T${a.startTime}`).getTime();
-        const dateTimeB = new Date(`${b.date}T${b.startTime}`).getTime();
-        
-        if (activeTab === 'current') {
-            return dateTimeA - dateTimeB;
-        } else {
-            return dateTimeB - dateTimeA;
-        }
-    });
-
+    // ลบรายการซ้ำ (กรณี Multi-room ใน Group เดียวกัน)
     const processedGroupIds = new Set<string>();
     const uniqueBookings: Booking[] = [];
-
-    for (const booking of sorted) {
-        if (booking.groupId) {
-            if (!processedGroupIds.has(booking.groupId)) {
-                uniqueBookings.push(booking);
-                processedGroupIds.add(booking.groupId);
+    for (const b of filtered) {
+        if (b.groupId) {
+            if (!processedGroupIds.has(b.groupId)) {
+                uniqueBookings.push(b);
+                processedGroupIds.add(b.groupId);
             }
         } else {
-            uniqueBookings.push(booking);
+            uniqueBookings.push(b);
         }
     }
-    return uniqueBookings;
+
+    if (activeTab === 'current') {
+        const currentItems = uniqueBookings.filter(b => b.status === 'จองแล้ว');
+        
+        const todayItems = currentItems.filter(b => {
+             // สำหรับ Multi-day เช็คว่าวันนี้อยู่ในช่วงไหม
+             if (b.isMultiDay && b.dateRange) {
+                 const dates = uniqueBookings.filter(allB => allB.groupId === b.groupId).map(allB => allB.date);
+                 return dates.includes(todayStr);
+             }
+             return b.date === todayStr;
+        }).sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+        const upcomingItems = currentItems.filter(b => {
+             if (b.isMultiDay && b.dateRange) {
+                 const dates = uniqueBookings.filter(allB => allB.groupId === b.groupId).map(allB => allB.date);
+                 return Math.max(...dates.map(d => new Date(d).getTime())) >= new Date(todayStr).getTime() && !dates.includes(todayStr);
+             }
+             return b.date > todayStr;
+        }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        return { today: todayItems, upcoming: upcomingItems, history: [] };
+    } else {
+        const historyItems = uniqueBookings.filter(b => b.status === 'หมดเวลา' || b.status === 'ยกเลิก')
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return { today: [], upcoming: [], history: historyItems };
+    }
   }, [bookings, activeTab, purposeFilter, monthFilter, yearFilter, roomFilter]);
 
   const clearFilters = () => {
     setPurposeFilter('');
     setMonthFilter('all');
-    setYearFilter('all'); // ปรับให้ล้างค่าเป็น 'all'
+    setYearFilter('all');
     setRoomFilter('all');
   };
   
-  const inputClasses = "block w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm";
+  const inputClasses = "block w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-gray-800 transition-all text-sm focus:bg-white focus:ring-4 focus:ring-blue-100 outline-none";
   
   return (
-    <div className="max-w-6xl mx-auto animate-fade-in">
-        <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
-            <div className="flex flex-wrap justify-between items-center gap-4 mb-6 pb-5 border-b border-gray-200">
+    <div className="max-w-6xl mx-auto animate-fade-in mb-20">
+        <div className="bg-white rounded-3xl shadow-xl p-6 md:p-10 border border-gray-100">
+            <div className="flex flex-wrap justify-between items-center gap-4 mb-8 pb-6 border-b border-gray-100">
                 <div className="flex items-center gap-4">
                   <button 
                     onClick={onBack}
-                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-all active:scale-95 flex items-center gap-2"
+                    className="p-3 bg-gray-50 text-gray-400 rounded-2xl hover:text-gray-600 transition-all active:scale-90"
                   >
-                    <span>←</span> กลับ
+                    <span className="text-xl">←</span>
                   </button>
-                  <h2 className="text-xl md:text-2xl font-bold text-gray-800">จัดการรายการจองห้อง</h2>
+                  <h2 className="text-2xl font-black text-gray-800 tracking-tight">รายการจองห้องประชุม</h2>
                 </div>
                 <div className="flex items-center gap-2">
-                  {isAdmin && <span className="px-3 py-1 text-xs font-bold text-white bg-green-600 rounded-full shadow-md">โหมดแอดมิน</span>}
                   <Button onClick={onAdminLogin} variant="secondary">
-                      {isAdmin ? 'ปิดโหมดแอดมิน' : '🔑 แอดมิน'}
+                      {isAdmin ? 'ปิดโหมดเจ้าหน้าที่' : '🔑 โหมดเจ้าหน้าที่'}
                   </Button>
                 </div>
             </div>
 
-            <div className="flex p-1 bg-gray-100 rounded-xl mb-8 max-w-md">
+            <div className="flex p-1.5 bg-gray-100 rounded-2xl mb-10 max-w-sm">
                 <button 
                     onClick={() => setActiveTab('current')}
-                    className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'current' ? 'bg-white text-[#0D448D] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'current' ? 'bg-white text-[#0D448D] shadow-md' : 'text-gray-400 hover:text-gray-600'}`}
                 >
-                    รายการปัจจุบัน
+                    ตารางปัจจุบัน
                 </button>
                 <button 
                     onClick={() => setActiveTab('history')}
-                    className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'history' ? 'bg-white text-[#0D448D] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'history' ? 'bg-white text-[#0D448D] shadow-md' : 'text-gray-400 hover:text-gray-600'}`}
                 >
-                    ประวัติการใช้งาน
+                    ประวัติทั้งหมด
                 </button>
             </div>
             
-            <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 mb-8">
+            <div className="bg-slate-50/50 p-6 rounded-3xl border border-slate-100 mb-10">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                     <div className="lg:col-span-1">
-                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">🔍 ค้นหาวัตถุประสงค์</label>
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2 px-1">🔍 ค้นหาวัตถุประสงค์</label>
                         <input type="text" placeholder="พิมพ์ชื่อโครงการ..." value={purposeFilter} onChange={e => setPurposeFilter(e.target.value)} className={inputClasses}/>
                     </div>
                      <div>
-                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">🗓️ เดือนที่จัด</label>
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2 px-1">🗓️ เดือน</label>
                         <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className={inputClasses}>
                             <option value="all">ทุกเดือน</option>
                             {thaiMonths.map((m, i) => <option key={i} value={(i+1).toString()}>{m}</option>)}
                         </select>
                     </div>
                      <div>
-                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">📅 ปี พ.ศ.</label>
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2 px-1">📅 ปี พ.ศ.</label>
                         <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className={inputClasses}>
                             <option value="all">ทุกปี</option>
                             {years.map(y => <option key={y} value={y}>{parseInt(y) + 543}</option>)}
                         </select>
                     </div>
                      <div>
-                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">🏢 กรองตามห้อง</label>
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2 px-1">🏢 ห้อง</label>
                         <select value={roomFilter} onChange={e => setRoomFilter(e.target.value)} className={inputClasses} >
                             <option value="all">ห้องทั้งหมด</option>
                             {ROOMS.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
@@ -307,40 +339,85 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                 </div>
             </div>
 
-            <div className="space-y-4">
-                {filteredAndGroupedBookings.length > 0 ? (
-                    filteredAndGroupedBookings.map(b => {
-                      let groupDetails;
-                      if (b.groupId) {
-                        const groupBookings = bookings.filter(gb => gb.groupId === b.groupId);
-                        const roomNames = [...new Set(groupBookings.map(gb => gb.roomName))];
-                        groupDetails = {
-                          roomCount: roomNames.length,
-                          roomNames: roomNames,
-                        };
-                      }
-                      return (
-                        <BookingCard 
-                          key={b.groupId || b.id} 
-                          booking={b} 
-                          isAdmin={isAdmin}
-                          groupDetails={groupDetails}
-                          onCancelBooking={onCancelBooking}
-                          onCancelBookingGroup={onCancelBookingGroup}
-                          onDeleteBooking={onDeleteBooking}
-                          onDeleteBookingGroup={onDeleteBookingGroup}
-                          onEditBooking={onEditBooking}
-                        />
-                      );
-                    })
+            <div className="space-y-12">
+                {activeTab === 'current' ? (
+                    <>
+                        {groupedData.today.length > 0 && (
+                            <div>
+                                <h3 className="flex items-center gap-3 text-rose-600 font-black text-lg mb-6 uppercase tracking-widest">
+                                    🔴 วันนี้
+                                </h3>
+                                <div className="space-y-4">
+                                    {groupedData.today.map(b => (
+                                        <BookingCard 
+                                            key={b.groupId || b.id} 
+                                            booking={b} 
+                                            isAdmin={isAdmin} 
+                                            isToday={true}
+                                            onCancelBooking={onCancelBooking}
+                                            onCancelBookingGroup={onCancelBookingGroup}
+                                            onDeleteBooking={onDeleteBooking}
+                                            onDeleteBookingGroup={onDeleteBookingGroup}
+                                            onEditBooking={onEditBooking}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <div>
+                            <h3 className="flex items-center gap-3 text-sky-700 font-black text-lg mb-6 uppercase tracking-widest">
+                                📅 เร็วๆ นี้
+                            </h3>
+                            {groupedData.upcoming.length > 0 ? (
+                                <div className="space-y-4">
+                                    {groupedData.upcoming.map(b => (
+                                        <BookingCard 
+                                            key={b.groupId || b.id} 
+                                            booking={b} 
+                                            isAdmin={isAdmin} 
+                                            isToday={false}
+                                            onCancelBooking={onCancelBooking}
+                                            onCancelBookingGroup={onCancelBookingGroup}
+                                            onDeleteBooking={onDeleteBooking}
+                                            onDeleteBookingGroup={onDeleteBookingGroup}
+                                            onEditBooking={onEditBooking}
+                                        />
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-10 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+                                    <p className="text-sm font-bold text-gray-400">ไม่มีรายการในอนาคต</p>
+                                </div>
+                            )}
+                        </div>
+                    </>
                 ) : (
-                    <div className="text-center text-gray-500 py-16 bg-gray-50 rounded-lg">
-                        <p className="text-lg font-semibold">ไม่พบรายการที่ค้นหา</p>
-                        <p className="text-sm mt-1">
-                            {activeTab === 'current' 
-                                ? 'ยังไม่มีรายการจองในขณะนี้' 
-                                : 'ยังไม่มีประวัติการจองในช่วงเวลาที่เลือก (ลองเลือกปีเป็น ทุกปี)'}
-                        </p>
+                    <div>
+                        <h3 className="flex items-center gap-3 text-gray-500 font-black text-lg mb-6 uppercase tracking-widest">
+                            📂 ประวัติการใช้งาน
+                        </h3>
+                        {groupedData.history.length > 0 ? (
+                            <div className="space-y-4">
+                                {groupedData.history.map(b => (
+                                    <BookingCard 
+                                        key={b.groupId || b.id} 
+                                        booking={b} 
+                                        isAdmin={isAdmin} 
+                                        isToday={false}
+                                        onCancelBooking={onCancelBooking}
+                                        onCancelBookingGroup={onCancelBookingGroup}
+                                        onDeleteBooking={onDeleteBooking}
+                                        onDeleteBookingGroup={onDeleteBookingGroup}
+                                        onEditBooking={onEditBooking}
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-20 bg-gray-50 rounded-3xl">
+                                <p className="text-sm font-bold text-gray-400 italic">ไม่พบประวัติการจอง</p>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

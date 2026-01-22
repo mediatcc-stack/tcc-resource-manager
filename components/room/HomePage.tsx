@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Room, Booking } from '../../types';
 import BookingDetailsModal from './BookingDetailsModal';
@@ -107,7 +108,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
             className="flex items-center gap-2 rounded-2xl px-6 py-3 shadow-lg hover:shadow-blue-200"
           >
             <span className="text-xl">+</span>
-            <span>จองห้องประชุม / กรอกแบบฟอร์ม</span>
+            <span>จองห้องประชุม</span>
           </Button>
         </div>
 
@@ -202,7 +203,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
                         onClick={() => onSelectRoom(room, selectedDate)}
                         className="w-full bg-[#0D448D] text-white py-3 rounded-[1.25rem] font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-900/10 group-hover:bg-blue-800 transition-all active:scale-95"
                       >
-                        <span>👆</span> คลิกเพื่อจองห้องนี้
+                        จองห้องนี้
                       </button>
                     )}
                     {!isAvailable && (

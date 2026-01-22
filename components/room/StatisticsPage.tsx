@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import { Booking } from '../../types';
 import { ROOMS } from '../../constants';
@@ -82,22 +83,22 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => 
     const dataToExport = filteredBookings.map((b, index) => ({
         'ลำดับ': index + 1,
         'วันที่': new Date(b.date).toLocaleDateString('th-TH'),
-        'เวลา': `${b.startTime} - ${b.endTime}`,
+        'เวลา': `${b.startTime} - ${b.endTime} น.`,
         'ห้องประชุม': b.roomName,
         'ชื่องาน/วัตถุประสงค์': b.purpose,
         'ผู้จอง': b.bookerName,
         'เบอร์โทรศัพท์': b.phone,
         'จำนวนผู้เข้าร่วม': b.participants,
-        'รูปแบบ': b.meetingType,
+        'รูปแบบ': b.meetingType === 'Hybrid' ? 'ไฮบริด' : b.meetingType === 'Online' ? 'ออนไลน์' : 'ออนไซต์',
         'สถานะ': b.status,
         'อุปกรณ์เพิ่มเติม': b.equipment || '-'
     }));
 
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Room_Bookings");
+    XLSX.utils.book_append_sheet(wb, ws, "รายการจองห้องประชุม");
     
-    const fileName = `รายงานการจองห้องประชุม_${selectedYear}_${selectedMonth}.xlsx`;
+    const fileName = `รายงานการจองห้องประชุม_${parseInt(selectedYear) + 543}_${selectedMonth === 'all' ? 'ทั้งปี' : thaiMonths[parseInt(selectedMonth)-1]}.xlsx`;
     XLSX.writeFile(wb, fileName);
   };
 
@@ -140,7 +141,7 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => 
              </div>
              <Button onClick={handleExportExcel} variant="stats" className="flex items-center gap-2">
                 <span>📥</span>
-                <span>ส่งออก Excel</span>
+                <span>ส่งออกข้อมูล (Excel)</span>
              </Button>
           </div>
         </div>

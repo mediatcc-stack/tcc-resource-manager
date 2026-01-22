@@ -1,3 +1,4 @@
+
 export type SystemType = 'landing' | 'room' | 'equipment';
 export type RoomPage = 'home' | 'booking' | 'mybookings' | 'statistics';
 export type EquipmentPage = 'list' | 'form' | 'statistics';
@@ -18,7 +19,7 @@ export interface Booking {
   bookerName: string;
   phone: string;
   participants: number;
-  meetingType: 'Online' | 'Onsite';
+  meetingType: string[]; // เปลี่ยนจาก string เป็น string[]
   purpose: string;
   equipment: string;
   status: 'จองแล้ว' | 'ยกเลิก' | 'หมดเวลา';

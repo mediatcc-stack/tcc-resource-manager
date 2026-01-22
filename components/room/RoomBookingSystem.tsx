@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { RoomPage, Booking, Room } from '../../types';
-import { ROOMS, STAFF_PASSWORDS } from '../../constants';
+import { ROOMS, STAFF_PASSWORDS, APP_URL } from '../../constants';
 import HomePage from './HomePage';
 import BookingForm from './BookingForm';
 import MyBookingsPage from './MyBookingsPage';
@@ -187,8 +187,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
   }, [bookings]);
 
   const handleDeleteBookingGroup = useCallback(async (groupId: string) => {
-    // FIX: เปลี่ยนจาก filter(b => b.groupId === groupId) เป็น filter(b => b.groupId !== groupId)
-    // เพื่อเอาอันที่มี groupId นี้ออกไปจากลิสต์
     const updated = bookings.filter(b => b.groupId !== groupId);
     if (await updateBookingList(updated)) showToast('ลบรายการกลุ่มถาวรแล้ว', 'success');
   }, [bookings]);
@@ -228,7 +226,29 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       const dateInfo = firstBooking.isMultiDay && firstBooking.dateRange ? firstBooking.dateRange : new Date(firstBooking.date).toLocaleDateString('th-TH');
       const timeInfo = `${firstBooking.startTime} - ${firstBooking.endTime}`;
       
-      const notifyMessage = `📢 แจ้งเตือนการจองห้องใหม่\n\n📍 ห้อง: ${roomNames}\n📅 วันที่: ${dateInfo}\n⏰ เวลา: ${timeInfo}\n💻 รูปแบบ: ${firstBooking.meetingType}\n\n🎯 เรื่อง: ${firstBooking.purpose}\n👤 ผู้จอง: ${firstBooking.bookerName}\n\n🌐 ตรวจสอบ: https://tcc-resource-manager.pages.dev`;
+      // แปลงรูปแบบการประชุม (Onsite/Online -> ภาษาไทย)
+      const typesThai = firstBooking.meetingType.map(t => t === 'Onsite' ? 'ออนไซต์' : t === 'Online' ? 'ออนไลน์' : t);
+      const meetingTypeDisplay = typesThai.join(' และ ');
+
+      let notifyMessage = `📋 แจ้งเตือนจองห้องใหม่\n\n`;
+      notifyMessage += `🏢 ห้อง: ${roomNames}\n`;
+      notifyMessage += `📅 วันที่: ${dateInfo}\n`;
+      notifyMessage += `⏰ เวลา: ${timeInfo} น.\n`;
+      notifyMessage += `💻 รูปแบบ: ${meetingTypeDisplay}\n\n`;
+      notifyMessage += `🎯 เรื่อง: ${firstBooking.purpose}\n`;
+      notifyMessage += `👤 ผู้จอง: ${firstBooking.bookerName}\n`;
+      notifyMessage += `👥 ผู้เข้าร่วม: ${firstBooking.participants} คน\n`;
+      notifyMessage += `📞 ติดต่อ: ${firstBooking.phone || '-'}\n`;
+      
+      if (firstBooking.equipment) {
+        notifyMessage += `📦 อุปกรณ์: ${firstBooking.equipment}\n`;
+      }
+      
+      if (firstBooking.attachmentUrl) {
+        notifyMessage += `📎 ลิงก์แนบ: ${firstBooking.attachmentUrl}\n`;
+      }
+
+      notifyMessage += `\n🌐 ตรวจสอบ: ${APP_URL}`;
 
       await sendLineNotification(notifyMessage);
       setCurrentPage('home');
@@ -351,9 +371,9 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
                     'bg-red-500'
                 }`}></span>
                 <span className="text-[10px] font-black text-gray-500 uppercase tracking-tighter">
-                    {connectionStatus === 'connected' ? 'Connected' : 
-                     connectionStatus === 'syncing' ? 'Syncing...' : 
-                     'Offline'}
+                    {connectionStatus === 'connected' ? 'เชื่อมต่อแล้ว' : 
+                     connectionStatus === 'syncing' ? 'กำลังซิงค์...' : 
+                     'ไม่ได้เชื่อมต่อ'}
                 </span>
             </div>
             {lastUpdated && (
@@ -362,7 +382,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
                 title="กดเพื่อรีเฟรชข้อมูลใหม่"
                 className="group text-xs text-gray-400 font-bold flex items-center gap-2 hover:text-blue-600 transition-all p-2 rounded-lg hover:bg-blue-50"
               >
-                {lastUpdated.toLocaleTimeString('th-TH')}
+                อัปเดตเมื่อ: {lastUpdated.toLocaleTimeString('th-TH')} น.
                 <span className={`text-lg transition-transform duration-500 ${isSyncing ? 'animate-spin' : 'group-hover:rotate-180'}`}>🔄</span>
               </button>
             )}

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { BorrowingRequest, BorrowStatus } from '../../types';
 import Button from '../shared/Button';
@@ -67,7 +68,7 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
     
     const handleDeleteClick = () => {
         setIsChangingStatus(false);
-        if (confirm(`⚠️ ยืนยันการลบถาวร ⚠️\n\nคำขอยืมของ "${req.borrowerName}" จะถูกลบออกจากระบบอย่างถาวรและไม่สามารถกู้คืนได้\n\nคุณต้องการ "ลบถาวร" ใช่หรือไม่?`)) {
+        if (confirm(`⚠️ ยืนยันการลบถาวร\n\nคำขอยืมของ "${req.borrowerName}" จะถูกลบออกจากระบบอย่างถาวรและไม่สามารถกู้คืนได้\n\nต้องการดำเนินการต่อหรือไม่?`)) {
             handleActionWithAuth(() => {
                 onDeleteRequest(req.id);
             });
@@ -95,14 +96,13 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
         <div className={`bg-white rounded-2xl shadow-sm border-l-8 p-5 ${colorClasses.border} transition hover:shadow-lg animate-fade-in`}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
                 
-                {/* Left Column - Main Info */}
                 <div className="md:col-span-2 space-y-2">
                     <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-black text-[#0D448D] uppercase tracking-tight">{`หน่วยงาน / งาน: ${req.borrowerName}`}</h3>
+                        <h3 className="text-lg font-black text-[#0D448D] uppercase tracking-tight">{req.borrowerName}</h3>
                         {req.status === BorrowStatus.Overdue && (
                              <button 
                                 onClick={handleNotifyClick}
-                                title="ส่งแจ้งเตือน LINE เพื่อติดตามคืนอุปกรณ์"
+                                title="แจ้งเตือนคืนอุปกรณ์"
                                 className="bg-red-50 text-red-600 p-1.5 rounded-lg border border-red-200 hover:bg-red-100 transition-all flex items-center gap-1.5 text-xs font-black"
                              >
                                 🔔 แจ้งเตือน LINE
@@ -110,13 +110,12 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
                         )}
                     </div>
                     <div className="space-y-1.5">
-                        <InfoLine icon="📱" label="เบอร์" value={req.phone || <span className="text-gray-400 italic">ไม่ระบุเบอร์</span>} />
+                        <InfoLine icon="📞" label="โทรศัพท์" value={req.phone || <span className="text-gray-400 italic">ไม่ระบุ</span>} />
                         <InfoLine icon="🎯" label="วัตถุประสงค์" value={req.purpose} />
-                        <InfoLine icon="🗓️" label="ระยะเวลายืม" value={`${new Date(req.borrowDate).toLocaleDateString('th-TH')}  -  ${new Date(req.returnDate).toLocaleDateString('th-TH')}`} />
+                        <InfoLine icon="📅" label="ระยะเวลา" value={`${new Date(req.borrowDate).toLocaleDateString('th-TH')} - ${new Date(req.returnDate).toLocaleDateString('th-TH')}`} />
                     </div>
                 </div>
 
-                {/* Right Column - Status & Actions */}
                 <div className="flex flex-col items-start md:items-end justify-between gap-3">
                     <button 
                         onClick={() => setIsChangingStatus(true)}
@@ -126,9 +125,8 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
                     </button>
                 </div>
 
-                {/* Bottom Row - Equipment List */}
                 <div className="md:col-span-3 border-t border-gray-100 pt-3 mt-2">
-                    <p className="font-semibold text-gray-600 mb-2 text-xs uppercase tracking-wider">📦 รายการอุปกรณ์ที่ยืม:</p>
+                    <p className="font-semibold text-gray-600 mb-2 text-xs uppercase tracking-wider">📦 อุปกรณ์ที่ยืม:</p>
                     <pre className="text-sm bg-gray-50 p-3 rounded-lg whitespace-pre-wrap font-sans text-gray-800 border border-gray-200">{req.equipmentList}</pre>
                 </div>
             </div>
@@ -137,8 +135,8 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
         {isChangingStatus && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4 animate-fade-in" onClick={() => setIsChangingStatus(false)}>
                 <div className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-md animate-zoom-in" onClick={e => e.stopPropagation()}>
-                    <h4 className="font-bold text-xl mb-2 text-center text-[#0D448D]">เปลี่ยนสถานะการยืม</h4>
-                    <p className="text-center text-sm text-gray-500 mb-6">หน่วยงาน: <span className="font-semibold text-gray-800">{req.borrowerName}</span></p>
+                    <h4 className="font-bold text-xl mb-2 text-center text-[#0D448D]">เปลี่ยนสถานะ</h4>
+                    <p className="text-center text-sm text-gray-500 mb-6">ผู้ยืม: <span className="font-semibold text-gray-800">{req.borrowerName}</span></p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {Object.values(BorrowStatus).map(status => {
                             const currentStatusInfo = getStatusInfo(status);
@@ -163,7 +161,7 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
                     </div>
                     <div className="mt-6 space-y-3 pt-4 border-t border-gray-200">
                         <Button variant="danger" onClick={handleDeleteClick} className="w-full">
-                            ลบรายการนี้ถาวร
+                            ลบรายการถาวร
                         </Button>
                         <Button variant="secondary" onClick={() => setIsChangingStatus(false)} className="w-full">
                             ปิด

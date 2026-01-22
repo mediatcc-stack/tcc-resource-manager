@@ -21,7 +21,6 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
     const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
     const [nameFilter, setNameFilter] = useState('');
     const [monthFilter, setMonthFilter] = useState<string>('all');
-    // FIX: ปรับค่าเริ่มต้นเป็น 'all' เพื่อให้แสดงข้อมูลทั้งหมด
     const [yearFilter, setYearFilter] = useState<string>('all');
     const [statusFilter, setStatusFilter] = useState('ทั้งหมด');
 
@@ -119,9 +118,9 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
                     </button>
                 </div>
                 <div className="flex items-center gap-2">
-                    {isAdmin && <span className="px-3 py-1 text-xs font-bold text-white bg-green-600 rounded-full shadow-sm">Admin</span>}
+                    {isAdmin && <span className="px-3 py-1 text-xs font-bold text-white bg-green-600 rounded-full shadow-sm">ผู้ดูแลระบบ</span>}
                     <Button onClick={handleAdminLogin} variant="secondary" size="sm">
-                      {isAdmin ? 'ปิดโหมด' : '🔑 เจ้าหน้าที่'}
+                      {isAdmin ? 'ปิดโหมดเจ้าหน้าที่' : '🔑 โหมดเจ้าหน้าที่'}
                     </Button>
                 </div>
             </div>
@@ -146,8 +145,8 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                     <div className="lg:col-span-1">
-                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider">🔍 ค้นหาชื่อ</label>
-                        <input type="text" placeholder="ชื่อผู้ยืม..." value={nameFilter} onChange={e => setNameFilter(e.target.value)} className={inputClasses}/>
+                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider">🔍 ค้นหาชื่อผู้ยืม</label>
+                        <input type="text" placeholder="พิมพ์ชื่อผู้ยืม..." value={nameFilter} onChange={e => setNameFilter(e.target.value)} className={inputClasses}/>
                     </div>
                     <div>
                         <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider">🗓️ เดือนที่ยืม</label>
@@ -176,7 +175,7 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
                             }
                         </select>
                     </div>
-                    <Button onClick={clearFilters} variant="secondary" className="w-full">🔄 ล้างค่า</Button>
+                    <Button onClick={clearFilters} variant="secondary" className="w-full">🔄 ล้างตัวกรอง</Button>
                 </div>
             </div>
 
@@ -196,14 +195,14 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
                     <div className="text-center text-gray-500 py-24 bg-white rounded-2xl border-2 border-dashed border-gray-200">
                         <p className="text-xl font-semibold">ไม่พบรายการ</p>
                         <p className="text-sm mt-2">
-                            ยังไม่มีรายการยืมในช่วงเวลาที่เลือก (ลองเลือกปีเป็น ทุกปี)
+                            ยังไม่มีรายการยืมในช่วงเวลาที่เลือก
                         </p>
                     </div>
                 )}
             </div>
              {lastUpdated && (
                 <div className="text-center text-xs text-gray-400 font-medium mt-4">
-                    อัปเดตข้อมูลล่าสุด: {lastUpdated.toLocaleTimeString('th-TH')}
+                    อัปเดตข้อมูลล่าสุด: {lastUpdated.toLocaleTimeString('th-TH')} น.
                 </div>
             )}
         </div>

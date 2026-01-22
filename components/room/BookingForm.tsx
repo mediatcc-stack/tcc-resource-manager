@@ -49,7 +49,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     bookerName: '',
     phone: '',
     participants: 1,
-    meetingType: 'Onsite' as 'Online' | 'Onsite',
+    meetingType: ['Onsite'] as string[],
     purpose: '',
     equipment: '',
     attachmentUrl: '',
@@ -87,7 +87,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
             bookerName: bookingToEdit.bookerName,
             phone: bookingToEdit.phone,
             participants: bookingToEdit.participants,
-            meetingType: bookingToEdit.meetingType,
+            meetingType: Array.isArray(bookingToEdit.meetingType) ? bookingToEdit.meetingType : [bookingToEdit.meetingType],
             purpose: bookingToEdit.purpose,
             equipment: bookingToEdit.equipment || '',
             attachmentUrl: bookingToEdit.attachmentUrl || '',
@@ -99,26 +99,23 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     } else {
         setSelectedRoomIds([room.id]);
         setCurrentDate(date);
-        setFormData(prev => ({ ...prev, bookerName: '', phone: '', purpose: '', startTime: '', endTime: '', isMultiDay: false, endDate: date }));
+        setFormData(prev => ({ ...prev, bookerName: '', phone: '', purpose: '', startTime: '', endTime: '', isMultiDay: false, endDate: date, meetingType: ['Onsite'] }));
     }
     isInitialized.current = true;
     editingId.current = bookingToEdit?.id || null;
   }, [bookingToEdit, rooms, room, date, existingBookings]);
 
-  // ฟังก์ชันตรวจสอบการจองซ้ำ (Conflict Detection)
   const checkConflict = (roomName: string, checkDate: string, startTime: string, endTime: string): boolean => {
     const startM = timeToMinutes(startTime);
     const endM = timeToMinutes(endTime);
 
     return existingBookings.some(b => {
-      // ข้ามรายการที่กำลังแก้ไขอยู่
       if (isEditing && bookingToEdit && b.id === bookingToEdit.id) return false;
       if (isEditing && bookingToEdit && bookingToEdit.groupId && b.groupId === bookingToEdit.groupId) return false;
       
       if (b.roomName === roomName && b.date === checkDate && b.status === 'จองแล้ว') {
         const bStart = timeToMinutes(b.startTime);
         const bEnd = timeToMinutes(b.endTime);
-        // เงื่อนไขการทับซ้อนของเวลา
         return (startM < bEnd && endM > bStart);
       }
       return false;
@@ -132,6 +129,20 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     if (error) setError('');
   };
   
+  const handleMeetingTypeToggle = (type: string) => {
+    isDirty.current = true;
+    setFormData(prev => {
+        const isSelected = prev.meetingType.includes(type);
+        let newList = isSelected 
+            ? prev.meetingType.filter(t => t !== type) 
+            : [...prev.meetingType, type];
+        
+        if (newList.length === 0) newList = [type];
+        
+        return { ...prev, meetingType: newList };
+    });
+  };
+
   const handleMultiRoomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     isDirty.current = true;
     const roomId = parseInt(e.target.value, 10);
@@ -165,7 +176,6 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
       return;
     }
 
-    // --- ตรวจสอบ Conflict ก่อนจองจริง ---
     const firstDate = new Date(currentDate);
     const lastDate = formData.isMultiDay ? new Date(formData.endDate) : firstDate;
     
@@ -176,7 +186,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
       for (let d = new Date(firstDate); d <= lastDate; d.setDate(d.getDate() + 1)) {
         const dStr = d.toISOString().split('T')[0];
         if (checkConflict(rName, dStr, formData.startTime, formData.endTime)) {
-          setError(`🚫 ขออภัย: ห้อง "${rName}" ในวันที่ ${new Date(dStr).toLocaleDateString('th-TH')} ช่วงเวลา ${formData.startTime}-${formData.endTime} มีผู้จองไปแล้ว กรุณาเลือกเวลาอื่น`);
+          setError(`⚠️ ห้อง "${rName}" วันที่ ${new Date(dStr).toLocaleDateString('th-TH')} เวลา ${formData.startTime}-${formData.endTime} น. ไม่ว่าง`);
           return;
         }
       }
@@ -222,10 +232,10 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
       <div className="bg-white rounded-[2.5rem] shadow-2xl p-8 md:p-12 border border-blue-50">
         <div className="mb-10 pb-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-50 rounded-2xl text-2xl">{isEditing ? '✏️' : '📝'}</div>
+            <div className="p-3 bg-blue-50 rounded-2xl text-2xl">{isEditing ? '✏️' : '📋'}</div>
             <div>
                 <h2 className="text-2xl font-black text-blue-800 tracking-tight">{isEditing ? 'แก้ไขข้อมูลการจอง' : 'กรอกแบบฟอร์มการจอง'}</h2>
-                <p className="text-sm text-gray-400 font-bold uppercase tracking-wider">Conference Room Booking Form</p>
+                <p className="text-sm text-gray-400 font-bold uppercase tracking-wider">ห้องประชุมวิทยาลัยพณิชยการธนบุรี</p>
             </div>
           </div>
           <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-50 text-gray-400 hover:text-gray-600 font-bold text-sm rounded-lg transition-colors">ยกเลิก</button>
@@ -234,7 +244,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
         <form onSubmit={handleSubmit} className="space-y-8">
           {error && (
             <div className="bg-red-50 border-2 border-red-100 p-5 rounded-2xl flex items-start gap-4 sticky top-20 z-10">
-                <span className="text-2xl">🚫</span>
+                <span className="text-2xl">⚠️</span>
                 <p className="text-red-700 font-black text-sm leading-relaxed">{error}</p>
             </div>
           )}
@@ -266,7 +276,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
              <ThaiDatePicker 
                 label={formData.isMultiDay ? "วันที่เริ่ม" : "วันที่จัดงาน"} 
-                icon="🗓️" 
+                icon="📅" 
                 value={currentDate} 
                 onChange={setCurrentDate} 
                 required 
@@ -274,7 +284,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
              {formData.isMultiDay && (
                 <ThaiDatePicker 
                   label="วันที่สิ้นสุด" 
-                  icon="🗓️" 
+                  icon="📅" 
                   value={formData.endDate} 
                   onChange={(val) => { isDirty.current = true; setFormData(prev => ({...prev, endDate: val})); }} 
                   required 
@@ -299,42 +309,64 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <FormField label="หน่วยงาน / งาน" icon="🏢" required>
-              <input type="text" name="bookerName" value={formData.bookerName} onChange={handleInputChange} className={inputClasses} placeholder="เช่น งานประชาสัมพันธ์" required />
+              <input type="text" name="bookerName" value={formData.bookerName} onChange={handleInputChange} className={inputClasses} placeholder="ระบุหน่วยงาน..." required />
             </FormField>
-            <FormField label="เบอร์โทรศัพท์" icon="📱">
-              <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className={inputClasses} placeholder="เช่น 0812345678" />
+            <FormField label="เบอร์โทรศัพท์" icon="📞">
+              <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className={inputClasses} placeholder="081XXXXXXX" />
             </FormField>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <FormField label="จำนวนผู้เข้าร่วม" icon="👥" required>
+            <FormField label="จำนวนผู้เข้าร่วม" icon="👤" required>
               <input type="number" name="participants" min="1" value={formData.participants} onChange={handleInputChange} className={inputClasses} required />
             </FormField>
             <FormField label="รูปแบบการประชุม" icon="💻" required>
-              <select name="meetingType" value={formData.meetingType} onChange={handleInputChange} className={inputClasses} required>
-                <option value="Onsite">Onsite (ที่วิทยาลัย)</option>
-                <option value="Online">Online (ผ่านระบบออนไลน์)</option>
-              </select>
+              <div className="flex flex-wrap gap-3">
+                {[
+                  { value: 'Onsite', label: 'ออนไซต์', color: 'border-emerald-200 text-emerald-700 bg-emerald-50' },
+                  { value: 'Online', label: 'ออนไลน์', color: 'border-blue-200 text-blue-700 bg-blue-50' },
+                ].map((type) => (
+                  <label 
+                    key={type.value} 
+                    className={`flex-1 flex items-center p-3.5 rounded-2xl border-2 transition-all cursor-pointer ${formData.meetingType.includes(type.value) ? `ring-2 ring-offset-2 ring-blue-500 shadow-md ${type.color}` : 'bg-white border-gray-100 hover:bg-gray-50'}`}
+                  >
+                    <input 
+                      type="checkbox" 
+                      checked={formData.meetingType.includes(type.value)} 
+                      onChange={() => handleMeetingTypeToggle(type.value)} 
+                      className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-3 text-sm font-black">{type.label}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2 text-[10px] text-gray-400 font-bold">* สามารถเลือกได้ทั้งสองอย่างหากเป็นรูปแบบไฮบริด</p>
             </FormField>
           </div>
 
-          <FormField label="วัตถุประสงค์ / ชื่องานกิจกรรม" icon="🎯" required>
-            <textarea name="purpose" value={formData.purpose} onChange={handleInputChange} rows={3} className={inputClasses} placeholder="ระบุชื่อโครงการ หรือกิจกรรมที่จัด..." required />
+          <FormField label="วัตถุประสงค์ / เรื่อง" icon="🎯" required>
+            <textarea name="purpose" value={formData.purpose} onChange={handleInputChange} rows={3} className={inputClasses} placeholder="ระบุวัตถุประสงค์..." required />
           </FormField>
 
-          <FormField label="อุปกรณ์เพิ่มเติม" icon="🛠️">
-            <textarea name="equipment" value={formData.equipment} onChange={handleInputChange} rows={3} className={inputClasses} placeholder="ระบุอุปกรณ์ที่ต้องการ เช่น ไมโครโฟนเสริม, โปรเจคเตอร์" />
+          <FormField label="อุปกรณ์เพิ่มเติม" icon="📦">
+            <textarea name="equipment" value={formData.equipment} onChange={handleInputChange} rows={3} className={inputClasses} placeholder="ระบุอุปกรณ์ที่ต้องการ..." />
           </FormField>
 
-          <FormField label="ลิงก์ไฟล์แนบ (ถ้ามี)" icon="📎">
-            <input 
-              type="url" 
-              name="attachmentUrl" 
-              value={formData.attachmentUrl} 
-              onChange={handleInputChange} 
-              className={inputClasses}
-              placeholder="https://docs.google.com/document/d/..."
-            />
+          <FormField label="ลิงก์ไฟล์แนบ" icon="📎">
+            <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <span className="text-gray-400 text-sm font-bold">https://</span>
+                </div>
+                <input 
+                    type="url" 
+                    name="attachmentUrl" 
+                    value={formData.attachmentUrl} 
+                    onChange={handleInputChange} 
+                    className={`${inputClasses} pl-16 border-2 border-slate-100 bg-slate-50/30 focus:bg-white`}
+                    placeholder="docs.google.com/..."
+                />
+            </div>
+            <p className="mt-2 text-[10px] text-blue-500 font-bold">ใส่ลิงก์ Google Drive หรือไฟล์ที่เกี่ยวข้องเพื่อให้เจ้าหน้าที่ตรวจสอบรายละเอียดโครงการ</p>
           </FormField>
           
           <div className="flex justify-end gap-4 pt-10 border-t border-gray-50">

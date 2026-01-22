@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { EquipmentPage, BorrowingRequest, BorrowStatus } from '../../types';
 import BorrowingListPage from './BorrowingListPage';
@@ -8,6 +9,7 @@ import { fetchData, saveData } from '../../services/apiService';
 import { v4 as uuidv4 } from 'uuid';
 import LoadingSpinner from '../shared/LoadingSpinner';
 import Button from '../shared/Button';
+import { APP_URL } from '../../constants';
 
 interface EquipmentSystemProps {
   onBackToLanding: () => void;
@@ -106,7 +108,7 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
     }, [borrowings]);
 
     const handleNotifyOverdue = useCallback(async (req: BorrowingRequest) => {
-        const msg = `⚠️ แจ้งเตือน: เลยกำหนดคืนอุปกรณ์\nผู้ยืม: ${req.borrowerName}\nอุปกรณ์: ${req.equipmentList}\nกำหนดคืน: ${new Date(req.returnDate).toLocaleDateString('th-TH')}\nโปรดติดต่อคืนด่วนครับ`;
+        const msg = `⚠️ แจ้งเตือน: เลยกำหนดคืนอุปกรณ์\n\n👤 ผู้ยืม: ${req.borrowerName}\n📦 อุปกรณ์: ${req.equipmentList}\n🗓️ กำหนดคืน: ${new Date(req.returnDate).toLocaleDateString('th-TH')}\n\n🚩 กรุณาติดต่อคืนอุปกรณ์ที่งานสื่อฯ โดยด่วนครับ`;
         try {
             await sendLineNotification(msg);
             showToast('ส่งแจ้งเตือน LINE สำเร็จ', 'success');
@@ -128,7 +130,13 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
             await saveData('equipment', updatedBorrowings);
             setBorrowings(updatedBorrowings);
             setLastUpdated(new Date());
-            await sendLineNotification(`📢 มีคำขอยืมอุปกรณ์ใหม่\nผู้ยืม: ${createdRequest.borrowerName}\nอุปกรณ์: ${createdRequest.equipmentList}`);
+
+            const borrowDateStr = new Date(createdRequest.borrowDate).toLocaleDateString('th-TH');
+            const returnDateStr = new Date(createdRequest.returnDate).toLocaleDateString('th-TH');
+
+            const notifyMessage = `📋 แจ้งเตือนยืมอุปกรณ์ใหม่\n\n👤 ผู้ยืม: ${createdRequest.borrowerName}\n📞 เบอร์โทร: ${createdRequest.phone || '-'}\n🎯 เรื่อง: ${createdRequest.purpose}\n📅 ระยะเวลา: ${borrowDateStr} ถึง ${returnDateStr}\n\n📦 รายการอุปกรณ์:\n${createdRequest.equipmentList}\n\n🌐 ตรวจสอบ: ${APP_URL}`;
+
+            await sendLineNotification(notifyMessage);
             setCurrentPage('list');
             showToast('ส่งคำขอยืมอุปกรณ์สำเร็จ', 'success');
             fetchBorrowings(true);
@@ -150,7 +158,7 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
         if (error && borrowings.length === 0) {
             return (
                 <div className="flex flex-col items-center justify-center h-96 bg-white rounded-2xl shadow-xl text-center p-4">
-                    <p className="text-4xl mb-4">🚨</p>
+                    <p className="text-4xl mb-4 text-red-500">⚠️</p>
                     <p className="text-xl font-bold text-red-600 mb-2">เกิดข้อผิดพลาด</p>
                     <p className="text-sm text-gray-500 mb-6">{error}</p>
                     <Button onClick={() => fetchBorrowings(false)}>ลองใหม่อีกครั้ง</Button>
@@ -196,7 +204,7 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
                     </Button>
                 </div>
                 <Button onClick={() => setCurrentPage('form')} variant="primary" className="shadow-lg">
-                    + สร้างคำขอยืมอุปกรณ์
+                    + ขอยืมอุปกรณ์
                 </Button>
              </div>
              <div>
