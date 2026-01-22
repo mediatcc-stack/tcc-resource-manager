@@ -12,9 +12,10 @@ interface HomePageProps {
   onBackToLanding: () => void;
   onNavigateToMyBookings: () => void;
   onQuickBook: () => void;
+  onSendReport: () => void;
 }
 
-const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNavigateToMyBookings, onQuickBook }) => {
+const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNavigateToMyBookings, onQuickBook, onSendReport }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   
@@ -103,13 +104,23 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
             <span className="w-2 h-2 bg-sky-500 rounded-full animate-pulse"></span>
             <span className="text-sm font-bold tracking-wide uppercase">Thonburi Commercial College</span>
           </div>
-          <Button 
-            onClick={onQuickBook}
-            className="flex items-center gap-2 rounded-2xl px-6 py-3 shadow-lg hover:shadow-blue-200"
-          >
-            <span className="text-xl">+</span>
-            <span>จองห้องประชุม</span>
-          </Button>
+          <div className="flex gap-4">
+            <Button 
+                onClick={onSendReport}
+                variant="stats"
+                className="flex items-center gap-2 rounded-2xl px-6 py-3 border-green-600 text-green-700 hover:bg-green-50"
+            >
+                <span className="text-xl">📊</span>
+                <span>ส่งรายงานเข้า LINE</span>
+            </Button>
+            <Button 
+                onClick={onQuickBook}
+                className="flex items-center gap-2 rounded-2xl px-6 py-3 shadow-lg hover:shadow-blue-200"
+            >
+                <span className="text-xl">+</span>
+                <span>จองห้องประชุม</span>
+            </Button>
+          </div>
         </div>
 
         <section className="mb-16">

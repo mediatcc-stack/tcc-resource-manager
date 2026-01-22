@@ -340,7 +340,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
                   </label>
                 ))}
               </div>
-              <p className="mt-2 text-[10px] text-gray-400 font-bold">* สามารถเลือกได้ทั้งสองอย่างหากเป็นรูปแบบไฮบริด</p>
+              <p className="mt-2 text-[10px] text-gray-400 font-bold">* สามารถเลือกได้ทั้งสองอย่างหากเป็นรูปแบบไฮบริด (ออนไซต์ และ ออนไลน์)</p>
             </FormField>
           </div>
 
@@ -366,7 +366,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
                     placeholder="docs.google.com/..."
                 />
             </div>
-            <p className="mt-2 text-[10px] text-blue-500 font-bold">ใส่ลิงก์ Google Drive หรือไฟล์ที่เกี่ยวข้องเพื่อให้เจ้าหน้าที่ตรวจสอบรายละเอียดโครงการ</p>
+            <p className="mt-2 text-[10px] text-blue-500 font-bold">กรุณาแนบลิงก์ไฟล์โครงการ หรือเอกสารที่เกี่ยวข้องเพื่อให้เจ้าหน้าที่ตรวจสอบรายละเอียด</p>
           </FormField>
           
           <div className="flex justify-end gap-4 pt-10 border-t border-gray-50">

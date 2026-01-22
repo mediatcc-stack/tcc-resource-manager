@@ -4,8 +4,8 @@ import { Room } from './types';
 // ตรงกับ URL ในหน้า Cloudflare ของคุณ (Workers.dev)
 export const WORKER_BASE_URL = 'https://tcc-line-notifier.media-tcc.workers.dev';
 
-// URL สำหรับส่งแจ้งเตือน (ใช้ Webhook ตามที่ผู้ใช้ระบุ)
-export const NOTIFICATION_URL = 'https://webhook.site/0e026487-d188-47df-aa11-7bacd301b3c2';
+// URL สำหรับส่งแจ้งเตือน (เปลี่ยนกลับมาใช้ Cloudflare Worker Endpoint)
+export const NOTIFICATION_URL = `${WORKER_BASE_URL}/notify`;
 
 // ลิงก์ปัจจุบันของระบบ
 export const APP_URL = 'https://tcc-media-booking.pages.dev';

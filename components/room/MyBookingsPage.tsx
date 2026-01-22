@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Booking } from '../../types';
 import Button from '../shared/Button';
@@ -14,6 +15,7 @@ interface MyBookingsPageProps {
   onBack: () => void;
   isAdmin: boolean;
   onAdminLogin: () => void;
+  onShowGroupIdHelp: () => void;
 }
 
 const thaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
@@ -191,7 +193,7 @@ const BookingCard: React.FC<{
 };
 
 
-const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onDeleteBookingGroup, onEditBooking, onBack, isAdmin, onAdminLogin }) => {
+const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onDeleteBookingGroup, onEditBooking, onBack, isAdmin, onAdminLogin, onShowGroupIdHelp }) => {
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
   const [purposeFilter, setPurposeFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState<string>('all');
@@ -287,6 +289,10 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                   <h2 className="text-2xl font-black text-gray-800 tracking-tight">รายการจองห้องประชุม</h2>
                 </div>
                 <div className="flex items-center gap-2">
+                  <Button onClick={onShowGroupIdHelp} variant="nav" className="!bg-amber-50 !text-amber-700 hover:!bg-amber-100 border border-amber-200">
+                      <span>❔</span>
+                      <span className="hidden md:inline">วิธีหา Group ID</span>
+                  </Button>
                   <Button onClick={onAdminLogin} variant="secondary">
                       {isAdmin ? 'ปิดโหมดเจ้าหน้าที่' : '🔑 โหมดเจ้าหน้าที่'}
                   </Button>

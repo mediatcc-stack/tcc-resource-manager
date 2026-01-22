@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { RoomPage, Booking, Room } from '../../types';
 import { ROOMS, STAFF_PASSWORDS, APP_URL } from '../../constants';
@@ -12,6 +13,8 @@ import { v4 as uuidv4 } from 'uuid';
 import NavButton from './NavButton';
 import LoadingSpinner from '../shared/LoadingSpinner';
 import Button from '../shared/Button';
+import Modal from '../shared/Modal';
+import GroupIdFinder from '../admin/GroupIdFinder';
 
 interface RoomBookingSystemProps {
   onBackToLanding: () => void;
@@ -30,6 +33,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'error' | 'syncing'>('connected');
+  const [isGroupIdModalOpen, setIsGroupIdModalOpen] = useState(false);
   
   const pollTimer = useRef<number | null>(null);
 
@@ -95,29 +99,43 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
     };
   }, [fetchBookings]);
 
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      const now = new Date();
-      let hasChanged = false;
-      const updatedBookings = bookings.map(b => {
-        if (b.status === 'จองแล้ว') {
-          const bookingDateTime = new Date(`${b.date}T${b.endTime}`);
-          if (bookingDateTime < now) {
-            hasChanged = true;
-            return { ...b, status: 'หมดเวลา' as const };
-          }
+  // ฟังก์ชันส่งรายงานสรุปประจำวัน (กดส่งเอง)
+  const handleSendDailyReport = async () => {
+    const today = new Date().toISOString().split('T')[0];
+    const todayBookings = bookings
+        .filter(b => b.date === today && b.status === 'จองแล้ว')
+        .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+    if (todayBookings.length === 0) {
+        showToast('วันนี้ไม่มีรายการจองห้องประชุม', 'error');
+        return;
+    }
+
+    let reportMsg = `📊 รายงานการใช้ห้อง (วันนี้)\n`;
+    reportMsg += `---------------------\n`;
+    
+    todayBookings.forEach((b, index) => {
+        reportMsg += `${index + 1}. 🕓 ${b.startTime}-${b.endTime}\n`;
+        reportMsg += `📍 ${b.roomName}\n`;
+        reportMsg += `📝 ${b.purpose}\n`;
+        reportMsg += `👤 ${b.bookerName}\n\n`;
+    });
+
+    reportMsg += `🔗 ตรวจสอบเพิ่มเติมในระบบ\n${APP_URL}`;
+
+    const confirmSend = confirm('ยืนยันการส่งรายงานสรุปการใช้ห้องวันนี้ไปยัง LINE กลุ่ม?');
+    if (confirmSend) {
+        setIsSyncing(true);
+        try {
+            await sendLineNotification(reportMsg);
+            showToast('ส่งรายงานเข้า LINE เรียบร้อยแล้ว', 'success');
+        } catch (e) {
+            showToast('ส่งรายงานไม่สำเร็จ', 'error');
+        } finally {
+            setIsSyncing(false);
         }
-        return b;
-      });
-      
-      if (hasChanged) {
-        saveData('rooms', updatedBookings).then(() => {
-          setBookings(updatedBookings);
-        });
-      }
-    }, 60000);
-    return () => clearInterval(interval);
-  }, [bookings]);
+    }
+  };
 
   const updateBookingList = async (newList: Booking[]): Promise<boolean> => {
     try {
@@ -173,13 +191,17 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
 
   const handleCancelBooking = useCallback(async (id: string) => {
     const updated = bookings.map(b => b.id === id ? { ...b, status: 'ยกเลิก' as const } : b);
-    if (await updateBookingList(updated)) showToast('ยกเลิกรายการจองแล้ว', 'success');
-  }, [bookings]);
+    if (await updateBookingList(updated)) {
+      showToast('ยกเลิกรายการจองแล้ว', 'success');
+    }
+  }, [bookings, showToast]);
 
   const handleCancelBookingGroup = useCallback(async (groupId: string) => {
     const updated = bookings.map(b => b.groupId === groupId ? { ...b, status: 'ยกเลิก' as const } : b);
-    if (await updateBookingList(updated)) showToast('ยกเลิกรายการจองกลุ่มแล้ว', 'success');
-  }, [bookings]);
+    if (await updateBookingList(updated)) {
+      showToast('ยกเลิกรายการจองกลุ่มแล้ว', 'success');
+    }
+  }, [bookings, showToast]);
 
   const handleDeleteBooking = useCallback(async (id: string) => {
     const updated = bookings.filter(b => b.id !== id);
@@ -220,37 +242,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       await saveData('rooms', updatedBookings);
       setBookings(updatedBookings);
       setLastUpdated(new Date());
-
-      const firstBooking = createdBookings[0];
-      const roomNames = [...new Set(createdBookings.map(b => b.roomName))].join(', ');
-      const dateInfo = firstBooking.isMultiDay && firstBooking.dateRange ? firstBooking.dateRange : new Date(firstBooking.date).toLocaleDateString('th-TH');
-      const timeInfo = `${firstBooking.startTime} - ${firstBooking.endTime}`;
-      
-      // แปลงรูปแบบการประชุม (Onsite/Online -> ภาษาไทย)
-      const typesThai = firstBooking.meetingType.map(t => t === 'Onsite' ? 'ออนไซต์' : t === 'Online' ? 'ออนไลน์' : t);
-      const meetingTypeDisplay = typesThai.join(' และ ');
-
-      let notifyMessage = `📋 แจ้งเตือนจองห้องใหม่\n\n`;
-      notifyMessage += `🏢 ห้อง: ${roomNames}\n`;
-      notifyMessage += `📅 วันที่: ${dateInfo}\n`;
-      notifyMessage += `⏰ เวลา: ${timeInfo} น.\n`;
-      notifyMessage += `💻 รูปแบบ: ${meetingTypeDisplay}\n\n`;
-      notifyMessage += `🎯 เรื่อง: ${firstBooking.purpose}\n`;
-      notifyMessage += `👤 ผู้จอง: ${firstBooking.bookerName}\n`;
-      notifyMessage += `👥 ผู้เข้าร่วม: ${firstBooking.participants} คน\n`;
-      notifyMessage += `📞 ติดต่อ: ${firstBooking.phone || '-'}\n`;
-      
-      if (firstBooking.equipment) {
-        notifyMessage += `📦 อุปกรณ์: ${firstBooking.equipment}\n`;
-      }
-      
-      if (firstBooking.attachmentUrl) {
-        notifyMessage += `📎 ลิงก์แนบ: ${firstBooking.attachmentUrl}\n`;
-      }
-
-      notifyMessage += `\n🌐 ตรวจสอบ: ${APP_URL}`;
-
-      await sendLineNotification(notifyMessage);
       setCurrentPage('home');
       showToast('การจองห้องสำเร็จ!', 'success');
       fetchBookings(true);
@@ -304,9 +295,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
               🏠 กลับหน้าหลัก
             </Button>
           </div>
-          <p className="mt-8 text-xs text-gray-400 font-bold uppercase tracking-widest">
-            หากยังพบปัญหากรุณาติดต่อฝ่ายไอที
-          </p>
         </div>
       );
     }
@@ -337,6 +325,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
                   onBack={() => setCurrentPage('home')}
                   isAdmin={isAdmin}
                   onAdminLogin={handleAdminLogin}
+                  onShowGroupIdHelp={() => setIsGroupIdModalOpen(true)}
                 />;
       case 'statistics':
         return <StatisticsPage bookings={bookings} onBack={() => setCurrentPage('home')} />;
@@ -350,6 +339,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
             onBackToLanding={onBackToLanding}
             onNavigateToMyBookings={() => setCurrentPage('mybookings')}
             onQuickBook={handleQuickBook}
+            onSendReport={handleSendDailyReport}
           />
         );
     }
@@ -357,6 +347,11 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
   
   return (
     <div className="animate-fade-in">
+      {isGroupIdModalOpen && (
+        <Modal title="วิธีหา Group ID จาก LINE Developers" onClose={() => setIsGroupIdModalOpen(false)}>
+          <GroupIdFinder />
+        </Modal>
+      )}
       <div className="bg-white rounded-2xl shadow-lg p-4 mb-8 flex items-center justify-between gap-6 flex-wrap border border-gray-100">
         <div className="flex items-center justify-center gap-3 md:gap-6 flex-wrap">
           <NavButton page="home" label="หน้าแรก" icon="🏠" currentPage={currentPage} setCurrentPage={setCurrentPage} />
@@ -376,16 +371,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
                      'ไม่ได้เชื่อมต่อ'}
                 </span>
             </div>
-            {lastUpdated && (
-              <button 
-                onClick={() => fetchBookings(false)}
-                title="กดเพื่อรีเฟรชข้อมูลใหม่"
-                className="group text-xs text-gray-400 font-bold flex items-center gap-2 hover:text-blue-600 transition-all p-2 rounded-lg hover:bg-blue-50"
-              >
-                อัปเดตเมื่อ: {lastUpdated.toLocaleTimeString('th-TH')} น.
-                <span className={`text-lg transition-transform duration-500 ${isSyncing ? 'animate-spin' : 'group-hover:rotate-180'}`}>🔄</span>
-              </button>
-            )}
         </div>
       </div>
       {renderCurrentPage()}
