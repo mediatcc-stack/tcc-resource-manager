@@ -1,70 +1,49 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-const GroupIdFinder: React.FC = () => {
-    const [isCopied, setIsCopied] = useState(false);
-    const exampleGroupId = 'Cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+const CommandBox: React.FC<{ command: string; description: string }> = ({ command, description }) => (
+  <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+    <code className="bg-slate-800 text-white font-mono text-sm px-3 py-1.5 rounded-md mt-1">{command}</code>
+    <p className="text-slate-600">{description}</p>
+  </div>
+);
 
-    const handleCopy = () => {
-        navigator.clipboard.writeText(exampleGroupId).then(() => {
-            setIsCopied(true);
-            setTimeout(() => setIsCopied(false), 2000);
-        });
-    };
+const NotificationSetupGuide: React.FC = () => {
+  return (
+    <div className="space-y-6 text-sm text-slate-700 leading-relaxed">
+      <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+        <h4 className="font-bold text-blue-800 text-base mb-2">🚀 อัปเกรดระบบแจ้งเตือน!</h4>
+        <p>
+          ตอนนี้คุณสามารถจัดการกลุ่มที่รับการแจ้งเตือนได้โดยตรงจากในแชท LINE ไม่จำเป็นต้องใช้ Group ID อีกต่อไป
+          เพียงเชิญบอทเข้ากลุ่มที่ต้องการ แล้วใช้คำสั่งง่ายๆ ด้านล่างนี้:
+        </p>
+      </div>
+      
+      <div className="space-y-4">
+        <CommandBox 
+          command="/register"
+          description="ใช้คำสั่งนี้ในกลุ่มที่ต้องการรับการแจ้งเตือน บอทจะจดจำกลุ่มนี้ไว้สำหรับส่งข้อมูลอัตโนมัติ"
+        />
+        <CommandBox 
+          command="/unregister"
+          description="หากไม่ต้องการรับการแจ้งเตือนในกลุ่มนี้อีกต่อไป ให้ใช้คำสั่งนี้เพื่อยกเลิกการลงทะเบียน"
+        />
+        <CommandBox 
+          command="/getid"
+          description="(สำหรับผู้ดูแลระบบ) ยังคงใช้คำสั่งนี้ได้ หากต้องการทราบ Group ID ของกลุ่มเพื่อใช้ในการตรวจสอบ"
+        />
+      </div>
 
-    const codeSnippet = `{
-  "events": [
-    {
-      "type": "message",
-      "replyToken": "...",
-      "source": {
-        "userId": "U...",
-        "type": "group",
-        "groupId": "${exampleGroupId}"
-      },
-      "timestamp": 1674382800000,
-      "mode": "active",
-      "message": {
-        "type": "text",
-        "id": "...",
-        "text": "สวัสดี"
-      }
-    }
-  ]
-}`;
-
-    return (
-        <div className="space-y-6 text-sm text-slate-700 leading-relaxed">
-            <p>
-                ถูกต้องครับ! หลังจากที่คุณเชิญบอทเข้ากลุ่มและพิมพ์ข้อความแล้ว ให้กลับมาที่หน้านี้ (ใน LINE Developers Console) แล้วกดปุ่ม <code className="bg-slate-200 text-slate-800 font-bold px-2 py-1 rounded-md">Verify</code> ตามรูปที่คุณส่งมาครับ
-            </p>
-            <p className="font-bold text-slate-800">
-                เมื่อกดแล้ว ระบบจะแสดงหน้าต่างข้อมูล (เรียกว่า "Request Body") ซึ่งมีหน้าตาคล้ายๆ ด้านล่างนี้:
-            </p>
-
-            <div className="bg-slate-900 text-white p-4 rounded-xl font-mono text-xs relative overflow-x-auto">
-                <pre>
-                    <code dangerouslySetInnerHTML={{ __html: codeSnippet.replace(exampleGroupId, `<span class="bg-yellow-400 text-black px-1 rounded">${exampleGroupId}</span>`) }} />
-                </pre>
-            </div>
-            
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl flex flex-col md:flex-row items-center gap-4">
-                <div className="flex-1">
-                    <p className="font-bold text-blue-800">
-                        สิ่งที่คุณต้องหาคือ <code className="bg-blue-200 px-1.5 py-0.5 rounded">"groupId"</code> ที่มีตัว <code className="bg-blue-200 px-1.5 py-0.5 rounded">C</code> นำหน้าครับ
-                    </p>
-                    <p className="text-blue-600 text-xs mt-1">
-                        คัดลอกค่านี้ไปใส่ใน Cloudflare Worker Settings ได้เลย
-                    </p>
-                </div>
-                <button 
-                    onClick={handleCopy}
-                    className={`px-4 py-2 rounded-lg font-semibold text-white transition-all w-full md:w-auto ${isCopied ? 'bg-green-500' : 'bg-blue-600 hover:bg-blue-700'}`}
-                >
-                    {isCopied ? 'คัดลอกแล้ว!' : 'คัดลอก ID ตัวอย่าง'}
-                </button>
-            </div>
-        </div>
-    );
+      <div className="pt-4 mt-4 border-t border-slate-200">
+        <p className="font-bold text-slate-800">ขั้นตอนการใช้งาน:</p>
+        <ol className="list-decimal list-inside space-y-2 mt-2 pl-2">
+          <li><strong>เชิญบอท</strong> เข้าไปใน LINE Group ที่คุณต้องการ</li>
+          <li>พิมพ์ <code className="bg-slate-200 text-slate-800 font-bold px-1.5 py-0.5 rounded">/register</code> แล้วกดส่ง</li>
+          <li>บอทจะตอบกลับเพื่อยืนยันการลงทะเบียน</li>
+          <li>คุณสามารถทำขั้นตอนนี้ซ้ำกับกลุ่มอื่นๆ ได้ตามต้องการ</li>
+        </ol>
+      </div>
+    </div>
+  );
 };
 
-export default GroupIdFinder;
+export default NotificationSetupGuide;

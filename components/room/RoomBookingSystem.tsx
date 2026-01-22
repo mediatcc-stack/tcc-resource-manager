@@ -123,7 +123,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
 
     reportMsg += `🔗 ตรวจสอบเพิ่มเติมในระบบ\n${APP_URL}`;
 
-    const confirmSend = confirm('ยืนยันการส่งรายงานสรุปการใช้ห้องวันนี้ไปยัง LINE กลุ่ม?');
+    const confirmSend = confirm('ยืนยันการส่งรายงานสรุปการใช้ห้องวันนี้ไปยัง LINE กลุ่มที่ลงทะเบียนไว้?');
     if (confirmSend) {
         setIsSyncing(true);
         try {
@@ -348,7 +348,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
   return (
     <div className="animate-fade-in">
       {isGroupIdModalOpen && (
-        <Modal title="วิธีหา Group ID จาก LINE Developers" onClose={() => setIsGroupIdModalOpen(false)}>
+        <Modal title="วิธีตั้งค่าการแจ้งเตือน LINE" onClose={() => setIsGroupIdModalOpen(false)}>
           <GroupIdFinder />
         </Modal>
       )}

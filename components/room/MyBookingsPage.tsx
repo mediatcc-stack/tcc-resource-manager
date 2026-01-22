@@ -290,8 +290,8 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                 </div>
                 <div className="flex items-center gap-2">
                   <Button onClick={onShowGroupIdHelp} variant="nav" className="!bg-amber-50 !text-amber-700 hover:!bg-amber-100 border border-amber-200">
-                      <span>❔</span>
-                      <span className="hidden md:inline">วิธีหา Group ID</span>
+                      <span>💡</span>
+                      <span className="hidden md:inline">ตั้งค่าแจ้งเตือน</span>
                   </Button>
                   <Button onClick={onAdminLogin} variant="secondary">
                       {isAdmin ? 'ปิดโหมดเจ้าหน้าที่' : '🔑 โหมดเจ้าหน้าที่'}

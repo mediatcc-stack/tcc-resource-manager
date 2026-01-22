@@ -1,4 +1,4 @@
-// cloudflare-worker.js (Manual Report & Auto Scheduled Report)
+// cloudflare-worker.js (Register/Unregister & Multicast Notifications)
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -18,6 +18,33 @@ async function replyToLine(replyToken, message, env) {
     }),
   });
 }
+
+// ฟังก์ชันสำหรับส่งข้อความไปยังหลายกลุ่มพร้อมกัน
+async function sendMulticast(groupIds, message, env) {
+  if (!groupIds || groupIds.length === 0) {
+    console.log("No groups registered for notifications.");
+    return;
+  }
+  
+  // LINE Multicast API รองรับสูงสุด 150 ID ต่อครั้ง
+  const response = await fetch('https://api.line.me/v2/bot/message/multicast', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
+    },
+    body: JSON.stringify({
+      to: groupIds,
+      messages: [{ type: 'text', text: message }],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error("Failed to send multicast message:", errorBody);
+  }
+}
+
 
 export default {
   /**
@@ -48,41 +75,51 @@ export default {
 
       if (path === '/notify' && request.method === 'POST') {
         const { message } = await request.json();
-        const groupId = env.GROUP_ID; // ดึง ID กลุ่มจาก Variables
-
-        await fetch('https://api.line.me/v2/bot/message/push', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json', 
-            'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}` 
-          },
-          body: JSON.stringify({ 
-            to: groupId, 
-            messages: [{ type: 'text', text: message }] 
-          }),
-        });
+        const registeredGroups = await env.LINE_GROUPS_KV.get('registered_groups', 'json') || [];
+        
+        if (registeredGroups.length > 0) {
+            await sendMulticast(registeredGroups, message, env);
+        }
         
         return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
       }
       
-      // [ใหม่] เพิ่ม Handler สำหรับรับ Webhook Events จาก LINE
       if (path === '/webhook' && request.method === 'POST') {
         const body = await request.json();
         for (const event of body.events) {
           if (event.type === 'message' && event.message.type === 'text' && event.source.type === 'group') {
-            const messageText = event.message.text.trim();
-            // ตรวจสอบคำสั่งพิเศษ /getid
+            const messageText = event.message.text.trim().toLowerCase();
+            const groupId = event.source.groupId;
+            const replyToken = event.replyToken;
+
             if (messageText === '/getid') {
-              const groupId = event.source.groupId;
-              const replyToken = event.replyToken;
-              const replyMsg = `✅ ได้รับ Group ID แล้วครับ\n\n${groupId}\n\nนำ ID นี้ไปใส่ใน Cloudflare Worker Settings ในส่วนของ 'GROUP_ID' ได้เลยครับ`;
+              const replyMsg = `✅ Group ID ของกลุ่มนี้คือ:\n\n${groupId}`;
               await replyToLine(replyToken, replyMsg, env);
+
+            } else if (messageText === '/register') {
+                let groups = await env.LINE_GROUPS_KV.get('registered_groups', 'json') || [];
+                if (!groups.includes(groupId)) {
+                    groups.push(groupId);
+                    await env.LINE_GROUPS_KV.put('registered_groups', JSON.stringify(groups));
+                    await replyToLine(replyToken, "✅ ลงทะเบียนรับการแจ้งเตือนสำหรับกลุ่มนี้เรียบร้อยแล้ว", env);
+                } else {
+                    await replyToLine(replyToken, "ℹ️ กลุ่มนี้ได้ลงทะเบียนรับการแจ้งเตือนอยู่แล้ว", env);
+                }
+
+            } else if (messageText === '/unregister') {
+                let groups = await env.LINE_GROUPS_KV.get('registered_groups', 'json') || [];
+                if (groups.includes(groupId)) {
+                    groups = groups.filter(id => id !== groupId);
+                    await env.LINE_GROUPS_KV.put('registered_groups', JSON.stringify(groups));
+                    await replyToLine(replyToken, "☑️ ยกเลิกการรับการแจ้งเตือนสำหรับกลุ่มนี้แล้ว", env);
+                } else {
+                    await replyToLine(replyToken, "ℹ️ กลุ่มนี้ยังไม่ได้ลงทะเบียนรับการแจ้งเตือน", env);
+                }
             }
           }
         }
-        return new Response('OK'); // ตอบกลับ 200 OK ให้ LINE ทราบ
+        return new Response('OK');
       }
-
 
       return new Response('TCC API Active', { headers: corsHeaders });
     } catch (e) {
@@ -92,7 +129,7 @@ export default {
 
   /**
    * 2. ส่วนของ Scheduled (Cron Trigger) 
-   * ทำหน้าที่ส่งรายงานอัตโนมัติทุกเช้า (ถ้ามีการตั้งเวลาไว้ใน Cloudflare Dashboard)
+   * ทำหน้าที่ส่งรายงานอัตโนมัติทุกเช้า
    */
   async scheduled(event, env, ctx) {
     const today = new Date().toISOString().split('T')[0];
@@ -108,15 +145,11 @@ export default {
             reportMsg += `${index + 1}. 🕓 ${b.startTime}-${b.endTime}\n📍 ${b.roomName}\n📝 ${b.purpose}\n👤 ${b.bookerName}\n\n`;
         });
         reportMsg += `🔗 ตรวจสอบเพิ่มเติมในระบบ`;
-
-        await fetch('https://api.line.me/v2/bot/message/push', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json', 
-                'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}` 
-            },
-            body: JSON.stringify({ to: env.GROUP_ID, messages: [{ type: 'text', text: reportMsg }] }),
-        });
+        
+        const registeredGroups = await env.LINE_GROUPS_KV.get('registered_groups', 'json') || [];
+        if (registeredGroups.length > 0) {
+            await sendMulticast(registeredGroups, reportMsg, env);
+        }
     }
   }
 };
