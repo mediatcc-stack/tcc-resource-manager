@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Booking } from '../../types';
 import Button from '../shared/Button';
@@ -170,10 +171,10 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
   const [purposeFilter, setPurposeFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState<string>('all');
-  const [yearFilter, setYearFilter] = useState<string>(new Date().getFullYear().toString());
+  // FIX: เปลี่ยนค่าเริ่มต้นจากปีปัจจุบันเป็น 'all' เพื่อให้แสดงข้อมูลประวัติทั้งหมดทันที
+  const [yearFilter, setYearFilter] = useState<string>('all');
   const [roomFilter, setRoomFilter] = useState('all');
 
-  // สร้างรายการปีที่มีข้อมูลการจองจริงในระบบ
   const years = useMemo(() => {
     const yearsSet = new Set<string>();
     bookings.forEach(b => {
@@ -185,7 +186,6 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
   }, [bookings]);
 
   const filteredAndGroupedBookings = useMemo(() => {
-    // 1. แยกตาม Tab ก่อน
     const bookingsInTab = bookings.filter(b => {
         if (activeTab === 'current') {
             return b.status === 'จองแล้ว';
@@ -194,32 +194,27 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
         }
     });
 
-    // 2. กรองตาม Search/Filter
     const filtered = bookingsInTab.filter(b => {
         const bDate = new Date(b.date);
         const purposeMatch = purposeFilter ? b.purpose.toLowerCase().includes(purposeFilter.toLowerCase()) : true;
         const roomMatch = roomFilter !== 'all' ? b.roomName === roomFilter : true;
-        
-        // กรองตามเดือนและปี
         const monthMatch = monthFilter === 'all' || (bDate.getMonth() + 1).toString() === monthFilter;
         const yearMatch = yearFilter === 'all' || bDate.getFullYear().toString() === yearFilter;
         
         return purposeMatch && roomMatch && monthMatch && yearMatch;
     });
 
-    // 3. จัดเรียง
     const sorted = filtered.sort((a, b) => {
         const dateTimeA = new Date(`${a.date}T${a.startTime}`).getTime();
         const dateTimeB = new Date(`${b.date}T${b.startTime}`).getTime();
         
         if (activeTab === 'current') {
-            return dateTimeA - dateTimeB; // ปัจจุบัน: เอาที่ใกล้จะถึงขึ้นก่อน
+            return dateTimeA - dateTimeB;
         } else {
-            return dateTimeB - dateTimeA; // ประวัติ: เอาที่เพิ่งผ่านไปขึ้นก่อน
+            return dateTimeB - dateTimeA;
         }
     });
 
-    // 4. Grouping
     const processedGroupIds = new Set<string>();
     const uniqueBookings: Booking[] = [];
 
@@ -239,7 +234,7 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
   const clearFilters = () => {
     setPurposeFilter('');
     setMonthFilter('all');
-    setYearFilter(new Date().getFullYear().toString());
+    setYearFilter('all'); // ปรับให้ล้างค่าเป็น 'all'
     setRoomFilter('all');
   };
   
@@ -266,7 +261,6 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                 </div>
             </div>
 
-            {/* Tab Switcher */}
             <div className="flex p-1 bg-gray-100 rounded-xl mb-8 max-w-md">
                 <button 
                     onClick={() => setActiveTab('current')}
@@ -344,8 +338,8 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                         <p className="text-lg font-semibold">ไม่พบรายการที่ค้นหา</p>
                         <p className="text-sm mt-1">
                             {activeTab === 'current' 
-                                ? 'ลองเปลี่ยนการเลือกเดือนหรือปีใหม่อีกครั้ง' 
-                                : 'ยังไม่มีประวัติการจองในช่วงเวลาที่เลือก'}
+                                ? 'ยังไม่มีรายการจองในขณะนี้' 
+                                : 'ยังไม่มีประวัติการจองในช่วงเวลาที่เลือก (ลองเลือกปีเป็น ทุกปี)'}
                         </p>
                     </div>
                 )}

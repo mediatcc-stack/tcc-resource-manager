@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { BorrowingRequest, BorrowStatus } from '../../types';
 import Button from '../shared/Button';
@@ -20,10 +21,10 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
     const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
     const [nameFilter, setNameFilter] = useState('');
     const [monthFilter, setMonthFilter] = useState<string>('all');
-    const [yearFilter, setYearFilter] = useState<string>(new Date().getFullYear().toString());
+    // FIX: ปรับค่าเริ่มต้นเป็น 'all' เพื่อให้แสดงข้อมูลทั้งหมด
+    const [yearFilter, setYearFilter] = useState<string>('all');
     const [statusFilter, setStatusFilter] = useState('ทั้งหมด');
 
-    // สร้างรายการปีที่มีข้อมูลยืมจริงในระบบ
     const years = useMemo(() => {
         const yearsSet = new Set<string>();
         borrowings.forEach(b => {
@@ -52,7 +53,7 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
     const clearFilters = () => {
         setNameFilter('');
         setMonthFilter('all');
-        setYearFilter(new Date().getFullYear().toString());
+        setYearFilter('all');
         setStatusFilter('ทั้งหมด');
     };
 
@@ -72,8 +73,6 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
             const bDate = new Date(b.borrowDate);
             const nameMatch = nameFilter ? b.borrowerName.toLowerCase().includes(nameFilter.toLowerCase()) : true;
             const statusMatch = statusFilter !== 'ทั้งหมด' ? b.status === statusFilter : true;
-            
-            // กรองตามเดือนและปี
             const monthMatch = monthFilter === 'all' || (bDate.getMonth() + 1).toString() === monthFilter;
             const yearMatch = yearFilter === 'all' || bDate.getFullYear().toString() === yearFilter;
             
@@ -144,7 +143,6 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
                 </div>
             )}
 
-            {/* Filters Box */}
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                     <div className="lg:col-span-1">
@@ -182,7 +180,6 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
                 </div>
             </div>
 
-            {/* Borrowing List */}
             <div className="space-y-4 min-h-[400px]">
                 {filteredBorrowings.length > 0 ? (
                     filteredBorrowings.map(req => 
@@ -199,7 +196,7 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
                     <div className="text-center text-gray-500 py-24 bg-white rounded-2xl border-2 border-dashed border-gray-200">
                         <p className="text-xl font-semibold">ไม่พบรายการ</p>
                         <p className="text-sm mt-2">
-                            ลองเปลี่ยนตัวกรองเดือนหรือปี หรือชื่อผู้ยืมใหม่อีกครั้ง
+                            ยังไม่มีรายการยืมในช่วงเวลาที่เลือก (ลองเลือกปีเป็น ทุกปี)
                         </p>
                     </div>
                 )}
