@@ -1,10 +1,23 @@
-
 // cloudflare-worker.js (Manual Report & Auto Scheduled Report)
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
 };
+
+async function replyToLine(replyToken, message, env) {
+  await fetch('https://api.line.me/v2/bot/message/reply', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
+    },
+    body: JSON.stringify({
+      replyToken: replyToken,
+      messages: [{ type: 'text', text: message }],
+    }),
+  });
+}
 
 export default {
   /**
@@ -51,6 +64,25 @@ export default {
         
         return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
       }
+      
+      // [ใหม่] เพิ่ม Handler สำหรับรับ Webhook Events จาก LINE
+      if (path === '/webhook' && request.method === 'POST') {
+        const body = await request.json();
+        for (const event of body.events) {
+          if (event.type === 'message' && event.message.type === 'text' && event.source.type === 'group') {
+            const messageText = event.message.text.trim();
+            // ตรวจสอบคำสั่งพิเศษ /getid
+            if (messageText === '/getid') {
+              const groupId = event.source.groupId;
+              const replyToken = event.replyToken;
+              const replyMsg = `✅ ได้รับ Group ID แล้วครับ\n\n${groupId}\n\nนำ ID นี้ไปใส่ใน Cloudflare Worker Settings ในส่วนของ 'GROUP_ID' ได้เลยครับ`;
+              await replyToLine(replyToken, replyMsg, env);
+            }
+          }
+        }
+        return new Response('OK'); // ตอบกลับ 200 OK ให้ LINE ทราบ
+      }
+
 
       return new Response('TCC API Active', { headers: corsHeaders });
     } catch (e) {
