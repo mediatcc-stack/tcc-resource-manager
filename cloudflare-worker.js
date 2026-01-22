@@ -6,140 +6,64 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
 };
 
-// ฟังก์ชันช่วยจัดรูปแบบวันที่ไทย (YYYY-MM-DD -> 21 มกราคม 2568)
-const formatThaiDate = (dateStr) => {
-  try {
-    const [y, m, d] = dateStr.split('-');
-    const months = ["", "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
-    return `${parseInt(d)} ${months[parseInt(m)]} ${parseInt(y) + 543}`;
-  } catch (e) {
-    return dateStr;
-  }
-};
-
-// ฟังก์ชันดึงวันที่เป้าหมาย และตรวจสอบความตั้งใจในการเรียกรายงาน
-const parseTargetDate = (rawText) => {
-  // ลบ Mention ออกจากข้อความเพื่อเช็คคีย์เวิร์ด
-  const text = rawText.replace(/@[\w\s.-]+/, '').trim().toLowerCase();
-  const bkkTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-  
-  // คีย์เวิร์ดรายงาน
-  const reportKeywords = ['รายงาน', 'สรุป', 'เช็คห้อง', 'ดูการจอง', 'list', 'ว่างไหม'];
-  const hasKeyword = reportKeywords.some(k => text.includes(k));
-
-  // รูปแบบวันที่ 22/01/2025
-  const fullDateMatch = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-  if (fullDateMatch) {
-    let [_, d, m, y] = fullDateMatch;
-    let year = parseInt(y);
-    if (year > 2500) year -= 543;
-    return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-  }
-
-  // ถ้าพิมพ์ "วันนี้" หรือมีคีย์เวิร์ดรายงาน
-  if (text.includes('วันนี้') || text === 'รายงาน' || hasKeyword) {
-    return bkkTime.toISOString().split('T')[0];
-  }
-
-  // ถ้าพิมพ์ "พรุ่งนี้"
-  if (text.includes('พรุ่งนี้')) {
-    const tomorrow = new Date(bkkTime);
-    tomorrow.setDate(bkkTime.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
-  }
-
-  return null;
-};
-
-const sendLineReply = async (env, replyToken, messages) => {
-  if (!env.CHANNEL_ACCESS_TOKEN) return;
-  const msgs = Array.isArray(messages) ? messages : [messages];
-  await fetch('https://api.line.me/v2/bot/message/reply', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}` },
-    body: JSON.stringify({ replyToken, messages: msgs }),
-  });
-};
-
 export default {
   async fetch(request, env) {
-    if (request.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+    // 1. จัดการ CORS Preflight
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders });
+    }
+
     const url = new URL(request.url);
     const path = url.pathname;
 
     try {
+      /**
+       * 1. Webhook Endpoint (LINE)
+       * แก้ไข: ปิดระบบประมวลผลข้อความแชททั้งหมด
+       * บอทจะไม่ตอบโต้คำสั่ง 'รายงาน' หรือข้อความใดๆ ในกลุ่มอีกต่อไป
+       */
       if (path === '/webhook' && request.method === 'POST') {
-        const body = await request.json();
-        for (const event of body.events) {
-          if (event.type === 'message' && event.message.type === 'text') {
-            const rawText = event.message.text;
-            
-            // --- STRICT MENTION CHECK ---
-            // ตรวจสอบว่าบอทถูกแท็กจริงหรือไม่
-            const mentionees = event.message.mention?.mentionees || [];
-            const isBotMentioned = mentionees.some(m => m.isSelf === true);
-            const isDirectChat = event.source.type === 'user';
-
-            // ถ้าอยู่ในกลุ่มแล้วไม่ถูกแท็ก -> ข้ามทันที (IMPORTANT!)
-            if (!isBotMentioned && !isDirectChat) {
-              continue; 
-            }
-
-            // ถ้าถูกแท็ก หรือคุยส่วนตัว ให้เริ่มวิเคราะห์คำสั่ง
-            const targetDate = parseTargetDate(rawText);
-            
-            if (targetDate) {
-              const data = await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json') || [];
-              const bookings = data.filter(b => b.date === targetDate && b.status === 'จองแล้ว');
-              const displayDate = formatThaiDate(targetDate);
-              const isToday = targetDate === new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"})).toISOString().split('T')[0];
-              
-              // ปรับแต่งรายงานให้เหมือนในรูปตัวอย่าง
-              let msg = `📊 รายงานการใช้ห้อง (${isToday ? 'วันนี้' : displayDate})\n`;
-              msg += `--------------------------\n`;
-              
-              if (bookings.length > 0) {
-                bookings.sort((a,b) => a.startTime.localeCompare(b.startTime)).forEach((b, i) => {
-                  msg += `${i+1}. 🕒 ${b.startTime}-${b.endTime}\n`;
-                  msg += `📍 ${b.roomName}\n`;
-                  msg += `📝 ${b.purpose}\n`;
-                  msg += `👤 ${b.bookerName}\n`;
-                  msg += `💻 รูปแบบ: ${b.meetingType || 'Onsite'}\n\n`;
-                });
-                msg += `✨ รวมทั้งหมด ${bookings.length} รายการ`;
-              } else {
-                msg += "✅ วันนี้ไม่มีรายการจองครับ ว่างทุกห้อง!";
-              }
-              
-              await sendLineReply(env, event.replyToken, { type: 'text', text: msg.trim() });
-            } else if (isBotMentioned) {
-              // ถ้าแท็กเฉยๆ แต่ไม่มีคำสั่งที่เข้าใจ ให้ส่งเมนูช่วยเหลือ
-              await sendLineReply(env, event.replyToken, { 
-                type: 'text', 
-                text: "สวัสดีครับ! แท็กผมแล้วพิมพ์ 'รายงาน' หรือ 'รายงานวันนี้' เพื่อดูสรุปการจองห้องได้เลยครับ 🏢" 
-              });
-            }
-          }
-        }
-        return new Response('OK');
+        // คืนค่า OK เพื่อให้ LINE Server รับทราบว่าได้รับข้อมูลแล้ว แต่ไม่ต้องทำอะไรต่อ
+        // วิธีนี้จะทำให้บอท "เงียบ" สนิท 100% ในทุกแชท
+        return new Response('OK', { status: 200 });
       }
 
-      // ส่วนจัดการข้อมูล API อื่นๆ
+      /**
+       * 2. Data Endpoint (Web App)
+       * ใช้สำหรับรับ-ส่งข้อมูลระหว่างหน้าเว็บกับฐานข้อมูล KV
+       */
       if (path === '/data') {
-        const type = url.searchParams.get('type');
+        const type = url.searchParams.get('type'); // 'rooms' หรือ 'equipment'
         const KV = type === 'rooms' ? env.ROOM_BOOKINGS_KV : env.EQUIPMENT_BORROWINGS_KV;
+        
+        if (!KV) {
+          throw new Error(`ไม่พบ KV Namespace สำหรับ ${type}`);
+        }
+
         if (request.method === 'GET') {
           const data = await KV.get(`${type}_data`, 'json') || [];
-          return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          return new Response(JSON.stringify(data), { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          });
         }
+        
         if (request.method === 'POST') {
-          await KV.put(`${type}_data`, JSON.stringify(await request.json()));
-          return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+          const newData = await request.json();
+          await KV.put(`${type}_data`, JSON.stringify(newData));
+          return new Response(JSON.stringify({ success: true }), { 
+            headers: corsHeaders 
+          });
         }
       }
 
+      /**
+       * 3. Notify Endpoint (Web App -> LINE Push)
+       * ระบบแจ้งเตือนทางเดียว: ส่งข้อความ "เมื่อมีการจองใหม่จากหน้าเว็บเท่านั้น"
+       */
       if (path === '/notify' && request.method === 'POST') {
         const { message } = await request.json();
+        
+        // ดึง IDs ของกลุ่มทั้งหมดที่ตั้งไว้ใน Environment Variables
         const allTargetIds = Object.keys(env)
           .filter(k => k === 'GROUP_ID' || k.startsWith('GROUP_ID_'))
           .map(k => env[k])
@@ -147,19 +71,39 @@ export default {
 
         const uniqueTargets = [...new Set(allTargetIds)];
 
-        await Promise.all(uniqueTargets.map(id => 
+        if (uniqueTargets.length === 0) {
+          return new Response(JSON.stringify({ error: 'No GROUP_ID configured' }), { 
+            status: 400, headers: corsHeaders 
+          });
+        }
+
+        // ส่งข้อความแบบ Push (จู่ๆ บอทก็พิมพ์เข้าไปเองตามคำสั่งเว็บ)
+        const sendPromises = uniqueTargets.map(id => 
           fetch('https://api.line.me/v2/bot/message/push', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}` },
-            body: JSON.stringify({ to: id, messages: [{ type: 'text', text: message }] }),
+            headers: { 
+              'Content-Type': 'application/json', 
+              'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}` 
+            },
+            body: JSON.stringify({ 
+              to: id, 
+              messages: [{ type: 'text', text: message }] 
+            }),
           })
-        ));
+        );
+
+        await Promise.all(sendPromises);
+        
         return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
       }
 
-      return new Response('TCC API Online', { headers: corsHeaders });
+      return new Response('TCC Notification API is Online', { headers: corsHeaders });
+
     } catch (e) {
-      return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: e.message }), { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
     }
   }
 };
