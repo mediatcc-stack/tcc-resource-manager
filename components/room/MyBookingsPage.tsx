@@ -100,7 +100,7 @@ const BookingCard: React.FC<{
           <div className="grid grid-cols-1 md:grid-cols-5 gap-x-4 gap-y-3">
               <div className="md:col-span-3">
                   <h4 className="font-bold text-lg text-[#0D448D]" title={roomTitleTooltip}>{roomTitle}</h4>
-                  <p className="text-sm text-gray-600 mt-1">ผู้จอง: <span className="font-medium">{booking.bookerName} ({booking.phone || 'ไม่มีเบอร์'})</span></p>
+                  <p className="text-sm text-gray-600 mt-1 uppercase tracking-tight font-black">หน่วยงาน / งาน: <span className="font-medium text-gray-800">{booking.bookerName} {booking.phone ? `(${booking.phone})` : ''}</span></p>
                   <p className="text-sm text-gray-500 break-words mt-1">วัตถุประสงค์: {booking.purpose}</p>
                   
                   <div className="mt-3 pt-3 border-t border-gray-100 space-y-2 text-sm">
@@ -285,8 +285,8 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
             <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 mb-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                     <div className="lg:col-span-1">
-                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">🔍 ค้นหาชื่องาน</label>
-                        <input type="text" placeholder="พิมพ์ชื่องาน..." value={purposeFilter} onChange={e => setPurposeFilter(e.target.value)} className={inputClasses}/>
+                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">🔍 ค้นหาวัตถุประสงค์</label>
+                        <input type="text" placeholder="พิมพ์ชื่อโครงการ..." value={purposeFilter} onChange={e => setPurposeFilter(e.target.value)} className={inputClasses}/>
                     </div>
                      <div>
                         <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">🗓️ เดือนที่จัด</label>

@@ -251,11 +251,11 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <FormField label="ชื่อผู้จอง" icon="👤" required>
-              <input type="text" name="bookerName" value={formData.bookerName} onChange={handleInputChange} className={inputClasses} placeholder="กรอกชื่อ-นามสกุล" required />
+            <FormField label="หน่วยงาน / งาน" icon="🏢" required>
+              <input type="text" name="bookerName" value={formData.bookerName} onChange={handleInputChange} className={inputClasses} placeholder="เช่น งานประชาสัมพันธ์" required />
             </FormField>
-            <FormField label="เบอร์โทรศัพท์" icon="📱" required>
-              <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className={inputClasses} placeholder="เช่น 0812345678" required />
+            <FormField label="เบอร์โทรศัพท์ (ไม่บังคับ)" icon="📱">
+              <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className={inputClasses} placeholder="เช่น 0812345678" />
             </FormField>
           </div>
 
@@ -271,8 +271,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
             </FormField>
           </div>
 
-          <FormField label="วัตถุประสงค์" icon="🎯" required>
-            <textarea name="purpose" value={formData.purpose} onChange={handleInputChange} rows={3} className={inputClasses} placeholder="ระบุชื่องานหรือโครงการ..." required />
+          <FormField label="วัตถุประสงค์ / ชื่องานกิจกรรม" icon="🎯" required>
+            <textarea name="purpose" value={formData.purpose} onChange={handleInputChange} rows={3} className={inputClasses} placeholder="ระบุชื่อโครงการ หรือกิจกรรมที่จัด..." required />
           </FormField>
 
           <FormField label="อุปกรณ์เพิ่มเติม" icon="🛠️">

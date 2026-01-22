@@ -92,13 +92,13 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
     
     return (
     <>
-        <div className={`bg-white rounded-2xl shadow-sm border-l-8 p-5 ${colorClasses.border} transition hover:shadow-lg`}>
+        <div className={`bg-white rounded-2xl shadow-sm border-l-8 p-5 ${colorClasses.border} transition hover:shadow-lg animate-fade-in`}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
                 
                 {/* Left Column - Main Info */}
                 <div className="md:col-span-2 space-y-2">
                     <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-bold text-[#0D448D]">{`ผู้ยืม: ${req.borrowerName}`}</h3>
+                        <h3 className="text-lg font-black text-[#0D448D] uppercase tracking-tight">{`หน่วยงาน / งาน: ${req.borrowerName}`}</h3>
                         {req.status === BorrowStatus.Overdue && (
                              <button 
                                 onClick={handleNotifyClick}
@@ -110,10 +110,9 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
                         )}
                     </div>
                     <div className="space-y-1.5">
-                        <InfoLine icon="📞" label="เบอร์" value={req.phone} />
-                        <InfoLine icon="🏢" label="หน่วยงาน" value={req.department} />
+                        <InfoLine icon="📱" label="เบอร์" value={req.phone || <span className="text-gray-400 italic">ไม่ระบุเบอร์</span>} />
                         <InfoLine icon="🎯" label="วัตถุประสงค์" value={req.purpose} />
-                        <InfoLine icon="🗓️" label="ยืม" value={`${new Date(req.borrowDate).toLocaleDateString('th-TH')}  -  ${new Date(req.returnDate).toLocaleDateString('th-TH')}`} />
+                        <InfoLine icon="🗓️" label="ระยะเวลายืม" value={`${new Date(req.borrowDate).toLocaleDateString('th-TH')}  -  ${new Date(req.returnDate).toLocaleDateString('th-TH')}`} />
                     </div>
                 </div>
 
@@ -129,7 +128,7 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
 
                 {/* Bottom Row - Equipment List */}
                 <div className="md:col-span-3 border-t border-gray-100 pt-3 mt-2">
-                    <p className="font-semibold text-gray-600 mb-2">📦 รายการอุปกรณ์ที่ยืม:</p>
+                    <p className="font-semibold text-gray-600 mb-2 text-xs uppercase tracking-wider">📦 รายการอุปกรณ์ที่ยืม:</p>
                     <pre className="text-sm bg-gray-50 p-3 rounded-lg whitespace-pre-wrap font-sans text-gray-800 border border-gray-200">{req.equipmentList}</pre>
                 </div>
             </div>
@@ -139,7 +138,7 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
             <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4 animate-fade-in" onClick={() => setIsChangingStatus(false)}>
                 <div className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-md animate-zoom-in" onClick={e => e.stopPropagation()}>
                     <h4 className="font-bold text-xl mb-2 text-center text-[#0D448D]">เปลี่ยนสถานะการยืม</h4>
-                    <p className="text-center text-sm text-gray-500 mb-6">สำหรับ: <span className="font-semibold">{req.borrowerName}</span></p>
+                    <p className="text-center text-sm text-gray-500 mb-6">หน่วยงาน: <span className="font-semibold text-gray-800">{req.borrowerName}</span></p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {Object.values(BorrowStatus).map(status => {
                             const currentStatusInfo = getStatusInfo(status);

@@ -45,8 +45,8 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        const { borrowerName, phone, purpose, borrowDate, returnDate, equipmentList } = formData;
-        if (!borrowerName || !phone || !purpose || !borrowDate || !returnDate || !equipmentList) {
+        const { borrowerName, purpose, borrowDate, returnDate, equipmentList } = formData;
+        if (!borrowerName || !purpose || !borrowDate || !returnDate || !equipmentList) {
             setError('กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบถ้วน');
             return;
         }
@@ -103,17 +103,14 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
                         <span>👤</span> ข้อมูลผู้ขอยืม
                     </h3>
                     
-                    <FormField icon="👤" label="ชื่อ-นามสกุลผู้ยืม" required>
-                        <input type="text" name="borrowerName" placeholder="กรอกชื่อ-นามสกุล" value={formData.borrowerName} onChange={handleInputChange} className={inputClasses} required />
+                    <FormField icon="🏢" label="หน่วยงาน / งาน" required>
+                        <input type="text" name="borrowerName" placeholder="เช่น งานสื่อการเรียนการสอน" value={formData.borrowerName} onChange={handleInputChange} className={inputClasses} required />
                     </FormField>
-                    <FormField icon="📱" label="เบอร์โทรศัพท์" required>
-                        <input type="tel" name="phone" placeholder="0812345678" value={formData.phone} onChange={handleInputChange} className={inputClasses} required />
-                    </FormField>
-                    <FormField icon="📁" label="หน่วยงาน / แผนก">
-                        <input type="text" name="department" placeholder="ระบุหน่วยงาน (ถ้ามี)" value={formData.department} onChange={handleInputChange} className={inputClasses} />
+                    <FormField icon="📱" label="เบอร์โทรศัพท์ (ไม่บังคับ)">
+                        <input type="tel" name="phone" placeholder="เช่น 0812345678" value={formData.phone} onChange={handleInputChange} className={inputClasses} />
                     </FormField>
                     <FormField icon="🎯" label="วัตถุประสงค์ในการยืม" required>
-                        <textarea name="purpose" value={formData.purpose} placeholder="ระบุวัตถุประสงค์" onChange={handleInputChange} rows={3} className={inputClasses} required />
+                        <textarea name="purpose" value={formData.purpose} placeholder="ระบุเหตุผลในการยืม หรือโครงการที่ใช้..." onChange={handleInputChange} rows={3} className={inputClasses} required />
                     </FormField>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

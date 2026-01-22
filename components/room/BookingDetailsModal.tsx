@@ -48,8 +48,8 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
                                         <span className="text-blue-500">⏰</span> {booking.startTime} - {booking.endTime}
                                     </p>
                                     <div className="pl-6 border-l-2 border-blue-200 ml-2 space-y-1 pt-1 pb-1">
-                                       <p className="text-sm text-gray-700 flex items-start gap-2"><strong className="font-semibold text-gray-500 w-16 flex-shrink-0">ชื่องาน:</strong> <span className="break-words">{booking.purpose}</span></p>
-                                       <p className="text-sm text-gray-600 flex items-start gap-2"><strong className="font-semibold text-gray-500 w-16 flex-shrink-0">ผู้จอง:</strong> {booking.bookerName}</p>
+                                       <p className="text-sm text-gray-700 flex items-start gap-2"><strong className="font-semibold text-gray-500 w-24 flex-shrink-0">วัตถุประสงค์:</strong> <span className="break-words">{booking.purpose}</span></p>
+                                       <p className="text-sm text-gray-600 flex items-start gap-2"><strong className="font-semibold text-gray-500 w-24 flex-shrink-0">หน่วยงาน / งาน:</strong> {booking.bookerName}</p>
                                     </div>
                                 </div>
                             ))}
