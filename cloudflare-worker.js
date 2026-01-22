@@ -6,17 +6,27 @@ const corsHeaders = {
 };
 
 async function replyToLine(replyToken, message, env) {
-  await fetch('https://api.line.me/v2/bot/message/reply', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
-    },
-    body: JSON.stringify({
-      replyToken: replyToken,
-      messages: [{ type: 'text', text: message }],
-    }),
-  });
+  try {
+    const response = await fetch('https://api.line.me/v2/bot/message/reply', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
+      },
+      body: JSON.stringify({
+        replyToken: replyToken,
+        messages: [{ type: 'text', text: message }],
+      }),
+    });
+    
+    if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`[LINE Reply Error] Status: ${response.status}, Body: ${errorBody}`);
+    }
+
+  } catch (error) {
+    console.error(`[LINE Reply Fetch Error] Failed to send reply: ${error.message}`);
+  }
 }
 
 // ฟังก์ชันสำหรับส่งข้อความไปยังหลายกลุ่มพร้อมกัน
@@ -26,22 +36,25 @@ async function sendMulticast(groupIds, message, env) {
     return;
   }
   
-  // LINE Multicast API รองรับสูงสุด 150 ID ต่อครั้ง
-  const response = await fetch('https://api.line.me/v2/bot/message/multicast', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
-    },
-    body: JSON.stringify({
-      to: groupIds,
-      messages: [{ type: 'text', text: message }],
-    }),
-  });
+  try {
+    const response = await fetch('https://api.line.me/v2/bot/message/multicast', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
+      },
+      body: JSON.stringify({
+        to: groupIds,
+        messages: [{ type: 'text', text: message }],
+      }),
+    });
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error("Failed to send multicast message:", errorBody);
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error(`[LINE Multicast Error] Status: ${response.status}, Body: ${errorBody}`);
+    }
+  } catch (error) {
+     console.error(`[LINE Multicast Fetch Error] Failed to send multicast: ${error.message}`);
   }
 }
 
@@ -87,6 +100,15 @@ export default {
       if (path === '/webhook' && request.method === 'POST') {
         const body = await request.json();
         for (const event of body.events) {
+
+          // Event: บอทถูกเชิญเข้ากลุ่ม
+          if (event.type === 'join') {
+            const welcomeMessage = `สวัสดีครับ! ผมคือ TCC Notify Bot\n\nหากต้องการให้กลุ่มนี้รับการแจ้งเตือนจากระบบจองห้องประชุมและยืมอุปกรณ์ กรุณาพิมพ์คำสั่ง:\n\n/register`;
+            await replyToLine(event.replyToken, welcomeMessage, env);
+            continue;
+          }
+
+          // Event: ได้รับข้อความในกลุ่ม
           if (event.type === 'message' && event.message.type === 'text' && (event.source.type === 'group' || event.source.type === 'room')) {
             const messageText = event.message.text.trim().toLowerCase();
             const groupId = event.source.groupId;
@@ -123,6 +145,7 @@ export default {
 
       return new Response('TCC API Active', { headers: corsHeaders });
     } catch (e) {
+      console.error(`[Worker Error] Uncaught exception: ${e.message}`);
       return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
     }
   },
