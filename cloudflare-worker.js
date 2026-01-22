@@ -26,27 +26,23 @@ const getFullThaiDateStr = (date) => {
 
 // ฟังก์ชันดึงวันที่เป้าหมาย
 const parseTargetDate = (rawText) => {
-  // ลบ Mention ออก และทำเป็นตัวพิมพ์เล็กเพื่อเช็คคำสั่งง่ายๆ
   const text = rawText.replace(/@[\w\s.-]+/, '').trim().toLowerCase();
   const bkkTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
   
-  // เช็คคำสั่งช่วยเหลือเบื้องต้น
-  const helpKeywords = ['เมนู', 'help', 'ช่วยเหลือ', 'สวัสดี', 'จอง', 'ห้อง'];
-  if (helpKeywords.includes(text) || text === '') {
-    return null; // ส่งกลับ null เพื่อให้เข้าสู่ Help Menu
+  const helpKeywords = ['เมนู', 'help', 'ช่วยเหลือ', 'สวัสดี', 'จอง', 'ห้อง', 'ปุ่ม'];
+  if (helpKeywords.some(k => text.includes(k)) || text === '') {
+    return null;
   }
 
-  // 1. ค้นหารูปแบบวันที่ (เช่น 21-1-2569 หรือ 21/1/2569)
   const fullDateMatch = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
   if (fullDateMatch) {
     let [_, d, m, y] = fullDateMatch;
     let year = parseInt(y);
-    if (year > 2500) year -= 543; // แปลง พ.ศ. เป็น ค.ศ.
+    if (year > 2500) year -= 543;
     return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
 
-  // 2. ถ้ามีคำว่า "รายงานวันนี้"
-  if (text.includes('รายงานวันนี้')) {
+  if (text.includes('รายงานวันนี้') || text === 'วันนี้') {
     return bkkTime.toISOString().split('T')[0];
   }
 
@@ -54,65 +50,35 @@ const parseTargetDate = (rawText) => {
 };
 
 const sendLineReply = async (env, replyToken, messages) => {
-  if (!env.CHANNEL_ACCESS_TOKEN) {
-    console.error("Missing CHANNEL_ACCESS_TOKEN in environment variables!");
-    return;
-  }
-  
-  const msgs = Array.isArray(messages) ? messages : [
-    typeof messages === 'string' ? { type: 'text', text: messages } : messages
-  ];
-
-  try {
-    const response = await fetch('https://api.line.me/v2/bot/message/reply', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
-      },
-      body: JSON.stringify({ replyToken, messages: msgs }),
-    });
-
-    if (!response.ok) {
-      const err = await response.text();
-      console.error("LINE API Error:", err);
-    }
-  } catch (e) {
-    console.error("Failed to send LINE reply:", e);
-  }
+  if (!env.CHANNEL_ACCESS_TOKEN) return;
+  const msgs = Array.isArray(messages) ? messages : [messages];
+  await fetch('https://api.line.me/v2/bot/message/reply', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}` },
+    body: JSON.stringify({ replyToken, messages: msgs }),
+  });
 };
 
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
-
     const url = new URL(request.url);
     const path = url.pathname;
 
     try {
-      // ตรวจสอบ Webhook ของ LINE
       if (path === '/webhook' && request.method === 'POST') {
         const body = await request.json();
-        
-        // วนลูปจัดการแต่ละ Event
         for (const event of body.events) {
           if (event.type === 'message' && event.message.type === 'text') {
             const rawText = event.message.text;
-            
-            // เช็คว่าเป็นการคุยส่วนตัว หรือมีการ Tag บอทในกลุ่ม
-            const botMention = event.message.mention?.mentionees?.find(m => m.isSelf);
-            const isPrivateChat = event.source.type === 'user';
-            const isMentioned = botMention || isPrivateChat;
+            const isMentioned = event.message.mention?.mentionees?.find(m => m.isSelf) || event.source.type === 'user';
 
             if (isMentioned) {
               const targetDate = parseTargetDate(rawText);
-
               if (targetDate) {
-                // ดึงข้อมูลการจอง
                 const data = await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json') || [];
                 const bookings = data.filter(b => b.date === targetDate && b.status === 'จองแล้ว');
                 const displayDate = formatThaiDate(targetDate);
-                
                 let msg = `📅 รายงานจองห้องประชุม\n📌 วันที่: ${displayDate}\n\n`;
                 if (bookings.length > 0) {
                   bookings.sort((a,b) => a.startTime.localeCompare(b.startTime)).forEach((b, i) => {
@@ -122,34 +88,66 @@ export default {
                 } else {
                   msg += "✅ ไม่มีรายการจองครับ ว่างทุกห้อง!";
                 }
-                await sendLineReply(env, event.replyToken, msg);
+                await sendLineReply(env, event.replyToken, { type: 'text', text: msg });
               } else {
-                // --- ระบบแนะนำ (Help Menu) ---
+                // --- ส่ง Flex Message (การ์ดเมนูสวยงาม) ---
                 const bkkNow = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
                 const tomorrow = new Date(bkkNow); tomorrow.setDate(bkkNow.getDate() + 1);
                 const tomorrowStr = getFullThaiDateStr(tomorrow);
 
-                const helpResponse = {
-                  type: 'text',
-                  text: `🤖 สวัสดีครับ! ผมคือบอทรายงานการจองห้อง\n\n💡 วิธีใช้งาน:\n📍 พิมพ์วันที่เพื่อดูรายงาน (เช่น ${tomorrowStr})\n📊 หรือกดเลือกเมนูด้านล่างนี้ครับ:`,
-                  quickReply: {
-                    items: [
-                      {
-                        type: 'action',
-                        action: { type: 'message', label: '📊 รายงานวันนี้', text: 'รายงานวันนี้' }
-                      },
-                      {
-                        type: 'action',
-                        action: { type: 'message', label: '🗓️ ของพรุ่งนี้', text: `ขอรายงาน ${tomorrowStr}` }
-                      },
-                      {
-                        type: 'action',
-                        action: { type: 'uri', label: '🌐 เข้าสู่เว็บจอง', uri: 'https://tcc-resource-manager.pages.dev' }
-                      }
-                    ]
+                const flexMenu = {
+                  type: "flex",
+                  altText: "เมนูหลัก TCC Notify",
+                  contents: {
+                    type: "bubble",
+                    header: {
+                      type: "box",
+                      layout: "vertical",
+                      contents: [{ type: "text", text: "TCC NOTIFY", weight: "bold", color: "#FFFFFF", size: "sm" }],
+                      backgroundColor: "#0D448D"
+                    },
+                    hero: {
+                      type: "image",
+                      url: "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=800&q=80",
+                      size: "full",
+                      aspectRatio: "20:13",
+                      aspectMode: "cover"
+                    },
+                    body: {
+                      type: "box",
+                      layout: "vertical",
+                      contents: [
+                        { type: "text", text: "สวัสดีครับ! ผมบอทรายงานจองห้อง", weight: "bold", size: "md", color: "#0D448D" },
+                        { type: "text", text: "เลือกดูรายงานหรือเข้าสู่ระบบเว็บจองได้จากปุ่มด้านล่างนี้เลยครับ", size: "xs", color: "#8c8c8c", wrap: true, margin: "md" }
+                      ]
+                    },
+                    footer: {
+                      type: "box",
+                      layout: "vertical",
+                      spacing: "sm",
+                      contents: [
+                        {
+                          type: "button",
+                          action: { type: "message", label: "📊 รายงานการจองวันนี้", text: "รายงานวันนี้" },
+                          style: "primary",
+                          color: "#0D448D"
+                        },
+                        {
+                          type: "button",
+                          action: { type: "message", label: `🗓️ รายงานของวันที่ ${tomorrowStr}`, text: `รายงาน ${tomorrowStr}` },
+                          style: "secondary"
+                        },
+                        {
+                          type: "button",
+                          action: { type: "uri", label: "🌐 เข้าสู่เว็บไซต์จองห้อง", uri: "https://tcc-resource-manager.pages.dev" },
+                          color: "#3498db",
+                          style: "link"
+                        }
+                      ]
+                    }
                   }
                 };
-                await sendLineReply(env, event.replyToken, helpResponse);
+                await sendLineReply(env, event.replyToken, flexMenu);
               }
             }
           }
@@ -157,12 +155,9 @@ export default {
         return new Response('OK');
       }
 
-      // API สำหรับหน้าเว็บ (คงเดิม)
       if (path === '/data') {
         const type = url.searchParams.get('type');
         const KV = type === 'rooms' ? env.ROOM_BOOKINGS_KV : env.EQUIPMENT_BORROWINGS_KV;
-        if (!KV) return new Response(JSON.stringify({ error: 'KV Binding missing' }), { status: 500, headers: corsHeaders });
-        
         if (request.method === 'GET') {
           const data = await KV.get(`${type}_data`, 'json') || [];
           return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -186,9 +181,8 @@ export default {
         return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
       }
 
-      return new Response('TCC API is online', { headers: corsHeaders });
+      return new Response('TCC API Online', { headers: corsHeaders });
     } catch (e) {
-      console.error("Worker Error:", e.message);
       return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
     }
   }

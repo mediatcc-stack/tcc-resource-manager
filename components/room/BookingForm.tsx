@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Room, Booking } from '../../types';
 import Button from '../shared/Button';
 import { ROOMS } from '../../constants';
@@ -37,6 +37,11 @@ const FormField: React.FC<{label: string, icon: string, required?: boolean, chil
 
 const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBookings, onSubmit, onUpdate, bookingToEdit, onCancel, showToast }) => {
   const isEditing = !!bookingToEdit;
+  
+  // Refs สำหรับควบคุมการ Sync
+  const isInitialized = useRef(false);
+  const editingId = useRef<string | null>(bookingToEdit?.id || null);
+  const isDirty = useRef(false); // ติดตามว่ามีการเริ่มพิมพ์หรือยัง
 
   const [selectedRoomIds, setSelectedRoomIds] = useState<number[]>([]);
   const [currentDate, setCurrentDate] = useState<string>(date);
@@ -59,6 +64,14 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // ถ้ามีการเริ่มพิมพ์แล้ว (isDirty) ห้าม Reset ข้อมูลเด็ดขาด แม้จะมีการ Sync จาก Server
+    if (isDirty.current) return;
+
+    // ถ้าเคยตั้งค่าเริ่มต้นไปแล้ว และยังเป็นรายการเดิม ไม่ต้องทำซ้ำ
+    if (isInitialized.current && editingId.current === (bookingToEdit?.id || null)) {
+      return;
+    }
+
     if (bookingToEdit) {
         let roomIdsToSelect: number[] = [];
         let endDateForForm = bookingToEdit.date;
@@ -93,21 +106,37 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     } else {
         setSelectedRoomIds([room.id]);
         setCurrentDate(date);
+        setFormData(prev => ({
+            ...prev,
+            bookerName: '',
+            phone: '',
+            purpose: '',
+            startTime: '',
+            endTime: '',
+            isMultiDay: false,
+            endDate: date
+        }));
     }
+    
+    isInitialized.current = true;
+    editingId.current = bookingToEdit?.id || null;
   }, [bookingToEdit, rooms, room, date, existingBookings]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    isDirty.current = true; // เมื่อมีการพิมพ์ จะถือว่าข้อมูลถูกแก้ไขแล้ว
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     if (error) setError('');
   };
   
   const handleMultiRoomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    isDirty.current = true;
     const roomId = parseInt(e.target.value, 10);
     setSelectedRoomIds(prev => e.target.checked ? [...prev, roomId] : prev.filter(id => id !== roomId));
   };
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    isDirty.current = true;
     const isChecked = e.target.checked;
     setFormData(prev => ({ ...prev, isMultiDay: isChecked, endDate: isChecked ? (prev.endDate || currentDate) : currentDate }));
   };
@@ -229,7 +258,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
                   label="วันที่สิ้นสุด" 
                   icon="🗓️" 
                   value={formData.endDate} 
-                  onChange={(val) => setFormData(prev => ({...prev, endDate: val}))} 
+                  onChange={(val) => { isDirty.current = true; setFormData(prev => ({...prev, endDate: val})); }} 
                   required 
                 />
              )}
