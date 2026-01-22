@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Room, Booking } from '../../types';
 import BookingDetailsModal from './BookingDetailsModal';
@@ -12,10 +13,9 @@ interface HomePageProps {
   onBackToLanding: () => void;
   onNavigateToMyBookings: () => void;
   onQuickBook: () => void;
-  onSendReport: () => void;
 }
 
-const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNavigateToMyBookings, onQuickBook, onSendReport }) => {
+const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNavigateToMyBookings, onQuickBook }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   
@@ -105,14 +105,6 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
             <span className="text-sm font-bold tracking-wide uppercase">Thonburi Commercial College</span>
           </div>
           <div className="flex gap-4">
-            <Button 
-                onClick={onSendReport}
-                variant="stats"
-                className="flex items-center gap-2 rounded-2xl px-6 py-3 border-green-600 text-green-700 hover:bg-green-50"
-            >
-                <span className="text-xl">📊</span>
-                <span>ส่งรายงานเข้า LINE</span>
-            </Button>
             <Button 
                 onClick={onQuickBook}
                 className="flex items-center gap-2 rounded-2xl px-6 py-3 shadow-lg hover:shadow-blue-200"

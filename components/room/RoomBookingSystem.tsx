@@ -33,7 +33,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'error' | 'syncing'>('connected');
-  const [isGroupIdModalOpen, setIsGroupIdModalOpen] = useState(false);
   
   const pollTimer = useRef<number | null>(null);
 
@@ -98,44 +97,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
         document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [fetchBookings]);
-
-  // ฟังก์ชันส่งรายงานสรุปประจำวัน (กดส่งเอง)
-  const handleSendDailyReport = async () => {
-    const today = new Date().toISOString().split('T')[0];
-    const todayBookings = bookings
-        .filter(b => b.date === today && b.status === 'จองแล้ว')
-        .sort((a, b) => a.startTime.localeCompare(b.startTime));
-
-    if (todayBookings.length === 0) {
-        showToast('วันนี้ไม่มีรายการจองห้องประชุม', 'error');
-        return;
-    }
-
-    let reportMsg = `📊 รายงานการใช้ห้อง (วันนี้)\n`;
-    reportMsg += `---------------------\n`;
-    
-    todayBookings.forEach((b, index) => {
-        reportMsg += `${index + 1}. 🕓 ${b.startTime}-${b.endTime}\n`;
-        reportMsg += `📍 ${b.roomName}\n`;
-        reportMsg += `📝 ${b.purpose}\n`;
-        reportMsg += `👤 ${b.bookerName}\n\n`;
-    });
-
-    reportMsg += `🔗 ตรวจสอบเพิ่มเติมในระบบ\n${APP_URL}`;
-
-    const confirmSend = confirm('ยืนยันการส่งรายงานสรุปการใช้ห้องวันนี้ไปยัง LINE กลุ่มที่ลงทะเบียนไว้?');
-    if (confirmSend) {
-        setIsSyncing(true);
-        try {
-            await sendLineNotification(reportMsg);
-            showToast('ส่งรายงานเข้า LINE เรียบร้อยแล้ว', 'success');
-        } catch (e) {
-            showToast('ส่งรายงานไม่สำเร็จ', 'error');
-        } finally {
-            setIsSyncing(false);
-        }
-    }
-  };
 
   const updateBookingList = async (newList: Booking[]): Promise<boolean> => {
     try {
@@ -325,7 +286,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
                   onBack={() => setCurrentPage('home')}
                   isAdmin={isAdmin}
                   onAdminLogin={handleAdminLogin}
-                  onShowGroupIdHelp={() => setIsGroupIdModalOpen(true)}
                 />;
       case 'statistics':
         return <StatisticsPage bookings={bookings} onBack={() => setCurrentPage('home')} />;
@@ -339,7 +299,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
             onBackToLanding={onBackToLanding}
             onNavigateToMyBookings={() => setCurrentPage('mybookings')}
             onQuickBook={handleQuickBook}
-            onSendReport={handleSendDailyReport}
           />
         );
     }
@@ -347,11 +306,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
   
   return (
     <div className="animate-fade-in">
-      {isGroupIdModalOpen && (
-        <Modal title="วิธีตั้งค่าการแจ้งเตือน LINE" onClose={() => setIsGroupIdModalOpen(false)}>
-          <GroupIdFinder />
-        </Modal>
-      )}
       <div className="bg-white rounded-2xl shadow-lg p-4 mb-8 flex items-center justify-between gap-6 flex-wrap border border-gray-100">
         <div className="flex items-center justify-center gap-3 md:gap-6 flex-wrap">
           <NavButton page="home" label="หน้าแรก" icon="🏠" currentPage={currentPage} setCurrentPage={setCurrentPage} />
