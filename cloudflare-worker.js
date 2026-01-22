@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
 };
 
-// ฟังก์ชันช่วยจัดรูปแบบวันที่ไทย (YYYY-MM-DD -> 21 มกราคม 2569)
+// ฟังก์ชันช่วยจัดรูปแบบวันที่ไทย (YYYY-MM-DD -> 21 มกราคม 2568)
 const formatThaiDate = (dateStr) => {
   try {
     const [y, m, d] = dateStr.split('-');
@@ -17,39 +17,35 @@ const formatThaiDate = (dateStr) => {
   }
 };
 
-// ฟังก์ชันสร้างข้อความวันที่แบบเต็ม (D-M-YYYY พ.ศ.)
-const getFullThaiDateStr = (date) => {
-  const d = date.getDate();
-  const m = date.getMonth() + 1;
-  const y = date.getFullYear() + 543;
-  return `${d}-${m}-${y}`;
-};
-
 // ฟังก์ชันดึงวันที่เป้าหมาย และตรวจสอบความตั้งใจในการเรียกรายงาน
 const parseTargetDate = (rawText) => {
+  // ลบ Mention ออกจากข้อความเพื่อเช็คคีย์เวิร์ด
   const text = rawText.replace(/@[\w\s.-]+/, '').trim().toLowerCase();
   const bkkTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
   
-  // คีย์เวิร์ดที่ต้องมีเพื่อให้บอทส่งรายงาน ป้องกันบอทแทรกเวลาคนคุยกันปกติ
-  const reportKeywords = ['รายงาน', 'เช็ค', 'ขอ', 'ดู', 'list', 'จอง', 'ห้อง', 'ว่างไหม'];
+  // คีย์เวิร์ดรายงาน
+  const reportKeywords = ['รายงาน', 'สรุป', 'เช็คห้อง', 'ดูการจอง', 'list', 'ว่างไหม'];
   const hasKeyword = reportKeywords.some(k => text.includes(k));
 
-  if (!hasKeyword && text !== 'วันนี้') {
-    return null;
-  }
-
-  // รูปแบบวันที่ 22/01/2026 หรือ 22-01-2026
+  // รูปแบบวันที่ 22/01/2025
   const fullDateMatch = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
   if (fullDateMatch) {
     let [_, d, m, y] = fullDateMatch;
     let year = parseInt(y);
-    // แปลงจาก พ.ศ. เป็น ค.ศ.
     if (year > 2500) year -= 543;
     return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
 
-  if (text.includes('วันนี้') || text === 'รายงานวันนี้') {
+  // ถ้าพิมพ์ "วันนี้" หรือมีคีย์เวิร์ดรายงาน
+  if (text.includes('วันนี้') || text === 'รายงาน' || hasKeyword) {
     return bkkTime.toISOString().split('T')[0];
+  }
+
+  // ถ้าพิมพ์ "พรุ่งนี้"
+  if (text.includes('พรุ่งนี้')) {
+    const tomorrow = new Date(bkkTime);
+    tomorrow.setDate(bkkTime.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
   }
 
   return null;
@@ -77,94 +73,58 @@ export default {
         for (const event of body.events) {
           if (event.type === 'message' && event.message.type === 'text') {
             const rawText = event.message.text;
-            // ตรวจสอบว่าบอทถูก Mention (แท็ก) หรือไม่ หากอยู่ในกลุ่ม
-            const isMentioned = event.message.mention?.mentionees?.find(m => m.isSelf);
+            
+            // --- STRICT MENTION CHECK ---
+            // ตรวจสอบว่าบอทถูกแท็กจริงหรือไม่
+            const mentionees = event.message.mention?.mentionees || [];
+            const isBotMentioned = mentionees.some(m => m.isSelf === true);
             const isDirectChat = event.source.type === 'user';
 
-            // บอทจะตอบเฉพาะเมื่อมีการแท็ก หรือคุยส่วนตัวเท่านั้น
-            if (isMentioned || isDirectChat) {
-              const targetDate = parseTargetDate(rawText);
-              if (targetDate) {
-                const data = await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json') || [];
-                const bookings = data.filter(b => b.date === targetDate && b.status === 'จองแล้ว');
-                const displayDate = formatThaiDate(targetDate);
-                let msg = `📅 รายงานจองห้องประชุม\n📌 วันที่: ${displayDate}\n\n`;
-                if (bookings.length > 0) {
-                  bookings.sort((a,b) => a.startTime.localeCompare(b.startTime)).forEach((b, i) => {
-                    // เพิ่มข้อมูล รูปแบบ: Onsite/Online ในรายงานสรุปด้วย
-                    msg += `${i+1}. ⏰ ${b.startTime}-${b.endTime}\n📍 ${b.roomName}\n📝 ${b.purpose}\n👤 ${b.bookerName}\n💻 รูปแบบ: ${b.meetingType || 'Onsite'}\n\n`;
-                  });
-                  msg += `✨ รวมทั้งหมด ${bookings.length} รายการ`;
-                } else {
-                  msg += "✅ ไม่มีรายการจองครับ ว่างทุกห้อง!";
-                }
-                await sendLineReply(env, event.replyToken, { type: 'text', text: msg });
-              } else if (rawText.includes('เมนู') || rawText.includes('ช่วย') || rawText.trim() === '' || isMentioned) {
-                // หากแท็กเฉยๆ หรือถามหาเมนู ให้ส่ง Flex Message
-                const bkkNow = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-                const tomorrow = new Date(bkkNow); tomorrow.setDate(bkkNow.getDate() + 1);
-                const tomorrowStr = getFullThaiDateStr(tomorrow);
+            // ถ้าอยู่ในกลุ่มแล้วไม่ถูกแท็ก -> ข้ามทันที (IMPORTANT!)
+            if (!isBotMentioned && !isDirectChat) {
+              continue; 
+            }
 
-                const flexMenu = {
-                  type: "flex",
-                  altText: "เมนูหลัก TCC Notify",
-                  contents: {
-                    type: "bubble",
-                    header: {
-                      type: "box",
-                      layout: "vertical",
-                      contents: [{ type: "text", text: "TCC NOTIFY", weight: "bold", color: "#FFFFFF", size: "sm" }],
-                      backgroundColor: "#0D448D"
-                    },
-                    hero: {
-                      type: "image",
-                      url: "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=800&q=80",
-                      size: "full",
-                      aspectRatio: "20:13",
-                      aspectMode: "cover"
-                    },
-                    body: {
-                      type: "box",
-                      layout: "vertical",
-                      contents: [
-                        { type: "text", text: "สวัสดีครับ! ผมบอทรายงานจองห้อง", weight: "bold", size: "md", color: "#0D448D" },
-                        { type: "text", text: "พิมพ์ 'รายงานวันนี้' หรือแท็กผมตามด้วยวันที่เพื่อดูสรุปจองได้เลยครับ", size: "xs", color: "#8c8c8c", wrap: true, margin: "md" }
-                      ]
-                    },
-                    footer: {
-                      type: "box",
-                      layout: "vertical",
-                      spacing: "sm",
-                      contents: [
-                        {
-                          type: "button",
-                          action: { type: "message", label: "📊 รายงานการจองวันนี้", text: "รายงานวันนี้" },
-                          style: "primary",
-                          color: "#0D448D"
-                        },
-                        {
-                          type: "button",
-                          action: { type: "message", label: `🗓️ รายงานของวันที่ ${tomorrowStr}`, text: `รายงาน ${tomorrowStr}` },
-                          style: "secondary"
-                        },
-                        {
-                          type: "button",
-                          action: { type: "uri", label: "🌐 เข้าสู่เว็บไซต์จองห้อง", uri: "https://tcc-resource-manager.pages.dev" },
-                          color: "#3498db",
-                          style: "link"
-                        }
-                      ]
-                    }
-                  }
-                };
-                await sendLineReply(env, event.replyToken, flexMenu);
+            // ถ้าถูกแท็ก หรือคุยส่วนตัว ให้เริ่มวิเคราะห์คำสั่ง
+            const targetDate = parseTargetDate(rawText);
+            
+            if (targetDate) {
+              const data = await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json') || [];
+              const bookings = data.filter(b => b.date === targetDate && b.status === 'จองแล้ว');
+              const displayDate = formatThaiDate(targetDate);
+              const isToday = targetDate === new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"})).toISOString().split('T')[0];
+              
+              // ปรับแต่งรายงานให้เหมือนในรูปตัวอย่าง
+              let msg = `📊 รายงานการใช้ห้อง (${isToday ? 'วันนี้' : displayDate})\n`;
+              msg += `--------------------------\n`;
+              
+              if (bookings.length > 0) {
+                bookings.sort((a,b) => a.startTime.localeCompare(b.startTime)).forEach((b, i) => {
+                  msg += `${i+1}. 🕒 ${b.startTime}-${b.endTime}\n`;
+                  msg += `📍 ${b.roomName}\n`;
+                  msg += `📝 ${b.purpose}\n`;
+                  msg += `👤 ${b.bookerName}\n`;
+                  msg += `💻 รูปแบบ: ${b.meetingType || 'Onsite'}\n\n`;
+                });
+                msg += `✨ รวมทั้งหมด ${bookings.length} รายการ`;
+              } else {
+                msg += "✅ วันนี้ไม่มีรายการจองครับ ว่างทุกห้อง!";
               }
+              
+              await sendLineReply(env, event.replyToken, { type: 'text', text: msg.trim() });
+            } else if (isBotMentioned) {
+              // ถ้าแท็กเฉยๆ แต่ไม่มีคำสั่งที่เข้าใจ ให้ส่งเมนูช่วยเหลือ
+              await sendLineReply(env, event.replyToken, { 
+                type: 'text', 
+                text: "สวัสดีครับ! แท็กผมแล้วพิมพ์ 'รายงาน' หรือ 'รายงานวันนี้' เพื่อดูสรุปการจองห้องได้เลยครับ 🏢" 
+              });
             }
           }
         }
         return new Response('OK');
       }
 
+      // ส่วนจัดการข้อมูล API อื่นๆ
       if (path === '/data') {
         const type = url.searchParams.get('type');
         const KV = type === 'rooms' ? env.ROOM_BOOKINGS_KV : env.EQUIPMENT_BORROWINGS_KV;
@@ -180,11 +140,10 @@ export default {
 
       if (path === '/notify' && request.method === 'POST') {
         const { message } = await request.json();
-        // แก้ไขปัญหา "มันขึ้น 2 รายการ": คัดกรอง ID ที่ซ้ำกันออกโดยใช้ Set
         const allTargetIds = Object.keys(env)
           .filter(k => k === 'GROUP_ID' || k.startsWith('GROUP_ID_'))
           .map(k => env[k])
-          .filter(id => id); // ตัดค่าว่างทิ้ง
+          .filter(id => id);
 
         const uniqueTargets = [...new Set(allTargetIds)];
 

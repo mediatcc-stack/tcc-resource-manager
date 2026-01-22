@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Room, Booking } from '../../types';
 import Button from '../shared/Button';
@@ -37,11 +38,9 @@ const FormField: React.FC<{label: string, icon: string, required?: boolean, chil
 
 const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBookings, onSubmit, onUpdate, bookingToEdit, onCancel, showToast }) => {
   const isEditing = !!bookingToEdit;
-  
-  // Refs สำหรับควบคุมการ Sync
   const isInitialized = useRef(false);
   const editingId = useRef<string | null>(bookingToEdit?.id || null);
-  const isDirty = useRef(false); // ติดตามว่ามีการเริ่มพิมพ์หรือยัง
+  const isDirty = useRef(false);
 
   const [selectedRoomIds, setSelectedRoomIds] = useState<number[]>([]);
   const [currentDate, setCurrentDate] = useState<string>(date);
@@ -64,18 +63,12 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // ถ้ามีการเริ่มพิมพ์แล้ว (isDirty) ห้าม Reset ข้อมูลเด็ดขาด แม้จะมีการ Sync จาก Server
     if (isDirty.current) return;
-
-    // ถ้าเคยตั้งค่าเริ่มต้นไปแล้ว และยังเป็นรายการเดิม ไม่ต้องทำซ้ำ
-    if (isInitialized.current && editingId.current === (bookingToEdit?.id || null)) {
-      return;
-    }
+    if (isInitialized.current && editingId.current === (bookingToEdit?.id || null)) return;
 
     if (bookingToEdit) {
         let roomIdsToSelect: number[] = [];
         let endDateForForm = bookingToEdit.date;
-
         if (bookingToEdit.groupId) {
             const groupBookings = existingBookings.filter(b => b.groupId === bookingToEdit.groupId);
             const uniqueRoomNames = [...new Set(groupBookings.map(b => b.roomName))];
@@ -106,24 +99,34 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     } else {
         setSelectedRoomIds([room.id]);
         setCurrentDate(date);
-        setFormData(prev => ({
-            ...prev,
-            bookerName: '',
-            phone: '',
-            purpose: '',
-            startTime: '',
-            endTime: '',
-            isMultiDay: false,
-            endDate: date
-        }));
+        setFormData(prev => ({ ...prev, bookerName: '', phone: '', purpose: '', startTime: '', endTime: '', isMultiDay: false, endDate: date }));
     }
-    
     isInitialized.current = true;
     editingId.current = bookingToEdit?.id || null;
   }, [bookingToEdit, rooms, room, date, existingBookings]);
 
+  // ฟังก์ชันตรวจสอบการจองซ้ำ (Conflict Detection)
+  const checkConflict = (roomName: string, checkDate: string, startTime: string, endTime: string): boolean => {
+    const startM = timeToMinutes(startTime);
+    const endM = timeToMinutes(endTime);
+
+    return existingBookings.some(b => {
+      // ข้ามรายการที่กำลังแก้ไขอยู่
+      if (isEditing && bookingToEdit && b.id === bookingToEdit.id) return false;
+      if (isEditing && bookingToEdit && bookingToEdit.groupId && b.groupId === bookingToEdit.groupId) return false;
+      
+      if (b.roomName === roomName && b.date === checkDate && b.status === 'จองแล้ว') {
+        const bStart = timeToMinutes(b.startTime);
+        const bEnd = timeToMinutes(b.endTime);
+        // เงื่อนไขการทับซ้อนของเวลา
+        return (startM < bEnd && endM > bStart);
+      }
+      return false;
+    });
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    isDirty.current = true; // เมื่อมีการพิมพ์ จะถือว่าข้อมูลถูกแก้ไขแล้ว
+    isDirty.current = true;
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     if (error) setError('');
@@ -157,10 +160,26 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
 
     const startMin = timeToMinutes(formData.startTime);
     const endMin = timeToMinutes(formData.endTime);
-
     if (startMin >= endMin) {
       setError('⚠️ เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่มต้น');
       return;
+    }
+
+    // --- ตรวจสอบ Conflict ก่อนจองจริง ---
+    const firstDate = new Date(currentDate);
+    const lastDate = formData.isMultiDay ? new Date(formData.endDate) : firstDate;
+    
+    for (const rid of selectedRoomIds) {
+      const rName = rooms.find(r => r.id === rid)?.name;
+      if (!rName) continue;
+      
+      for (let d = new Date(firstDate); d <= lastDate; d.setDate(d.getDate() + 1)) {
+        const dStr = d.toISOString().split('T')[0];
+        if (checkConflict(rName, dStr, formData.startTime, formData.endTime)) {
+          setError(`🚫 ขออภัย: ห้อง "${rName}" ในวันที่ ${new Date(dStr).toLocaleDateString('th-TH')} ช่วงเวลา ${formData.startTime}-${formData.endTime} มีผู้จองไปแล้ว กรุณาเลือกเวลาอื่น`);
+          return;
+        }
+      }
     }
 
     setLoading(true);
@@ -171,8 +190,6 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
         return;
     }
 
-    const firstDate = new Date(currentDate);
-    const lastDate = formData.isMultiDay ? new Date(formData.endDate) : firstDate;
     const bookingsToCreate = [];
     const hasMultiple = selectedRoomIds.length > 1 || formData.isMultiDay;
     const groupId = hasMultiple ? uuidv4() : undefined;
@@ -181,7 +198,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     for (const roomId of selectedRoomIds) {
       const roomName = rooms.find(r => r.id === roomId)?.name;
       if (!roomName) continue;
-      for (let d = new Date(firstDate); d <= lastDate; d.setDate(d.getDate() + 1)) {
+      const loopDate = new Date(firstDate);
+      for (let d = loopDate; d <= lastDate; d.setDate(d.getDate() + 1)) {
           bookingsToCreate.push({ 
               ...formData, 
               roomName,
@@ -215,7 +233,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
       
         <form onSubmit={handleSubmit} className="space-y-8">
           {error && (
-            <div className="bg-red-50 border-2 border-red-100 p-5 rounded-2xl flex items-start gap-4">
+            <div className="bg-red-50 border-2 border-red-100 p-5 rounded-2xl flex items-start gap-4 sticky top-20 z-10">
                 <span className="text-2xl">🚫</span>
                 <p className="text-red-700 font-black text-sm leading-relaxed">{error}</p>
             </div>
@@ -283,7 +301,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
             <FormField label="หน่วยงาน / งาน" icon="🏢" required>
               <input type="text" name="bookerName" value={formData.bookerName} onChange={handleInputChange} className={inputClasses} placeholder="เช่น งานประชาสัมพันธ์" required />
             </FormField>
-            <FormField label="เบอร์โทรศัพท์ (ไม่บังคับ)" icon="📱">
+            <FormField label="เบอร์โทรศัพท์" icon="📱">
               <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className={inputClasses} placeholder="เช่น 0812345678" />
             </FormField>
           </div>
@@ -317,9 +335,6 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
               className={inputClasses}
               placeholder="https://docs.google.com/document/d/..."
             />
-            <p className="text-xs text-gray-500 mt-2 px-1">
-              กรุณาอัปโหลดเอกสาร (PDF, DOCX) ขึ้น Google Drive แล้วตั้งค่าการแชร์เป็น "ทุกคนที่มีลิงก์" จากนั้นคัดลอกลิงก์มาวางที่นี่
-            </p>
           </FormField>
           
           <div className="flex justify-end gap-4 pt-10 border-t border-gray-50">
