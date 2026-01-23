@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { BorrowingRequest, BorrowStatus } from '../../types';
 import Button from '../shared/Button';
@@ -12,12 +13,12 @@ interface BorrowingListPageProps {
     onNotifyOverdue: (req: BorrowingRequest) => void;
     showToast: (message: string, type: 'success' | 'error') => void;
     lastUpdated: Date | null;
+    isAdmin: boolean;
 }
 
 const thaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
-const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onChangeStatus, onDeleteRequest, onNotifyOverdue, showToast, lastUpdated }) => {
-    const [isAdmin, setIsAdmin] = useState(false);
+const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onChangeStatus, onDeleteRequest, onNotifyOverdue, showToast, lastUpdated, isAdmin }) => {
     const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
     const [nameFilter, setNameFilter] = useState('');
     const [monthFilter, setMonthFilter] = useState<string>('all');
@@ -33,21 +34,6 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
         yearsSet.add(new Date().getFullYear().toString());
         return Array.from(yearsSet).sort((a, b) => b.localeCompare(a));
     }, [borrowings]);
-
-    const handleAdminLogin = () => {
-        if (isAdmin) {
-            setIsAdmin(false);
-            showToast('ออกจากโหมดแอดมิน', 'success');
-            return;
-        }
-        const password = prompt('กรุณาใส่รหัสผ่านแอดมิน:');
-        if (password && STAFF_PASSWORDS.includes(password)) {
-            setIsAdmin(true);
-            showToast('เข้าสู่โหมดแอดมินสำเร็จ', 'success');
-        } else if (password) {
-            showToast('รหัสผ่านไม่ถูกต้อง', 'error');
-        }
-    };
 
     const clearFilters = () => {
         setNameFilter('');
@@ -117,12 +103,7 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
                         ประวัติการยืม
                     </button>
                 </div>
-                <div className="flex items-center gap-2">
-                    {isAdmin && <span className="px-3 py-1 text-xs font-bold text-white bg-green-600 rounded-full shadow-sm">ผู้ดูแลระบบ</span>}
-                    <Button onClick={handleAdminLogin} variant="secondary" size="sm">
-                      {isAdmin ? 'ปิดโหมดเจ้าหน้าที่' : '🔑 โหมดเจ้าหน้าที่'}
-                    </Button>
-                </div>
+                {isAdmin && <span className="px-3 py-1 text-xs font-bold text-white bg-green-600 rounded-full shadow-sm animate-fade-in">✅ โหมดผู้ดูแลระบบ</span>}
             </div>
 
             {activeTab === 'current' && (

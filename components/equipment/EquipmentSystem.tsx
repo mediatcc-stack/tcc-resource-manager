@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { EquipmentPage, BorrowingRequest, BorrowStatus } from '../../types';
 import BorrowingListPage from './BorrowingListPage';
@@ -14,9 +15,10 @@ import { APP_URL } from '../../constants';
 interface EquipmentSystemProps {
   onBackToLanding: () => void;
   showToast: (message: string, type: 'success' | 'error') => void;
+  isAdmin: boolean;
 }
 
-const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, showToast }) => {
+const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, showToast, isAdmin }) => {
     const [currentPage, setCurrentPage] = useState<EquipmentPage>('list');
     const [borrowings, setBorrowings] = useState<BorrowingRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -181,6 +183,7 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
                         onNotifyOverdue={handleNotifyOverdue}
                         showToast={showToast}
                         lastUpdated={lastUpdated}
+                        isAdmin={isAdmin}
                     />
                 );
         }

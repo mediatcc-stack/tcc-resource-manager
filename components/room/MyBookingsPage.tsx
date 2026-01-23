@@ -14,7 +14,7 @@ interface MyBookingsPageProps {
   onEditBooking: (booking: Booking) => void;
   onBack: () => void;
   isAdmin: boolean;
-  onAdminLogin: () => void;
+  onOpenNotificationSettings: () => void;
 }
 
 const thaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
@@ -192,7 +192,7 @@ const BookingCard: React.FC<{
 };
 
 
-const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onDeleteBookingGroup, onEditBooking, onBack, isAdmin, onAdminLogin }) => {
+const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onDeleteBookingGroup, onEditBooking, onBack, isAdmin, onOpenNotificationSettings }) => {
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
   const [purposeFilter, setPurposeFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState<string>('all');
@@ -288,9 +288,11 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                   <h2 className="text-2xl font-black text-gray-800 tracking-tight">รายการจองห้องประชุม</h2>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button onClick={onAdminLogin} variant="secondary">
-                      {isAdmin ? 'ปิดโหมดเจ้าหน้าที่' : '🔑 โหมดเจ้าหน้าที่'}
-                  </Button>
+                   {isAdmin && (
+                    <Button onClick={onOpenNotificationSettings} variant="primary" className="bg-green-600 hover:bg-green-700 focus:ring-green-500">
+                      ⚙️ ตั้งค่าแจ้งเตือน LINE
+                    </Button>
+                  )}
                 </div>
             </div>
 

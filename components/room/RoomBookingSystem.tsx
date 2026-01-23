@@ -7,32 +7,31 @@ import HomePage from './HomePage';
 import BookingForm from './BookingForm';
 import MyBookingsPage from './MyBookingsPage';
 import StatisticsPage from './StatisticsPage';
-import { sendLineNotification } from '../../services/notificationService';
 import { fetchData, saveData } from '../../services/apiService';
 import { v4 as uuidv4 } from 'uuid';
 import NavButton from './NavButton';
 import LoadingSpinner from '../shared/LoadingSpinner';
 import Button from '../shared/Button';
-import Modal from '../shared/Modal';
-import GroupIdFinder from '../admin/GroupIdFinder';
+import NotificationSettingsModal from '../admin/NotificationSettingsModal';
 
 interface RoomBookingSystemProps {
   onBackToLanding: () => void;
   showToast: (message: string, type: 'success' | 'error') => void;
+  isAdmin: boolean;
 }
 
-const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, showToast }) => {
+const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, showToast, isAdmin }) => {
   const [currentPage, setCurrentPage] = useState<RoomPage>('home');
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'error' | 'syncing'>('connected');
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   
   const pollTimer = useRef<number | null>(null);
 
@@ -211,21 +210,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
     }
   }, [bookings, showToast, fetchBookings]);
 
-  const handleAdminLogin = () => {
-    if (isAdmin) {
-      setIsAdmin(false);
-      showToast('ออกจากโหมดแอดมิน', 'success');
-      return;
-    }
-    const password = prompt('กรุณาใส่รหัสผ่านแอดมิน:');
-    if (password && STAFF_PASSWORDS.includes(password)) {
-        setIsAdmin(true);
-        showToast('เข้าสู่โหมดแอดมินสำเร็จ', 'success');
-    } else if (password) {
-        showToast('รหัสผ่านไม่ถูกต้อง', 'error');
-    }
-  };
-
   const renderCurrentPage = () => {
     if (isLoading) {
       return (
@@ -285,7 +269,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
                   onEditBooking={(b) => { setEditingBooking(b); setCurrentPage('booking'); }}
                   onBack={() => setCurrentPage('home')}
                   isAdmin={isAdmin}
-                  onAdminLogin={handleAdminLogin}
+                  onOpenNotificationSettings={() => setIsNotificationModalOpen(true)}
                 />;
       case 'statistics':
         return <StatisticsPage bookings={bookings} onBack={() => setCurrentPage('home')} />;
@@ -328,6 +312,14 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
         </div>
       </div>
       {renderCurrentPage()}
+      
+      {isNotificationModalOpen && (
+        <NotificationSettingsModal 
+            isOpen={isNotificationModalOpen}
+            onClose={() => setIsNotificationModalOpen(false)}
+            showToast={showToast}
+        />
+      )}
     </div>
   );
 };

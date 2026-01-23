@@ -43,3 +43,34 @@ export const saveData = async (type: DataType, data: Booking[] | BorrowingReques
         throw error;
     }
 };
+
+// --- New Functions for LINE Group Management ---
+
+export const fetchGroups = async (): Promise<string[]> => {
+    try {
+        const response = await fetch(`${WORKER_BASE_URL}/groups`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        });
+        const data = await handleResponse(response, `ดึงข้อมูล Group ID ล้มเหลว`);
+        return Array.isArray(data) ? data : [];
+    } catch (error: any) {
+        console.error(`[API] Fetch groups error:`, error);
+        throw new Error('ไม่สามารถดึงข้อมูล Group ID ได้');
+    }
+};
+
+export const saveGroups = async (groups: string[]): Promise<boolean> => {
+    try {
+        const response = await fetch(`${WORKER_BASE_URL}/groups`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(groups),
+        });
+        await handleResponse(response, `บันทึกข้อมูล Group ID ล้มเหลว`);
+        return true;
+    } catch (error: any) {
+        console.error(`[API] Save groups error:`, error);
+        throw error;
+    }
+};
