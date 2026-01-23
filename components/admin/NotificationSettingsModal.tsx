@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchGroups, saveGroups, fetchGroupIdLog, clearGroupIdLog } from '../../services/apiService';
+import { fetchGroups, saveGroups, fetchGroupIdLog, clearGroupIdLog, fetchWorkerStatus, WorkerStatus } from '../../services/apiService';
 import Button from '../shared/Button';
 import LoadingSpinner from '../shared/LoadingSpinner';
 import Modal from '../shared/Modal';
@@ -16,6 +16,17 @@ interface NotificationSettingsModalProps {
   showToast: (message: string, type: 'success' | 'error') => void;
 }
 
+const StatusCheck: React.FC<{ label: string, success: boolean, helpText: string }> = ({ label, success, helpText }) => (
+    <div className={`flex items-center justify-between p-3 rounded-lg text-xs ${success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border`}>
+        <div className="flex flex-col">
+            <span className={`font-bold ${success ? 'text-green-800' : 'text-red-800'}`}>{label}</span>
+            <span className={`${success ? 'text-green-600' : 'text-red-600'}`}>{helpText}</span>
+        </div>
+        <span className="text-lg">{success ? '✅' : '❌'}</span>
+    </div>
+);
+
+
 const NotificationSettingsModal: React.FC<NotificationSettingsModalProps> = ({ isOpen, onClose, showToast }) => {
   const [groupIdsText, setGroupIdsText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -25,6 +36,8 @@ const NotificationSettingsModal: React.FC<NotificationSettingsModalProps> = ({ i
   const [discoveredGroups, setDiscoveredGroups] = useState<DiscoveredGroup[]>([]);
   const [isLoadingLog, setIsLoadingLog] = useState(true);
 
+  const [workerStatus, setWorkerStatus] = useState<WorkerStatus | null>(null);
+
   useEffect(() => {
     if (isOpen) {
       const loadData = async () => {
@@ -32,12 +45,14 @@ const NotificationSettingsModal: React.FC<NotificationSettingsModalProps> = ({ i
         setIsLoadingLog(true);
         setError(null);
         try {
-          const [groups, log] = await Promise.all([
+          const [groups, log, status] = await Promise.all([
             fetchGroups(),
-            fetchGroupIdLog()
+            fetchGroupIdLog(),
+            fetchWorkerStatus()
           ]);
           setGroupIdsText(groups.join('\n'));
           setDiscoveredGroups(log);
+          setWorkerStatus(status);
         } catch (err: any) {
           const errorMessage = err.message || 'ไม่สามารถโหลดข้อมูลได้';
           setError(errorMessage);
@@ -91,6 +106,26 @@ const NotificationSettingsModal: React.FC<NotificationSettingsModalProps> = ({ i
   return (
     <Modal title="ตั้งค่าการแจ้งเตือน LINE" onClose={onClose}>
       <div className="space-y-6 text-sm">
+        
+        {/* Connection Status Section */}
+        {workerStatus && (
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <h4 className="font-bold text-slate-800 text-base mb-3">สถานะการเชื่อมต่อ (Cloudflare)</h4>
+                <div className="space-y-2">
+                    <StatusCheck 
+                        label="LINE Access Token" 
+                        success={workerStatus.lineApiToken}
+                        helpText={workerStatus.lineApiToken ? "เชื่อมต่อสำเร็จ" : "ยังไม่ได้ตั้งค่าใน Variables"}
+                    />
+                     <StatusCheck 
+                        label="ฐานข้อมูล Group ID" 
+                        success={workerStatus.lineGroupsKvBinding}
+                        helpText={workerStatus.lineGroupsKvBinding ? "เชื่อมต่อสำเร็จ" : "ยังไม่ได้ผูก LINE_GROUPS_KV"}
+                    />
+                </div>
+            </div>
+        )}
+
         <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
           <h4 className="font-bold text-blue-800 text-base mb-2">วิธีหา Group ID</h4>
           <ol className="list-decimal list-inside space-y-2 pl-2">

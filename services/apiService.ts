@@ -3,6 +3,13 @@ import { WORKER_BASE_URL } from '../constants';
 
 type DataType = 'rooms' | 'equipment';
 
+export interface WorkerStatus {
+    lineApiToken: boolean;
+    roomKvBinding: boolean;
+    equipmentKvBinding: boolean;
+    lineGroupsKvBinding: boolean;
+}
+
 const handleResponse = async (response: Response, errorMessagePrefix: string): Promise<any> => {
     if (!response.ok) {
         let errorMsg = `HTTP error! Status: ${response.status}`;
@@ -17,6 +24,16 @@ const handleResponse = async (response: Response, errorMessagePrefix: string): P
     }
     return await response.json();
 };
+
+export const fetchWorkerStatus = async (): Promise<WorkerStatus> => {
+    try {
+        const response = await fetch(`${WORKER_BASE_URL}/status`);
+        return await handleResponse(response, `ตรวจสอบสถานะ Worker ล้มเหลว`);
+    } catch (error: any) {
+        console.error(`[API] Fetch worker status error:`, error);
+        throw error;
+    }
+}
 
 export const fetchData = async (type: DataType): Promise<any[]> => {
     try {

@@ -85,6 +85,17 @@ export default {
     };
 
     try {
+      // Endpoint for Worker Status Check
+      if (path === '/status') {
+          const status = {
+              lineApiToken: !!env.CHANNEL_ACCESS_TOKEN,
+              roomKvBinding: !!env.ROOM_BOOKINGS_KV,
+              equipmentKvBinding: !!env.EQUIPMENT_BORROWINGS_KV,
+              lineGroupsKvBinding: !!env.LINE_GROUPS_KV
+          };
+          return new Response(JSON.stringify(status), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
+      }
+
       // Endpoint for Booking/Equipment Data
       if (path === '/data') {
         const type = url.searchParams.get('type');
