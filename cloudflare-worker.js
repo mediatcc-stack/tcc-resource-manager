@@ -1,7 +1,7 @@
 // cloudflare-worker.js (Admin-Managed Group IDs & Multicast Notifications)
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
 };
 
@@ -48,6 +48,21 @@ async function sendMulticast(groupIds, message, env) {
   }
 }
 
+async function getGroupSummary(groupId, env) {
+    try {
+        const response = await fetch(`https://api.line.me/v2/bot/group/${groupId}/summary`, {
+            headers: { 'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}` },
+        });
+        if (response.ok) {
+            const data = await response.json();
+            return data.groupName;
+        }
+        return `กลุ่มที่ไม่รู้จัก`;
+    } catch (e) {
+        return `กลุ่มที่ไม่รู้จัก`;
+    }
+}
+
 // --- Main Worker Logic ---
 export default {
   async fetch(request, env) {
@@ -89,6 +104,18 @@ export default {
               return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
           }
       }
+      
+      // Endpoint for discovered Group ID Log
+      if (path === '/group-id-log') {
+          if (request.method === 'GET') {
+              const log = await env.LINE_GROUPS_KV.get('group_id_log', 'json') || [];
+              return new Response(JSON.stringify(log), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
+          }
+          if (request.method === 'DELETE') {
+              await env.LINE_GROUPS_KV.put('group_id_log', JSON.stringify([]));
+              return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+          }
+      }
 
       // Endpoint for Sending Notifications
       if (path === '/notify' && request.method === 'POST') {
@@ -111,6 +138,15 @@ export default {
             if (messageText === '/getid') {
               const replyMsg = `✅ Group ID ของกลุ่มนี้คือ:\n\n${groupId}\n\n(สำหรับผู้ดูแลระบบ) กรุณาคัดลอก ID นี้ไปใส่ในหน้าตั้งค่าการแจ้งเตือนบนเว็บแอปพลิเคชัน`;
               await replyToLine(event.replyToken, replyMsg, env);
+
+              // Log the discovered group ID
+              const groupName = await getGroupSummary(groupId, env);
+              const log = await env.LINE_GROUPS_KV.get('group_id_log', 'json') || [];
+              if (!log.some(g => g.id === groupId)) {
+                  const newLogEntry = { id: groupId, name: groupName, detectedAt: new Date().toISOString() };
+                  const updatedLog = [newLogEntry, ...log].slice(0, 20); // Keep last 20 entries
+                  await env.LINE_GROUPS_KV.put('group_id_log', JSON.stringify(updatedLog));
+              }
             }
           }
         }
