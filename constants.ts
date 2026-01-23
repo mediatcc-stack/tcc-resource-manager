@@ -1,7 +1,9 @@
 
 import { Room } from './types';
 
-// ตรงกับ URL ในหน้า Cloudflare ของคุณ (Workers.dev)
+// ⚠️ สำคัญมาก: กรุณาตรวจสอบ URL บรรทัดล่างนี้กับหน้าแดชบอร์ด Cloudflare Worker ของคุณ
+// ให้คัดลอก URL ที่ถูกต้องจาก Cloudflare มาวางทับตรงนี้
+// และแก้ไขให้ตรงกันทุกตัวอักษรเพื่อป้องกันข้อผิดพลาด 404
 export const WORKER_BASE_URL = 'https://tcc-line-notifier.media-tcc.workers.dev';
 
 // URL สำหรับส่งแจ้งเตือน (เปลี่ยนกลับมาใช้ Cloudflare Worker Endpoint)
