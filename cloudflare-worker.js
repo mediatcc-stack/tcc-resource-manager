@@ -1,4 +1,4 @@
-// cloudflare-worker.js (Admin-Managed Group IDs & Multicast Notifications)
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
@@ -63,45 +63,52 @@ async function getGroupSummary(groupId, env) {
     }
 }
 
+const checkKvBinding = (kv, name) => {
+    if (!kv) {
+        const errorMsg = `การตั้งค่าผิดพลาด: ไม่พบ KV Namespace ที่ชื่อ "${name}" ใน Cloudflare Worker`;
+        console.error(`[KV Binding Error] ${errorMsg}`);
+        return new Response(JSON.stringify({ error: errorMsg }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+    }
+    return null;
+};
+
+
 // --- Main Worker Logic ---
 export default {
   async fetch(request, env) {
-    if (request.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
-    
+    // Handle CORS preflight requests
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders });
+    }
+
     const url = new URL(request.url);
     const path = url.pathname;
-    
-    // Helper to check for KV bindings
-    const checkKvBinding = (kv, name) => {
-        if (!kv) {
-            const errorMsg = `การตั้งค่าผิดพลาด: ไม่พบ KV Namespace ที่ชื่อ "${name}" ใน Cloudflare Worker`;
-            console.error(`[KV Binding Error] ${errorMsg}`);
-            return new Response(JSON.stringify({ error: errorMsg }), {
-                status: 500,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
-        }
-        return null;
-    };
 
     try {
-      // Endpoint for Worker Status Check
-      if (path === '/status') {
-          const status = {
-              lineApiToken: !!env.CHANNEL_ACCESS_TOKEN,
-              roomKvBinding: !!env.ROOM_BOOKINGS_KV,
-              equipmentKvBinding: !!env.EQUIPMENT_BORROWINGS_KV,
-              lineGroupsKvBinding: !!env.LINE_GROUPS_KV
-          };
-          return new Response(JSON.stringify(status), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
+      // --- API ROUTING ---
+      
+      // GET /status: Check worker and bindings status
+      if (path === '/status' && request.method === 'GET') {
+        const status = {
+          lineApiToken: !!env.CHANNEL_ACCESS_TOKEN,
+          roomKvBinding: !!env.ROOM_BOOKINGS_KV,
+          equipmentKvBinding: !!env.EQUIPMENT_BORROWINGS_KV,
+          lineGroupsKvBinding: !!env.LINE_GROUPS_KV
+        };
+        return new Response(JSON.stringify(status), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
       }
 
-      // Endpoint for Booking/Equipment Data
+      // GET & POST /data: Handle booking and equipment data
       if (path === '/data') {
         const type = url.searchParams.get('type');
+        if (!type || (type !== 'rooms' && type !== 'equipment')) {
+            return new Response(JSON.stringify({ error: "Missing or invalid 'type' parameter. Must be 'rooms' or 'equipment'." }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
         const KV_NAME = type === 'rooms' ? 'ROOM_BOOKINGS_KV' : 'EQUIPMENT_BORROWINGS_KV';
         const KV = env[KV_NAME];
-
         const bindingError = checkKvBinding(KV, KV_NAME);
         if (bindingError) return bindingError;
         
@@ -113,55 +120,55 @@ export default {
         if (request.method === 'POST') {
           const newData = await request.json();
           await KV.put(`${type}_data`, JSON.stringify(newData));
-          return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+          return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
       }
 
-      // Endpoint for LINE Group ID Management (Admin Only)
+      // GET & POST /groups: Manage LINE Group IDs for notifications
       if (path === '/groups') {
-          const bindingError = checkKvBinding(env.LINE_GROUPS_KV, 'LINE_GROUPS_KV');
-          if (bindingError) return bindingError;
+        const bindingError = checkKvBinding(env.LINE_GROUPS_KV, 'LINE_GROUPS_KV');
+        if (bindingError) return bindingError;
 
-          if (request.method === 'GET') {
-              const groups = await env.LINE_GROUPS_KV.get('registered_groups', 'json') || [];
-              return new Response(JSON.stringify(groups), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-          }
-          if (request.method === 'POST') {
-              const groupIds = await request.json();
-              if (!Array.isArray(groupIds)) {
-                  return new Response(JSON.stringify({ error: 'Invalid data format, expected an array of strings.' }), { status: 400, headers: corsHeaders });
-              }
-              await env.LINE_GROUPS_KV.put('registered_groups', JSON.stringify(groupIds));
-              return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
-          }
+        if (request.method === 'GET') {
+            const groups = await env.LINE_GROUPS_KV.get('registered_groups', 'json') || [];
+            return new Response(JSON.stringify(groups), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        if (request.method === 'POST') {
+            const groupIds = await request.json();
+            if (!Array.isArray(groupIds)) {
+                return new Response(JSON.stringify({ error: 'Invalid data format, expected an array of strings.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }
+            await env.LINE_GROUPS_KV.put('registered_groups', JSON.stringify(groupIds));
+            return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
       }
       
-      // Endpoint for discovered Group ID Log
+      // GET & DELETE /group-id-log: Manage discovered Group ID logs
       if (path === '/group-id-log') {
-          const bindingError = checkKvBinding(env.LINE_GROUPS_KV, 'LINE_GROUPS_KV');
-          if (bindingError) return bindingError;
+        const bindingError = checkKvBinding(env.LINE_GROUPS_KV, 'LINE_GROUPS_KV');
+        if (bindingError) return bindingError;
 
-          if (request.method === 'GET') {
-              const log = await env.LINE_GROUPS_KV.get('group_id_log', 'json') || [];
-              return new Response(JSON.stringify(log), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
-          }
-          if (request.method === 'DELETE') {
-              await env.LINE_GROUPS_KV.put('group_id_log', JSON.stringify([]));
-              return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
-          }
+        if (request.method === 'GET') {
+            const log = await env.LINE_GROUPS_KV.get('group_id_log', 'json') || [];
+            return new Response(JSON.stringify(log), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
+        }
+        if (request.method === 'DELETE') {
+            await env.LINE_GROUPS_KV.put('group_id_log', JSON.stringify([]));
+            return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
       }
 
-      // Endpoint for Sending Notifications
+      // POST /notify: Send a notification message
       if (path === '/notify' && request.method === 'POST') {
         const { message } = await request.json();
         const registeredGroups = await env.LINE_GROUPS_KV.get('registered_groups', 'json') || [];
         if (registeredGroups.length > 0) {
             await sendMulticast(registeredGroups, message, env);
         }
-        return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
+        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       
-      // LINE Webhook Endpoint
+      // POST /webhook: Handle incoming LINE webhooks
       if (path === '/webhook' && request.method === 'POST') {
         const body = await request.json();
         for (const event of body.events) {
@@ -171,8 +178,9 @@ export default {
             
             if (messageText === '/getid') {
               await replyToLine(event.replyToken, `✅ Group ID ของกลุ่มนี้คือ:\n\n${groupId}`, env);
-
-              if (env.LINE_GROUPS_KV) {
+              
+              const bindingError = checkKvBinding(env.LINE_GROUPS_KV, 'LINE_GROUPS_KV');
+              if (!bindingError) {
                 const groupName = await getGroupSummary(groupId, env);
                 const log = await env.LINE_GROUPS_KV.get('group_id_log', 'json') || [];
                 if (!log.some(g => g.id === groupId)) {
@@ -180,8 +188,6 @@ export default {
                     const updatedLog = [newLogEntry, ...log].slice(0, 20); // Keep last 20 entries
                     await env.LINE_GROUPS_KV.put('group_id_log', JSON.stringify(updatedLog));
                 }
-              } else {
-                  console.error("LINE_GROUPS_KV is not bound. Cannot log Group ID.");
               }
             }
           }
@@ -189,10 +195,18 @@ export default {
         return new Response('OK');
       }
 
-      return new Response('TCC API Active', { headers: corsHeaders });
+      // If no route matched, return a 404
+      return new Response(JSON.stringify({ error: `Route not found: ${request.method} ${path}` }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+
     } catch (e) {
-      console.error(`[Worker Error] Uncaught exception: ${e.message}`);
-      return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
+      console.error(`[Worker Error] Uncaught exception: ${e.message}\n${e.stack}`);
+      return new Response(JSON.stringify({ error: `Worker internal error: ${e.message}` }), { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
     }
   },
 
