@@ -70,12 +70,29 @@ export default {
     
     const url = new URL(request.url);
     const path = url.pathname;
+    
+    // Helper to check for KV bindings
+    const checkKvBinding = (kv, name) => {
+        if (!kv) {
+            const errorMsg = `การตั้งค่าผิดพลาด: ไม่พบ KV Namespace ที่ชื่อ "${name}" ใน Cloudflare Worker`;
+            console.error(`[KV Binding Error] ${errorMsg}`);
+            return new Response(JSON.stringify({ error: errorMsg }), {
+                status: 500,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+        }
+        return null;
+    };
 
     try {
       // Endpoint for Booking/Equipment Data
       if (path === '/data') {
         const type = url.searchParams.get('type');
-        const KV = type === 'rooms' ? env.ROOM_BOOKINGS_KV : env.EQUIPMENT_BORROWINGS_KV;
+        const KV_NAME = type === 'rooms' ? 'ROOM_BOOKINGS_KV' : 'EQUIPMENT_BORROWINGS_KV';
+        const KV = env[KV_NAME];
+
+        const bindingError = checkKvBinding(KV, KV_NAME);
+        if (bindingError) return bindingError;
         
         if (request.method === 'GET') {
           const data = await KV.get(`${type}_data`, 'json') || [];
@@ -91,6 +108,9 @@ export default {
 
       // Endpoint for LINE Group ID Management (Admin Only)
       if (path === '/groups') {
+          const bindingError = checkKvBinding(env.LINE_GROUPS_KV, 'LINE_GROUPS_KV');
+          if (bindingError) return bindingError;
+
           if (request.method === 'GET') {
               const groups = await env.LINE_GROUPS_KV.get('registered_groups', 'json') || [];
               return new Response(JSON.stringify(groups), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -107,6 +127,9 @@ export default {
       
       // Endpoint for discovered Group ID Log
       if (path === '/group-id-log') {
+          const bindingError = checkKvBinding(env.LINE_GROUPS_KV, 'LINE_GROUPS_KV');
+          if (bindingError) return bindingError;
+
           if (request.method === 'GET') {
               const log = await env.LINE_GROUPS_KV.get('group_id_log', 'json') || [];
               return new Response(JSON.stringify(log), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
@@ -136,16 +159,18 @@ export default {
             const groupId = event.source.groupId;
             
             if (messageText === '/getid') {
-              const replyMsg = `✅ Group ID ของกลุ่มนี้คือ:\n\n${groupId}\n\n(สำหรับผู้ดูแลระบบ) กรุณาคัดลอก ID นี้ไปใส่ในหน้าตั้งค่าการแจ้งเตือนบนเว็บแอปพลิเคชัน`;
-              await replyToLine(event.replyToken, replyMsg, env);
+              await replyToLine(event.replyToken, `✅ Group ID ของกลุ่มนี้คือ:\n\n${groupId}`, env);
 
-              // Log the discovered group ID
-              const groupName = await getGroupSummary(groupId, env);
-              const log = await env.LINE_GROUPS_KV.get('group_id_log', 'json') || [];
-              if (!log.some(g => g.id === groupId)) {
-                  const newLogEntry = { id: groupId, name: groupName, detectedAt: new Date().toISOString() };
-                  const updatedLog = [newLogEntry, ...log].slice(0, 20); // Keep last 20 entries
-                  await env.LINE_GROUPS_KV.put('group_id_log', JSON.stringify(updatedLog));
+              if (env.LINE_GROUPS_KV) {
+                const groupName = await getGroupSummary(groupId, env);
+                const log = await env.LINE_GROUPS_KV.get('group_id_log', 'json') || [];
+                if (!log.some(g => g.id === groupId)) {
+                    const newLogEntry = { id: groupId, name: groupName, detectedAt: new Date().toISOString() };
+                    const updatedLog = [newLogEntry, ...log].slice(0, 20); // Keep last 20 entries
+                    await env.LINE_GROUPS_KV.put('group_id_log', JSON.stringify(updatedLog));
+                }
+              } else {
+                  console.error("LINE_GROUPS_KV is not bound. Cannot log Group ID.");
               }
             }
           }

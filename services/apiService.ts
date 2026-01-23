@@ -5,11 +5,14 @@ type DataType = 'rooms' | 'equipment';
 
 const handleResponse = async (response: Response, errorMessagePrefix: string): Promise<any> => {
     if (!response.ok) {
-        let errorMsg = `HTTP ${response.status}`;
+        let errorMsg = `HTTP error! Status: ${response.status}`;
         try {
             const errorBody = await response.json();
-            errorMsg = errorBody.error || errorMsg;
-        } catch (e) { }
+            errorMsg = errorBody.error || JSON.stringify(errorBody);
+        } catch (e) {
+            // Could not parse JSON, use status text or default message
+            errorMsg = response.statusText || errorMsg;
+        }
         throw new Error(`${errorMessagePrefix}: ${errorMsg}`);
     }
     return await response.json();
@@ -24,8 +27,8 @@ export const fetchData = async (type: DataType): Promise<any[]> => {
         const data = await handleResponse(response, `ดึงข้อมูล ${type} ล้มเหลว`);
         return Array.isArray(data) ? data : [];
     } catch (error: any) {
-        console.error(`[API] Fetch error:`, error);
-        throw new Error('ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณาเช็คการ Bind KV ใน Cloudflare');
+        console.error(`[API] Fetch error for type '${type}':`, error);
+        throw error; // Re-throw the original, more descriptive error
     }
 };
 
@@ -39,7 +42,7 @@ export const saveData = async (type: DataType, data: Booking[] | BorrowingReques
         await handleResponse(response, `บันทึกข้อมูล ${type} ล้มเหลว`);
         return true;
     } catch (error: any) {
-        console.error(`[API] Save error:`, error);
+        console.error(`[API] Save error for type '${type}':`, error);
         throw error;
     }
 };
@@ -56,7 +59,7 @@ export const fetchGroups = async (): Promise<string[]> => {
         return Array.isArray(data) ? data : [];
     } catch (error: any) {
         console.error(`[API] Fetch groups error:`, error);
-        throw new Error('ไม่สามารถดึงข้อมูล Group ID ได้');
+        throw error;
     }
 };
 
@@ -85,7 +88,7 @@ export const fetchGroupIdLog = async (): Promise<{id: string, name: string, dete
         return Array.isArray(data) ? data : [];
     } catch (error: any) {
         console.error(`[API] Fetch Group ID Log error:`, error);
-        throw new Error('ไม่สามารถดึงประวัติ Group ID ได้');
+        throw error;
     }
 };
 
