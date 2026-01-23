@@ -2,7 +2,7 @@
 import { Room } from './types';
 
 // ตรงกับ URL ในหน้า Cloudflare ของคุณ (Workers.dev)
-export const WORKER_BASE_URL = 'https://tcc-line-notifier.media-tcc.workers.dev';
+export const WORKER_BASE_URL = 'https://tcc-line-notifier.media.tcc.workers.dev';
 
 // URL สำหรับส่งแจ้งเตือน (เปลี่ยนกลับมาใช้ Cloudflare Worker Endpoint)
 export const NOTIFICATION_URL = `${WORKER_BASE_URL}/notify`;
