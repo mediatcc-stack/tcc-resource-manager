@@ -95,7 +95,7 @@ export default {
         const status = {
           lineApiToken: !!env.CHANNEL_ACCESS_TOKEN,
           roomKvBinding: !!env.ROOM_BOOKINGS_KV,
-          equipmentKvBinding: !!env.EQUIPMENT_BORROWINGS_KV,
+          equipmentKvBinding: !!env.EQUIPMENT_BORROWING,
           lineGroupsKvBinding: !!env.LINE_GROUPS_KV
         };
         return new Response(JSON.stringify(status), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
@@ -107,7 +107,7 @@ export default {
         if (!type || (type !== 'rooms' && type !== 'equipment')) {
             return new Response(JSON.stringify({ error: "Missing or invalid 'type' parameter. Must be 'rooms' or 'equipment'." }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
-        const KV_NAME = type === 'rooms' ? 'ROOM_BOOKINGS_KV' : 'EQUIPMENT_BORROWINGS_KV';
+        const KV_NAME = type === 'rooms' ? 'ROOM_BOOKINGS_KV' : 'EQUIPMENT_BORROWING';
         const KV = env[KV_NAME];
         const bindingError = checkKvBinding(KV, KV_NAME);
         if (bindingError) return bindingError;
