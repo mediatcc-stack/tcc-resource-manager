@@ -15,14 +15,24 @@ interface HomePageProps {
   onQuickBook: () => void;
 }
 
+const getRoomStatusInfo = (room: Room, roomBookings: Booking[]) => {
+    if (room.status === 'closed') {
+        return { icon: '🔧', text: 'ไม่พร้อมใช้งาน', textColor: 'text-gray-600' };
+    }
+    if (roomBookings.length === 0) {
+        return { icon: '🟢', text: 'ว่าง', textColor: 'text-green-700' };
+    }
+    return { icon: '📅', text: 'มีการจอง', textColor: 'text-blue-700' };
+};
+
+
 const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNavigateToMyBookings, onQuickBook }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   
   const [modalOpen, setModalOpen] = useState(false);
   const [modalBookings, setModalBookings] = useState<Booking[]>([]);
-  const [modalDate, setModalDate] = useState('');
-  const [modalRoomName, setModalRoomName] = useState('');
+  const [modalRoom, setModalRoom] = useState<Room | null>(null);
 
   const handleDayClick = (dateStr: string) => {
     setSelectedDate(dateStr);
@@ -32,9 +42,13 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
     const roomBookings = bookings.filter(b => b.roomName === room.name && b.date === selectedDate && b.status === 'จองแล้ว')
                                  .sort((a,b) => a.startTime.localeCompare(b.startTime));
     setModalBookings(roomBookings);
-    setModalDate(selectedDate);
-    setModalRoomName(room.name);
+    setModalRoom(room);
     setModalOpen(true);
+  };
+  
+  const handleBookFromModal = (room: Room, date: string) => {
+    setModalOpen(false);
+    onSelectRoom(room, date);
   };
 
   const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
@@ -92,9 +106,9 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
       isOpen={modalOpen} 
       onClose={() => setModalOpen(false)} 
       bookings={modalBookings}
-      date={modalDate}
-      roomName={modalRoomName}
-      onNavigateToMyBookings={onNavigateToMyBookings}
+      date={selectedDate}
+      room={modalRoom}
+      onBookNow={handleBookFromModal}
     />
     <div className="max-w-6xl mx-auto animate-fade-in px-2 md:px-0">
       <div className="bg-white rounded-[2rem] md:rounded-[3rem] shadow-2xl p-6 md:p-12 border border-gray-100 mb-10 overflow-hidden">
@@ -180,37 +194,34 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
             {rooms.map(room => {
               const isAvailable = room.status === 'available';
               const roomBookings = bookings.filter(b => b.roomName === room.name && b.date === selectedDate && b.status === 'จองแล้ว');
-              
+              const statusInfo = getRoomStatusInfo(room, roomBookings);
+
               return (
                 <div key={room.id}
                   className={`flex flex-col bg-white rounded-[2rem] border-2 transition-all duration-300 group relative
                     ${isAvailable ? 'border-slate-100 hover:border-[#0D448D] hover:shadow-2xl hover:-translate-y-2 shadow-sm' : 'border-gray-100 bg-gray-50/50 opacity-60 cursor-default shadow-none'}`}>
+                  
                   <div className="p-6 flex flex-col h-full">
-                    <h3 className="text-lg font-bold text-gray-800 leading-snug break-words mb-4">{room.name}</h3>
+                    <h3 className="text-lg font-bold text-gray-800 leading-snug break-words mb-4 flex-grow">{room.name}</h3>
                     
-                    <div 
-                        className={`flex-1 flex flex-col justify-center py-5 mb-5 border-y border-slate-50 ${isAvailable && 'cursor-pointer'}`}
-                        onClick={() => isAvailable && handleShowRoomDetails(room)}
-                    >
-                      {isAvailable ? (
-                        <RoomAvailabilityTimeline bookings={roomBookings} />
-                      ) : (
-                        <div className="text-center">
-                          <div className="bg-gray-100 text-gray-400 px-10 py-2.5 rounded-full text-sm font-bold border border-gray-200">🔒 งดใช้ชั่วคราว</div>
-                        </div>
-                      )}
+                    <div className="flex items-center gap-2 mb-5">
+                        <span className="text-xl">{statusInfo.icon}</span>
+                        <span className={`text-sm font-bold ${statusInfo.textColor}`}>
+                            {statusInfo.text}
+                        </span>
                     </div>
 
                     {isAvailable && (
-                      <button 
-                        onClick={() => onSelectRoom(room, selectedDate)}
-                        className="w-full bg-[#0D448D] text-white py-3 rounded-[1.25rem] font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-900/10 group-hover:bg-blue-800 transition-all active:scale-95"
+                      <Button 
+                        onClick={() => handleShowRoomDetails(room)}
+                        variant="primary"
+                        className="w-full mt-auto"
                       >
-                        จองห้องนี้
-                      </button>
+                        ดูรายละเอียด / จอง
+                      </Button>
                     )}
                     {!isAvailable && (
-                      <div className="w-full bg-gray-200 text-gray-400 py-3 rounded-[1.25rem] font-bold text-sm flex items-center justify-center gap-2">
+                      <div className="w-full text-center bg-gray-200 text-gray-400 py-3 rounded-xl font-bold text-sm mt-auto">
                         ไม่สามารถจองได้
                       </div>
                     )}

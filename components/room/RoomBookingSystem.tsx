@@ -8,6 +8,7 @@ import BookingForm from './BookingForm';
 import MyBookingsPage from './MyBookingsPage';
 import StatisticsPage from './StatisticsPage';
 import { fetchData, saveData } from '../../services/apiService';
+import { sendLineNotification } from '../../services/notificationService';
 import { v4 as uuidv4 } from 'uuid';
 import NavButton from './NavButton';
 import LoadingSpinner from '../shared/LoadingSpinner';
@@ -205,6 +206,31 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       setCurrentPage('home');
       showToast('การจองห้องสำเร็จ!', 'success');
       fetchBookings(true);
+
+      // --- Send LINE Notification ---
+      try {
+          const isMultiBooking = createdBookings.length > 1 || createdBookings[0]?.isMultiDay;
+          if (isMultiBooking) {
+              const firstBooking = createdBookings[0];
+              const roomNames = [...new Set(createdBookings.map(b => b.roomName))].join(', ');
+              const allDates = createdBookings.map(b => new Date(b.date));
+              const firstDate = new Date(Math.min.apply(null, allDates.map(d => d.getTime()))).toLocaleDateString('th-TH');
+              const lastDate = new Date(Math.max.apply(null, allDates.map(d => d.getTime()))).toLocaleDateString('th-TH');
+              const dateRange = firstDate === lastDate ? firstDate : `${firstDate} - ${lastDate}`;
+              
+              const notifyMessage = `🏢 แจ้งเตือนการจอง (กลุ่ม)\n\n👤 ผู้จอง: ${firstBooking.bookerName}\n🎯 เรื่อง: ${firstBooking.purpose}\n\n📌 ห้อง: ${roomNames}\n📅 วันที่: ${dateRange}\n⏰ เวลา: ${firstBooking.startTime} - ${firstBooking.endTime} น.\n\n🌐 ตรวจสอบ: ${APP_URL}`;
+              await sendLineNotification(notifyMessage);
+          } else if (createdBookings.length === 1) {
+              const booking = createdBookings[0];
+              const bookingDate = new Date(booking.date).toLocaleDateString('th-TH');
+              const notifyMessage = `🏢 แจ้งเตือนการจองใหม่\n\n👤 ผู้จอง: ${booking.bookerName}\n📞 เบอร์โทร: ${booking.phone || '-'}\n🎯 เรื่อง: ${booking.purpose}\n👥 จำนวน: ${booking.participants} คน\n\n📌 ห้อง: ${booking.roomName}\n📅 วันที่: ${bookingDate}\n⏰ เวลา: ${booking.startTime} - ${booking.endTime} น.\n\n🌐 ตรวจสอบ: ${APP_URL}`;
+              await sendLineNotification(notifyMessage);
+          }
+      } catch (e) {
+          console.error("Failed to send LINE notification:", e);
+      }
+      // --- End Notification ---
+
     } catch (error: any) {
       showToast(`บันทึกการจองไม่สำเร็จ: ${error.message}`, 'error');
     }

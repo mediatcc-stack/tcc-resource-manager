@@ -45,10 +45,10 @@ const getStatusInfo = (status: Booking['status'], isToday: boolean) => {
   }
 };
 
-const DetailItem: React.FC<{label: string, children: React.ReactNode}> = ({ label, children }) => (
-    <div>
-        <p className="font-bold text-gray-500 text-xs uppercase tracking-wider">{label}</p>
-        <div className="text-gray-800 break-words text-sm mt-1">{children}</div>
+const DetailItem: React.FC<{icon: string, children: React.ReactNode}> = ({ icon, children }) => (
+    <div className="flex items-start gap-3 text-sm">
+        <span className="text-lg text-gray-500 mt-0.5">{icon}</span>
+        <div className="text-gray-800 break-words">{children}</div>
     </div>
 );
 
@@ -142,22 +142,20 @@ const BookingCard: React.FC<{
           
           {isExpanded && (
             <div className="px-3 pb-3 animate-fade-in">
-              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-4">
-                  <DetailItem label="วัตถุประสงค์ / เรื่อง">{booking.purpose}</DetailItem>
-                  <DetailItem label="ผู้เข้าร่วม">{booking.participants} คน</DetailItem>
-                  <DetailItem label="รูปแบบ">
-                      {Array.isArray(booking.meetingType) ? booking.meetingType.join(', ') : booking.meetingType}
-                  </DetailItem>
-                  {booking.equipment && <DetailItem label="อุปกรณ์เพิ่มเติม">{booking.equipment}</DetailItem>}
+              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
+                  <DetailItem icon="🎯">{booking.purpose}</DetailItem>
+                  <DetailItem icon="👥">{booking.participants} คน</DetailItem>
+                  <DetailItem icon="💻">{Array.isArray(booking.meetingType) ? booking.meetingType.join(', ') : booking.meetingType}</DetailItem>
+                  {booking.equipment && <DetailItem icon="📦">{booking.equipment}</DetailItem>}
                   {booking.attachmentUrl && (
-                      <DetailItem label="ไฟล์แนบ">
+                      <DetailItem icon="📎">
                           <a href={booking.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline truncate">
                               คลิกเพื่อเปิดไฟล์
                           </a>
                       </DetailItem>
                   )}
                   {groupDetails && groupDetails.roomCount > 1 && (
-                      <DetailItem label="ห้องทั้งหมด">
+                      <DetailItem icon="🏢">
                           <ul className="list-disc pl-5">
                             {groupDetails.roomNames.map(name => <li key={name}>{name}</li>)}
                           </ul>

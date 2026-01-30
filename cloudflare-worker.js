@@ -222,7 +222,7 @@ export default {
         let reportMsg = `📊 สรุปการจองห้องประชุม (วันนี้)\n`;
         reportMsg += `---------------------\n`;
         todayBookings.forEach((b, index) => {
-            reportMsg += `📌 ${b.roomName} (${b.startTime}-${b.endTime})\n`;
+            reportMsg += `📅 ${b.roomName} (${b.startTime}-${b.endTime})\n`;
             reportMsg += `   - ${b.purpose} (โดย ${b.bookerName})\n\n`;
         });
         reportMsg += `🔗 ตรวจสอบเพิ่มเติมในระบบ`;
