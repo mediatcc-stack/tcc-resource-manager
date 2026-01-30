@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Booking, Room } from '../../types';
 import Button from '../shared/Button';
 import RoomAvailabilityTimeline from './RoomAvailabilityTimeline';
@@ -21,7 +22,7 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
         onBookNow(room, date);
     };
 
-    return (
+    const modalContent = (
         <div 
             className="fixed inset-0 w-screen h-screen bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 animate-fade-in"
             onClick={onClose}
@@ -82,6 +83,8 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
             </div>
         </div>
     );
+
+    return createPortal(modalContent, document.body);
 };
 
 export default BookingDetailsModal;
