@@ -249,126 +249,132 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
             </div>
           )}
           
-          <FormField label="เลือกห้องประชุม" icon="🏢" required>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-5 bg-blue-50/30 rounded-3xl border border-blue-100 max-h-60 overflow-y-auto">
-              {rooms.map(r => (
-                <div key={r.id} className={`flex items-center p-3 rounded-xl border-2 transition-all cursor-pointer ${selectedRoomIds.includes(r.id) ? 'bg-white border-blue-500 shadow-sm' : 'bg-transparent border-transparent hover:border-blue-200'}`}>
-                  <input 
-                    type="checkbox" 
-                    id={`room-${r.id}`} 
-                    value={r.id} 
-                    checked={selectedRoomIds.includes(r.id)} 
-                    onChange={handleMultiRoomChange} 
-                    disabled={r.status === 'closed' && !selectedRoomIds.includes(r.id)} 
-                    className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <label htmlFor={`room-${r.id}`} className="ml-3 text-sm font-bold text-gray-700 cursor-pointer">{r.name}</label>
-                </div>
-              ))}
-            </div>
-          </FormField>
-
-          <div className="flex items-center gap-4 p-5 bg-blue-50/50 rounded-2xl border border-blue-100">
-              <input type="checkbox" id="isMultiDay" checked={formData.isMultiDay} onChange={handleCheckboxChange} className="h-6 w-6 rounded border-gray-300 text-blue-600 focus:ring-blue-500"/>
-              <label htmlFor="isMultiDay" className="font-black text-blue-900 text-sm cursor-pointer">ต้องการจองต่อเนื่องหลายวัน</label>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-             <ThaiDatePicker 
-                label={formData.isMultiDay ? "วันที่เริ่ม" : "วันที่จัดงาน"} 
-                icon="📅" 
-                value={currentDate} 
-                onChange={setCurrentDate} 
-                required 
-             />
-             {formData.isMultiDay && (
-                <ThaiDatePicker 
-                  label="วันที่สิ้นสุด" 
-                  icon="📅" 
-                  value={formData.endDate} 
-                  onChange={(val) => { isDirty.current = true; setFormData(prev => ({...prev, endDate: val})); }} 
-                  required 
-                />
-             )}
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <FormField label="เริ่มเวลา" icon="⏰" required>
-              <select name="startTime" value={formData.startTime} onChange={handleInputChange} className={inputClasses} required>
-                  <option value="">-- เลือกเวลา --</option>
-                  {timeSlots.slice(0, -1).map(t => <option key={t} value={t}>{t} น.</option>)}
-              </select>
-            </FormField>
-            <FormField label="ถึงเวลา" icon="⏰" required>
-              <select name="endTime" value={formData.endTime} onChange={handleInputChange} className={inputClasses} required>
-                  <option value="">-- เลือกเวลา --</option>
-                  {timeSlots.map(t => <option key={t} value={t} disabled={timeToMinutes(t) <= timeToMinutes(formData.startTime)}>{t} น.</option>)}
-              </select>
-            </FormField>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <FormField label="หน่วยงาน / งาน" icon="🏢" required>
-              <input type="text" name="bookerName" value={formData.bookerName} onChange={handleInputChange} className={inputClasses} placeholder="ระบุหน่วยงาน..." required />
-            </FormField>
-            <FormField label="เบอร์โทรศัพท์" icon="📞">
-              <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className={inputClasses} placeholder="081XXXXXXX" />
-            </FormField>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <FormField label="จำนวนผู้เข้าร่วม" icon="👤" required>
-              <input type="number" name="participants" min="1" value={formData.participants} onChange={handleInputChange} className={inputClasses} required />
-            </FormField>
-            <FormField label="รูปแบบการประชุม" icon="💻" required>
-              <div className="flex flex-wrap gap-3">
-                {[
-                  { value: 'Onsite', label: 'ออนไซต์', color: 'border-emerald-200 text-emerald-700 bg-emerald-50' },
-                  { value: 'Online', label: 'ออนไลน์', color: 'border-blue-200 text-blue-700 bg-blue-50' },
-                ].map((type) => (
-                  <label 
-                    key={type.value} 
-                    className={`flex-1 flex items-center p-3.5 rounded-2xl border-2 transition-all cursor-pointer ${formData.meetingType.includes(type.value) ? `ring-2 ring-offset-2 ring-blue-500 shadow-md ${type.color}` : 'bg-white border-gray-100 hover:bg-gray-50'}`}
-                  >
+          <fieldset className="space-y-6 p-6 border-2 border-gray-100 rounded-3xl bg-gray-50/50">
+            <legend className="px-4 text-lg font-black text-[#0D448D] bg-gray-50 rounded-xl">1. ข้อมูลหลัก (วัน-เวลาและห้อง)</legend>
+            <FormField label="เลือกห้องประชุม" icon="🏢" required>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-5 bg-white rounded-3xl border border-blue-100 max-h-60 overflow-y-auto">
+                {rooms.map(r => (
+                  <div key={r.id} className={`flex items-center p-3 rounded-xl border-2 transition-all cursor-pointer ${selectedRoomIds.includes(r.id) ? 'bg-blue-50 border-blue-500 shadow-sm' : 'bg-transparent border-transparent hover:border-blue-200'}`}>
                     <input 
                       type="checkbox" 
-                      checked={formData.meetingType.includes(type.value)} 
-                      onChange={() => handleMeetingTypeToggle(type.value)} 
+                      id={`room-${r.id}`} 
+                      value={r.id} 
+                      checked={selectedRoomIds.includes(r.id)} 
+                      onChange={handleMultiRoomChange} 
+                      disabled={r.status === 'closed' && !selectedRoomIds.includes(r.id)} 
                       className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
-                    <span className="ml-3 text-sm font-black">{type.label}</span>
-                  </label>
+                    <label htmlFor={`room-${r.id}`} className="ml-3 text-sm font-bold text-gray-700 cursor-pointer">{r.name}</label>
+                  </div>
                 ))}
               </div>
-              <p className="mt-2 text-[10px] text-gray-400 font-bold">* สามารถเลือกได้ทั้งสองอย่างหากเป็นรูปแบบไฮบริด (ออนไซต์ และ ออนไลน์)</p>
             </FormField>
-          </div>
 
-          <FormField label="วัตถุประสงค์ / เรื่อง" icon="🎯" required>
-            <textarea name="purpose" value={formData.purpose} onChange={handleInputChange} rows={3} className={inputClasses} placeholder="ระบุวัตถุประสงค์..." required />
-          </FormField>
-
-          <FormField label="อุปกรณ์เพิ่มเติม" icon="📦">
-            <textarea name="equipment" value={formData.equipment} onChange={handleInputChange} rows={3} className={inputClasses} placeholder="ระบุอุปกรณ์ที่ต้องการ..." />
-          </FormField>
-
-          <FormField label="ลิงก์ไฟล์แนบ" icon="📎">
-            <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <span className="text-gray-400 text-sm font-bold">https://</span>
-                </div>
-                <input 
-                    type="url" 
-                    name="attachmentUrl" 
-                    value={formData.attachmentUrl} 
-                    onChange={handleInputChange} 
-                    className={`${inputClasses} pl-16 border-2 border-slate-100 bg-slate-50/30 focus:bg-white`}
-                    placeholder="docs.google.com/..."
-                />
+            <div className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-blue-100">
+                <input type="checkbox" id="isMultiDay" checked={formData.isMultiDay} onChange={handleCheckboxChange} className="h-6 w-6 rounded border-gray-300 text-blue-600 focus:ring-blue-500"/>
+                <label htmlFor="isMultiDay" className="font-black text-blue-900 text-sm cursor-pointer">ต้องการจองต่อเนื่องหลายวัน</label>
             </div>
-            <p className="mt-2 text-[10px] text-blue-500 font-bold">กรุณาแนบลิงก์ไฟล์โครงการ หรือเอกสารที่เกี่ยวข้องเพื่อให้เจ้าหน้าที่ตรวจสอบรายละเอียด</p>
-          </FormField>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <ThaiDatePicker 
+                  label={formData.isMultiDay ? "วันที่เริ่ม" : "วันที่จัดงาน"} 
+                  icon="📅" 
+                  value={currentDate} 
+                  onChange={setCurrentDate} 
+                  required 
+              />
+              {formData.isMultiDay && (
+                  <ThaiDatePicker 
+                    label="วันที่สิ้นสุด" 
+                    icon="📅" 
+                    value={formData.endDate} 
+                    onChange={(val) => { isDirty.current = true; setFormData(prev => ({...prev, endDate: val})); }} 
+                    required 
+                  />
+              )}
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <FormField label="เริ่มเวลา" icon="⏰" required>
+                <select name="startTime" value={formData.startTime} onChange={handleInputChange} className={inputClasses} required>
+                    <option value="">-- เลือกเวลา --</option>
+                    {timeSlots.slice(0, -1).map(t => <option key={t} value={t}>{t} น.</option>)}
+                </select>
+              </FormField>
+              <FormField label="ถึงเวลา" icon="⏰" required>
+                <select name="endTime" value={formData.endTime} onChange={handleInputChange} className={inputClasses} required>
+                    <option value="">-- เลือกเวลา --</option>
+                    {timeSlots.map(t => <option key={t} value={t} disabled={timeToMinutes(t) <= timeToMinutes(formData.startTime)}>{t} น.</option>)}
+                </select>
+              </FormField>
+            </div>
+          </fieldset>
           
+          <fieldset className="space-y-6 p-6 border-2 border-gray-100 rounded-3xl">
+            <legend className="px-4 text-lg font-black text-[#0D448D]">2. รายละเอียดการประชุม</legend>
+            <FormField label="วัตถุประสงค์ / เรื่อง" icon="🎯" required>
+              <textarea name="purpose" value={formData.purpose} onChange={handleInputChange} rows={3} className={inputClasses} placeholder="ระบุวัตถุประสงค์..." required />
+            </FormField>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <FormField label="จำนวนผู้เข้าร่วม" icon="👤" required>
+                <input type="number" name="participants" min="1" value={formData.participants} onChange={handleInputChange} className={inputClasses} required />
+              </FormField>
+              <FormField label="รูปแบบการประชุม" icon="💻" required>
+                <div className="flex flex-wrap gap-3">
+                  {[
+                    { value: 'Onsite', label: 'ออนไซต์', color: 'border-emerald-200 text-emerald-700 bg-emerald-50' },
+                    { value: 'Online', label: 'ออนไลน์', color: 'border-blue-200 text-blue-700 bg-blue-50' },
+                  ].map((type) => (
+                    <label 
+                      key={type.value} 
+                      className={`flex-1 flex items-center p-3.5 rounded-2xl border-2 transition-all cursor-pointer ${formData.meetingType.includes(type.value) ? `ring-2 ring-offset-2 ring-blue-500 shadow-md ${type.color}` : 'bg-white border-gray-100 hover:bg-gray-50'}`}
+                    >
+                      <input 
+                        type="checkbox" 
+                        checked={formData.meetingType.includes(type.value)} 
+                        onChange={() => handleMeetingTypeToggle(type.value)} 
+                        className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="ml-3 text-sm font-black">{type.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-2 text-[10px] text-gray-400 font-bold">* สามารถเลือกได้ทั้งสองอย่างหากเป็นรูปแบบไฮบริด</p>
+              </FormField>
+            </div>
+          </fieldset>
+          
+          <fieldset className="space-y-6 p-6 border-2 border-gray-100 rounded-3xl">
+            <legend className="px-4 text-lg font-black text-[#0D448D]">3. ข้อมูลผู้จองและไฟล์แนบ</legend>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <FormField label="หน่วยงาน / งาน" icon="🏢" required>
+                <input type="text" name="bookerName" value={formData.bookerName} onChange={handleInputChange} className={inputClasses} placeholder="ระบุหน่วยงาน..." required />
+              </FormField>
+              <FormField label="เบอร์โทรศัพท์" icon="📞">
+                <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className={inputClasses} placeholder="081XXXXXXX" />
+              </FormField>
+            </div>
+            <FormField label="อุปกรณ์เพิ่มเติม" icon="📦">
+              <textarea name="equipment" value={formData.equipment} onChange={handleInputChange} rows={3} className={inputClasses} placeholder="ระบุอุปกรณ์ที่ต้องการ..." />
+            </FormField>
+            <FormField label="ลิงก์ไฟล์แนบ" icon="📎">
+              <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                      <span className="text-gray-400 text-sm font-bold">https://</span>
+                  </div>
+                  <input 
+                      type="url" 
+                      name="attachmentUrl" 
+                      value={formData.attachmentUrl} 
+                      onChange={handleInputChange} 
+                      className={`${inputClasses} pl-16 border-2 border-slate-100 bg-slate-50/30 focus:bg-white`}
+                      placeholder="docs.google.com/..."
+                  />
+              </div>
+              <p className="mt-2 text-[10px] text-blue-500 font-bold">แนบลิงก์ไฟล์โครงการ หรือเอกสารที่เกี่ยวข้องเพื่อให้เจ้าหน้าที่ตรวจสอบ</p>
+            </FormField>
+          </fieldset>
+
           <div className="flex justify-end gap-4 pt-10 border-t border-gray-50">
             <Button type="button" variant="secondary" onClick={onCancel} disabled={loading}>ย้อนกลับ</Button>
             <Button type="submit" variant="primary" loading={loading} className="px-10">{isEditing ? 'บันทึกการแก้ไข' : 'ยืนยันการจอง'}</Button>

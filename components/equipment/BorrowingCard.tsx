@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+
+import React, { useState, useRef, useEffect } from 'react';
 import { BorrowingRequest, BorrowStatus } from '../../types';
 import Button from '../shared/Button';
 import { STAFF_PASSWORDS } from '../../constants';
@@ -14,163 +15,155 @@ interface BorrowingCardProps {
 
 const getStatusInfo = (status: BorrowStatus) => {
     switch (status) {
-        case BorrowStatus.Pending:
-            return { text: 'รออนุมัติ', icon: '⏳', color: 'yellow' };
-        case BorrowStatus.Borrowing:
-            return { text: 'อยู่ระหว่างการยืม', icon: '➡️', color: 'sky' };
-        case BorrowStatus.Returned:
-            return { text: 'คืนแล้ว', icon: '✅', color: 'green' };
-        case BorrowStatus.Overdue:
-            return { text: 'เกินกำหนด', icon: '⚠️', color: 'red' };
-        case BorrowStatus.Cancelled:
-            return { text: 'ยกเลิก', icon: '❌', color: 'gray' };
-        default:
-            return { text: status, icon: '❓', color: 'gray' };
+        case BorrowStatus.Pending: return { text: 'รออนุมัติ', icon: '⏳', color: 'yellow' };
+        case BorrowStatus.Borrowing: return { text: 'กำลังยืม', icon: '➡️', color: 'sky' };
+        case BorrowStatus.Returned: return { text: 'คืนแล้ว', icon: '✅', color: 'green' };
+        case BorrowStatus.Overdue: return { text: 'เกินกำหนด', icon: '⚠️', color: 'red' };
+        case BorrowStatus.Cancelled: return { text: 'ยกเลิก', icon: '❌', color: 'gray' };
+        default: return { text: status, icon: '❓', color: 'gray' };
     }
 };
 
 const colors = {
-    yellow: { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-400' },
-    sky: { bg: 'bg-sky-100', text: 'text-sky-800', border: 'border-sky-400' },
-    green: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-400' },
-    red: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-400' },
-    gray: { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-400' },
+    yellow: { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-400', ring: 'ring-yellow-300' },
+    sky: { bg: 'bg-sky-100', text: 'text-sky-800', border: 'border-sky-400', ring: 'ring-sky-300' },
+    green: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-400', ring: 'ring-green-300' },
+    red: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-400', ring: 'ring-red-300' },
+    gray: { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-400', ring: 'ring-gray-300' },
+};
+
+const ActionMenu: React.FC<{
+    req: BorrowingRequest;
+    isAdmin: boolean;
+    onChangeStatus: (newStatus: BorrowStatus) => void;
+    onDeleteRequest: () => void;
+    onNotifyOverdue?: () => void;
+    onClose: () => void;
+}> = ({ req, onChangeStatus, onDeleteRequest, onNotifyOverdue, onClose }) => {
+    
+    return (
+        <div className="absolute top-12 right-0 z-20 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 animate-fade-in">
+            <div className="p-2">
+                <p className="text-xs font-bold text-gray-400 px-2 pt-1 pb-2">เปลี่ยนสถานะเป็น</p>
+                <div className="grid grid-cols-2 gap-1">
+                    {Object.values(BorrowStatus).map(status => (
+                        <button key={status} onClick={() => onChangeStatus(status)} disabled={req.status === status}
+                            className={`px-2 py-1.5 text-xs font-semibold rounded-md flex items-center gap-1.5 ${req.status === status ? 'bg-blue-100 text-blue-800' : 'hover:bg-gray-100'}`}>
+                            {getStatusInfo(status).icon} {status}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <div className="border-t border-gray-100 p-2 space-y-1">
+                {req.status === BorrowStatus.Overdue && onNotifyOverdue && (
+                    <button onClick={onNotifyOverdue} className="w-full text-left text-xs font-semibold text-gray-700 hover:bg-gray-100 rounded-md p-2 flex items-center gap-2">🔔 แจ้งเตือน LINE</button>
+                )}
+                <button onClick={onDeleteRequest} className="w-full text-left text-xs font-semibold text-red-600 hover:bg-red-50 rounded-md p-2 flex items-center gap-2">🗑️ ลบรายการถาวร</button>
+            </div>
+        </div>
+    );
 };
 
 
 const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDeleteRequest, onNotifyOverdue, isAdmin }) => {
-    const [isChangingStatus, setIsChangingStatus] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+    const actionMenuRef = useRef<HTMLDivElement>(null);
     
     const statusInfo = getStatusInfo(req.status);
     const colorClasses = colors[statusInfo.color as keyof typeof colors];
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (actionMenuRef.current && !actionMenuRef.current.contains(event.target as Node)) {
+                setIsActionMenuOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     const handleActionWithAuth = (action: () => void) => {
         if (isAdmin) {
             action();
             return;
         }
-        const password = prompt('กรุณาใส่รหัสผ่านเจ้าหน้าที่เพื่อดำเนินการ:');
+        const password = prompt('กรุณาใส่รหัสผ่านเจ้าหน้าที่:');
         if (password && STAFF_PASSWORDS.includes(password)) {
             action();
         } else if (password !== null) {
-            alert('รหัสผ่านไม่ถูกต้อง ไม่สามารถดำเนินการได้');
+            alert('รหัสผ่านไม่ถูกต้อง');
         }
     };
 
     const handleStatusChangeAttempt = (newStatus: BorrowStatus) => {
-        setIsChangingStatus(false);
+        setIsActionMenuOpen(false);
         if (newStatus === req.status) return;
-
-        handleActionWithAuth(() => {
-            onChangeStatus(req.id, newStatus);
-        });
+        handleActionWithAuth(() => onChangeStatus(req.id, newStatus));
     };
     
     const handleDeleteClick = () => {
-        setIsChangingStatus(false);
-        if (confirm(`⚠️ ยืนยันการลบถาวร\n\nคำขอยืมของ "${req.borrowerName}" จะถูกลบออกจากระบบอย่างถาวรและไม่สามารถกู้คืนได้\n\nต้องการดำเนินการต่อหรือไม่?`)) {
-            handleActionWithAuth(() => {
-                onDeleteRequest(req.id);
-            });
+        setIsActionMenuOpen(false);
+        if (confirm(`⚠️ ยืนยันการลบถาวร\n\nคำขอยืมของ "${req.borrowerName}" จะถูกลบอย่างถาวร`)) {
+            handleActionWithAuth(() => onDeleteRequest(req.id));
         }
     };
 
     const handleNotifyClick = () => {
-        if (onNotifyOverdue) {
-            handleActionWithAuth(() => {
-                onNotifyOverdue(req);
-            });
-        }
+        setIsActionMenuOpen(false);
+        if (onNotifyOverdue) handleActionWithAuth(() => onNotifyOverdue(req));
     };
 
-    const InfoLine: React.FC<{icon: string, label: string, value: string | React.ReactNode}> = ({icon, label, value}) => (
-        <div className="flex items-start text-sm">
-            <span className="w-6 text-center">{icon}</span>
-            <span className="font-semibold text-gray-500 mr-2">{label}:</span>
-            <span className="text-gray-800 break-words">{value}</span>
-        </div>
-    );
-    
     return (
-    <>
-        <div className={`bg-white rounded-2xl shadow-sm border-l-8 p-5 ${colorClasses.border} transition hover:shadow-lg animate-fade-in`}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
-                
-                <div className="md:col-span-2 space-y-2">
-                    <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-black text-[#0D448D] uppercase tracking-tight">{req.borrowerName}</h3>
-                        {req.status === BorrowStatus.Overdue && (
-                             <button 
-                                onClick={handleNotifyClick}
-                                title="แจ้งเตือนคืนอุปกรณ์"
-                                className="bg-red-50 text-red-600 p-1.5 rounded-lg border border-red-200 hover:bg-red-100 transition-all flex items-center gap-1.5 text-xs font-black"
-                             >
-                                🔔 แจ้งเตือน LINE
-                             </button>
+        <div className={`bg-white rounded-2xl shadow-sm border ${isExpanded ? 'border-blue-400' : 'border-gray-200'} transition-all`}>
+            <div className="p-4">
+                <div className="flex justify-between items-start gap-4">
+                    <div className="flex-1 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
+                        <div className={`px-2.5 py-1 text-xs font-bold rounded-full inline-flex items-center gap-1.5 ${colorClasses.bg} ${colorClasses.text}`}>
+                            {statusInfo.icon} {statusInfo.text}
+                        </div>
+                        <h3 className="text-md font-bold text-gray-800 mt-2">{req.borrowerName}</h3>
+                        <p className="text-xs text-gray-500 font-medium">
+                            🗓️ {new Date(req.borrowDate).toLocaleDateString('th-TH')} - {new Date(req.returnDate).toLocaleDateString('th-TH')}
+                        </p>
+                    </div>
+                    <div className="flex flex-col items-end" ref={actionMenuRef}>
+                       <button onClick={() => setIsActionMenuOpen(prev => !prev)} className="p-2 rounded-full hover:bg-gray-100 text-gray-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                            </svg>
+                       </button>
+                        {isActionMenuOpen && (
+                            <ActionMenu 
+                                req={req}
+                                isAdmin={isAdmin}
+                                onChangeStatus={handleStatusChangeAttempt}
+                                onDeleteRequest={handleDeleteClick}
+                                onNotifyOverdue={handleNotifyClick}
+                                onClose={() => setIsActionMenuOpen(false)}
+                            />
                         )}
                     </div>
-                    <div className="space-y-1.5">
-                        <InfoLine icon="📞" label="โทรศัพท์" value={req.phone || <span className="text-gray-400 italic">ไม่ระบุ</span>} />
-                        <InfoLine icon="🎯" label="วัตถุประสงค์" value={req.purpose} />
-                        <InfoLine icon="📅" label="ระยะเวลา" value={`${new Date(req.borrowDate).toLocaleDateString('th-TH')} - ${new Date(req.returnDate).toLocaleDateString('th-TH')}`} />
+                </div>
+
+                {isExpanded && (
+                     <div className="mt-4 pt-4 border-t border-gray-100 animate-fade-in space-y-3 text-sm">
+                        <p><strong className="font-semibold text-gray-500">วัตถุประสงค์:</strong> {req.purpose}</p>
+                        <p><strong className="font-semibold text-gray-500">เบอร์โทร:</strong> {req.phone || 'ไม่ได้ระบุ'}</p>
+                        <div>
+                           <p className="font-semibold text-gray-500 mb-1">รายการอุปกรณ์:</p>
+                           <pre className="text-sm bg-gray-50 p-3 rounded-lg whitespace-pre-wrap font-sans text-gray-800 border border-gray-200">{req.equipmentList}</pre>
+                        </div>
+                         {req.notes && (
+                            <div>
+                               <p className="font-semibold text-gray-500 mb-1">หมายเหตุ:</p>
+                               <p className="text-sm bg-yellow-50 p-3 rounded-lg border border-yellow-200 text-yellow-800">{req.notes}</p>
+                            </div>
+                        )}
                     </div>
-                </div>
-
-                <div className="flex flex-col items-start md:items-end justify-between gap-3">
-                    <button 
-                        onClick={() => setIsChangingStatus(true)}
-                        className={`w-full text-sm font-bold p-2.5 rounded-lg border-2 flex items-center justify-center gap-2 transition-transform active:scale-95 ${colorClasses.border} ${colorClasses.bg} ${colorClasses.text} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
-                    >
-                        {statusInfo.icon} {statusInfo.text}
-                    </button>
-                </div>
-
-                <div className="md:col-span-3 border-t border-gray-100 pt-3 mt-2">
-                    <p className="font-semibold text-gray-600 mb-2 text-xs uppercase tracking-wider">📦 อุปกรณ์ที่ยืม:</p>
-                    <pre className="text-sm bg-gray-50 p-3 rounded-lg whitespace-pre-wrap font-sans text-gray-800 border border-gray-200">{req.equipmentList}</pre>
-                </div>
+                )}
             </div>
         </div>
-
-        {isChangingStatus && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4 animate-fade-in" onClick={() => setIsChangingStatus(false)}>
-                <div className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-md animate-zoom-in" onClick={e => e.stopPropagation()}>
-                    <h4 className="font-bold text-xl mb-2 text-center text-[#0D448D]">เปลี่ยนสถานะ</h4>
-                    <p className="text-center text-sm text-gray-500 mb-6">ผู้ยืม: <span className="font-semibold text-gray-800">{req.borrowerName}</span></p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {Object.values(BorrowStatus).map(status => {
-                            const currentStatusInfo = getStatusInfo(status);
-                            const isCurrent = req.status === status;
-                            const color = colors[currentStatusInfo.color as keyof typeof colors];
-                            return (
-                                <button
-                                    key={status}
-                                    onClick={() => handleStatusChangeAttempt(status)}
-                                    disabled={isCurrent}
-                                    className={`p-4 rounded-lg text-sm font-semibold transition-all border-2 flex flex-col items-center justify-center gap-2 active:scale-95
-                                        ${isCurrent 
-                                        ? `${color.bg} ${color.text} ${color.border} cursor-not-allowed opacity-100` 
-                                        : `bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 hover:border-gray-400`}
-                                    `}
-                                >
-                                    <span className="text-2xl">{currentStatusInfo.icon}</span>
-                                    <span>{status}</span>
-                                </button>
-                            )
-                        })}
-                    </div>
-                    <div className="mt-6 space-y-3 pt-4 border-t border-gray-200">
-                        <Button variant="danger" onClick={handleDeleteClick} className="w-full">
-                            ลบรายการถาวร
-                        </Button>
-                        <Button variant="secondary" onClick={() => setIsChangingStatus(false)} className="w-full">
-                            ปิด
-                        </Button>
-                    </div>
-                </div>
-            </div>
-        )}
-    </>
     );
 };
 

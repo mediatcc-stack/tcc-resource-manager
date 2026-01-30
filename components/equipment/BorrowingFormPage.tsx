@@ -97,50 +97,56 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-8">
                     {error && <p className="text-red-600 bg-red-50 p-4 rounded-lg font-semibold border border-red-200">⚠️ {error}</p>}
                     
-                    <FormField icon="🏢" label="หน่วยงาน / งาน" required>
-                        <input type="text" name="borrowerName" placeholder="ระบุหน่วยงาน..." value={formData.borrowerName} onChange={handleInputChange} className={inputClasses} required />
-                    </FormField>
-                    <FormField icon="📞" label="เบอร์โทรศัพท์">
-                        <input type="tel" name="phone" placeholder="081XXXXXXX" value={formData.phone} onChange={handleInputChange} className={inputClasses} />
-                    </FormField>
-                    <FormField icon="🎯" label="วัตถุประสงค์ / เรื่อง" required>
-                        <textarea name="purpose" value={formData.purpose} placeholder="ระบุวัตถุประสงค์..." onChange={handleInputChange} rows={3} className={inputClasses} required />
-                    </FormField>
+                    <fieldset className="space-y-6 p-6 border-2 border-gray-100 rounded-3xl bg-gray-50/50">
+                        <legend className="px-4 text-lg font-black text-[#0D448D]">1. ข้อมูลผู้ยืมและวัตถุประสงค์</legend>
+                        <FormField icon="🏢" label="หน่วยงาน / งาน" required>
+                            <input type="text" name="borrowerName" placeholder="ระบุหน่วยงาน..." value={formData.borrowerName} onChange={handleInputChange} className={inputClasses} required />
+                        </FormField>
+                        <FormField icon="📞" label="เบอร์โทรศัพท์">
+                            <input type="tel" name="phone" placeholder="081XXXXXXX" value={formData.phone} onChange={handleInputChange} className={inputClasses} />
+                        </FormField>
+                        <FormField icon="🎯" label="วัตถุประสงค์ / เรื่อง" required>
+                            <textarea name="purpose" value={formData.purpose} placeholder="ระบุวัตถุประสงค์..." onChange={handleInputChange} rows={3} className={inputClasses} required />
+                        </FormField>
+                    </fieldset>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <ThaiDatePicker 
-                            label="วันที่เริ่มยืม" 
-                            icon="📅" 
-                            value={formData.borrowDate} 
-                            onChange={(val) => handleDateChange('borrowDate', val)} 
-                            required 
-                        />
-                        <ThaiDatePicker 
-                            label="วันที่คืน" 
-                            icon="📅" 
-                            value={formData.returnDate} 
-                            onChange={(val) => handleDateChange('returnDate', val)} 
-                            required 
-                        />
-                    </div>
-
-                    <FormField icon="📦" label="รายการอุปกรณ์ที่ต้องการ" required>
-                        <textarea 
-                            name="equipmentList" 
-                            value={formData.equipmentList} 
-                            onChange={handleInputChange} 
-                            rows={4} 
-                            className={inputClasses} 
-                            placeholder="ระบุรายการอุปกรณ์และจำนวน..." 
-                            required 
-                        />
-                    </FormField>
-                     <FormField icon="📝" label="หมายเหตุเพิ่มเติม">
-                        <textarea name="notes" placeholder="ระบุหมายเหตุ (ถ้ามี)" value={formData.notes} onChange={handleInputChange} rows={2} className={inputClasses} />
-                    </FormField>
+                    <fieldset className="space-y-6 p-6 border-2 border-gray-100 rounded-3xl">
+                        <legend className="px-4 text-lg font-black text-[#0D448D]">2. ระยะเวลาและอุปกรณ์</legend>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <ThaiDatePicker 
+                                label="วันที่เริ่มยืม" 
+                                icon="📅" 
+                                value={formData.borrowDate} 
+                                onChange={(val) => handleDateChange('borrowDate', val)} 
+                                required 
+                            />
+                            <ThaiDatePicker 
+                                label="วันที่คืน" 
+                                icon="📅" 
+                                value={formData.returnDate} 
+                                onChange={(val) => handleDateChange('returnDate', val)} 
+                                required 
+                            />
+                        </div>
+                        <FormField icon="📦" label="รายการอุปกรณ์ที่ต้องการ" required>
+                            <textarea 
+                                name="equipmentList" 
+                                value={formData.equipmentList} 
+                                onChange={handleInputChange} 
+                                rows={4} 
+                                className={inputClasses} 
+                                placeholder="ระบุรายการอุปกรณ์และจำนวน..." 
+                                required 
+                            />
+                        </FormField>
+                        <FormField icon="📝" label="หมายเหตุเพิ่มเติม">
+                            <textarea name="notes" placeholder="ระบุหมายเหตุ (ถ้ามี)" value={formData.notes} onChange={handleInputChange} rows={2} className={inputClasses} />
+                        </FormField>
+                    </fieldset>
+                    
                     <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
                         <Button type="button" variant="secondary" onClick={onCancel} disabled={loading}>ยกเลิก</Button>
                         <Button type="submit" variant="primary" loading={loading}>ยืนยันการขอยืม</Button>

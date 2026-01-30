@@ -22,7 +22,7 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
     const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
     const [nameFilter, setNameFilter] = useState('');
     const [monthFilter, setMonthFilter] = useState<string>('all');
-    const [yearFilter, setYearFilter] = useState<string>('all');
+    const [yearFilter, setYearFilter] = useState<string>(new Date().getFullYear().toString());
     const [statusFilter, setStatusFilter] = useState('ทั้งหมด');
 
     const years = useMemo(() => {
@@ -38,7 +38,7 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
     const clearFilters = () => {
         setNameFilter('');
         setMonthFilter('all');
-        setYearFilter('all');
+        setYearFilter(new Date().getFullYear().toString());
         setStatusFilter('ทั้งหมด');
     };
 
@@ -84,7 +84,7 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
         });
     }, [borrowings, activeTab, nameFilter, monthFilter, yearFilter, statusFilter]);
     
-    const inputClasses = "block w-full rounded-lg border border-gray-300 bg-white p-2.5 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm";
+    const inputClasses = "w-full rounded-lg border border-gray-200 bg-white p-2.5 text-gray-800 transition-all placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm";
 
     return (
         <div className="space-y-6">
@@ -106,57 +106,18 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
                 {isAdmin && <span className="px-3 py-1 text-xs font-bold text-white bg-green-600 rounded-full shadow-sm animate-fade-in">✅ โหมดผู้ดูแลระบบ</span>}
             </div>
 
-            {activeTab === 'current' && (
-                <div className="bg-green-50 border border-green-200 rounded-2xl p-6 animate-fade-in">
-                    <h3 className="text-lg font-semibold text-green-800 mb-4 flex items-center gap-2">
-                        <span className="text-xl">📞</span>
-                        สามารถติดต่อสอบถามอุปกรณ์เพิ่มเติมได้ที่
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        {CONTACTS.map((contact, index) => (
-                            <div key={index} className="bg-white p-3 rounded-lg border border-green-100 shadow-sm">
-                                <p className="font-semibold text-gray-700 text-sm">{contact.name}</p>
-                                <p className="text-xs text-gray-500">{contact.position}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-                    <div className="lg:col-span-1">
-                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider">🔍 ค้นหาชื่อผู้ยืม</label>
-                        <input type="text" placeholder="พิมพ์ชื่อผู้ยืม..." value={nameFilter} onChange={e => setNameFilter(e.target.value)} className={inputClasses}/>
-                    </div>
-                    <div>
-                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider">🗓️ เดือนที่ยืม</label>
-                        <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className={inputClasses}>
-                            <option value="all">ทุกเดือน</option>
-                            {thaiMonths.map((m, i) => <option key={i} value={(i+1).toString()}>{m}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider">📅 ปี พ.ศ.</label>
-                        <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className={inputClasses}>
-                            <option value="all">ทุกปี</option>
-                            {years.map(y => <option key={y} value={y}>{parseInt(y) + 543}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="flex items-center gap-2 text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider">📊 สถานะ</label>
-                        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={inputClasses} >
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex flex-wrap items-end gap-3">
+                    <div className="flex-grow min-w-[150px]"><label className="text-[10px] font-bold text-gray-400 px-1">ค้นหาชื่อ</label><input type="text" placeholder="ชื่อผู้ยืม..." value={nameFilter} onChange={e => setNameFilter(e.target.value)} className={inputClasses}/></div>
+                    <div className="flex-grow"><label className="text-[10px] font-bold text-gray-400 px-1">เดือน</label><select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className={inputClasses}><option value="all">ทุกเดือน</option>{thaiMonths.map((m, i) => <option key={i} value={(i+1).toString()}>{m}</option>)}</select></div>
+                    <div className="flex-grow"><label className="text-[10px] font-bold text-gray-400 px-1">ปี</label><select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className={inputClasses}><option value="all">ทุกปี</option>{years.map(y => <option key={y} value={y}>{parseInt(y) + 543}</option>)}</select></div>
+                    <div className="flex-grow"><label className="text-[10px] font-bold text-gray-400 px-1">สถานะ</label>
+                        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={inputClasses}>
                             <option value="ทั้งหมด">ทั้งหมด</option>
-                            {Object.values(BorrowStatus)
-                                .filter(s => {
-                                    if (activeTab === 'current') return s !== BorrowStatus.Returned && s !== BorrowStatus.Cancelled;
-                                    return s === BorrowStatus.Returned || s === BorrowStatus.Cancelled;
-                                })
-                                .map(s => <option key={s} value={s}>{s}</option>)
-                            }
+                            {Object.values(BorrowStatus).filter(s => (activeTab === 'current' ? (s !== BorrowStatus.Returned && s !== BorrowStatus.Cancelled) : (s === BorrowStatus.Returned || s === BorrowStatus.Cancelled))).map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                     </div>
-                    <Button onClick={clearFilters} variant="secondary" className="w-full">🔄 ล้างตัวกรอง</Button>
+                    <Button onClick={clearFilters} variant="secondary" size="sm" className="h-[42px] px-4">ล้าง</Button>
                 </div>
             </div>
 

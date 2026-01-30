@@ -219,10 +219,11 @@ export default {
         .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
     if (todayBookings.length > 0) {
-        let reportMsg = `📊 รายงานการใช้ห้อง (วันนี้)\n`;
+        let reportMsg = `📊 สรุปการจองห้องประชุม (วันนี้)\n`;
         reportMsg += `---------------------\n`;
         todayBookings.forEach((b, index) => {
-            reportMsg += `${index + 1}. 🕓 ${b.startTime}-${b.endTime}\n📍 ${b.roomName}\n📝 ${b.purpose}\n👤 ${b.bookerName}\n\n`;
+            reportMsg += `📌 ${b.roomName} (${b.startTime}-${b.endTime})\n`;
+            reportMsg += `   - ${b.purpose} (โดย ${b.bookerName})\n\n`;
         });
         reportMsg += `🔗 ตรวจสอบเพิ่มเติมในระบบ`;
         
