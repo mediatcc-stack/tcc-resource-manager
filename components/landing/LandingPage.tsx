@@ -15,7 +15,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectSystem, onAdminLogin,
       <h1 className="text-4xl md:text-6xl font-black mb-4 text-[#0D448D] tracking-tight text-shadow-md">
         ระบบจองห้องและยืมอุปกรณ์
       </h1>
-      <p className="text-xl md:text-2xl text-slate-600 font-medium mb-12">
+      <p className="text-xl md:text-2xl text-slate-600 font-medium mb-10">
         {APP_CONFIG.collegeName}
       </p>
       <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8">

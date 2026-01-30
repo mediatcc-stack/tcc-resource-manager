@@ -116,7 +116,7 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
 
     return (
         <div className={`bg-white rounded-2xl shadow-sm border ${isExpanded ? 'border-blue-400' : 'border-gray-200'} transition-all`}>
-            <div className="p-4">
+            <div className="p-3">
                 <div className="flex justify-between items-start gap-4">
                     <div className="flex-1 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
                         <div className={`px-2.5 py-1 text-xs font-bold rounded-full inline-flex items-center gap-1.5 ${colorClasses.bg} ${colorClasses.text}`}>
@@ -147,7 +147,7 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
                 </div>
 
                 {isExpanded && (
-                     <div className="mt-4 pt-4 border-t border-gray-100 animate-fade-in space-y-3 text-sm">
+                     <div className="mt-3 pt-3 border-t border-gray-100 animate-fade-in space-y-2 text-sm">
                         <p><strong className="font-semibold text-gray-500">วัตถุประสงค์:</strong> {req.purpose}</p>
                         <p><strong className="font-semibold text-gray-500">เบอร์โทร:</strong> {req.phone || 'ไม่ได้ระบุ'}</p>
                         <div>

@@ -106,7 +106,7 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
                 {isAdmin && <span className="px-3 py-1 text-xs font-bold text-white bg-green-600 rounded-full shadow-sm animate-fade-in">✅ โหมดผู้ดูแลระบบ</span>}
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+            <div className="pb-4 mb-4 border-b border-gray-200">
                 <div className="flex flex-wrap items-end gap-3">
                     <div className="flex-grow min-w-[150px]"><label className="text-[10px] font-bold text-gray-400 px-1">ค้นหาชื่อ</label><input type="text" placeholder="ชื่อผู้ยืม..." value={nameFilter} onChange={e => setNameFilter(e.target.value)} className={inputClasses}/></div>
                     <div className="flex-grow"><label className="text-[10px] font-bold text-gray-400 px-1">เดือน</label><select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className={inputClasses}><option value="all">ทุกเดือน</option>{thaiMonths.map((m, i) => <option key={i} value={(i+1).toString()}>{m}</option>)}</select></div>
