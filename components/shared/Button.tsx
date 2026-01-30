@@ -8,7 +8,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const Button: React.FC<ButtonProps> = ({ children, variant = 'primary', size = 'md', loading = false, className = '', ...props }) => {
-  const baseClasses = 'font-semibold rounded-xl shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:transform-none';
+  const baseClasses = 'font-semibold rounded-xl shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:transform-none';
 
   const sizeClasses = {
     md: 'px-6 py-3 text-sm',
@@ -16,11 +16,11 @@ const Button: React.FC<ButtonProps> = ({ children, variant = 'primary', size = '
   };
 
   const variantClasses = {
-    primary: 'bg-[#0D448D] text-white hover:bg-blue-900 focus:ring-blue-500 hover:-translate-y-0.5 shadow-lg',
-    secondary: 'bg-gray-500 text-white hover:bg-gray-600 focus:ring-gray-500 hover:-translate-y-0.5',
-    danger: 'bg-rose-500 text-white hover:bg-rose-600 focus:ring-rose-500 hover:-translate-y-0.5',
-    nav: 'px-3 py-2 text-sm bg-blue-50 text-[#0D448D] hover:bg-blue-100 rounded-lg',
-    stats: 'px-4 py-2 text-sm border-2 border-[#0D448D] bg-white text-[#0D448D] hover:bg-blue-50 font-bold rounded-xl',
+    primary: 'bg-blue-800 text-white hover:bg-blue-700 focus:ring-blue-500 hover:-translate-y-0.5 shadow-lg disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none',
+    secondary: 'bg-white text-blue-800 border border-slate-300 hover:bg-slate-50 focus:ring-slate-400 focus:ring-offset-1 disabled:bg-gray-200 disabled:text-gray-400 disabled:border-gray-200',
+    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 hover:-translate-y-0.5 disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none',
+    nav: 'px-3 py-2 text-sm bg-blue-50 text-blue-800 hover:bg-blue-100 rounded-lg',
+    stats: 'px-4 py-2 text-sm border-2 border-blue-800 bg-white text-blue-800 hover:bg-blue-50 font-bold rounded-xl',
   };
 
   const disabled = props.disabled || loading;

@@ -14,6 +14,12 @@ import NavButton from './NavButton';
 import LoadingSpinner from '../shared/LoadingSpinner';
 import Button from '../shared/Button';
 
+const timeToMinutes = (timeStr: string): number => {
+    if (!timeStr || !timeStr.includes(':')) return 0;
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return (hours * 60) + (minutes || 0);
+};
+
 interface RoomBookingSystemProps {
   onBackToLanding: () => void;
   showToast: (message: string, type: 'success' | 'error') => void;
@@ -45,7 +51,39 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
     
     try {
       const data = await fetchData('rooms') as Booking[];
-      setBookings(data);
+      
+      const now = new Date();
+      // Use local date parts to construct YYYY-MM-DD to avoid timezone issues with toISOString()
+      const todayStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+      const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
+      let hasChanges = false;
+
+      const processedData = data.map(b => {
+        if (b.status === 'จองแล้ว') {
+            const isPastDate = b.date < todayStr;
+            const isTodayAndPastTime = b.date === todayStr && currentTimeInMinutes > timeToMinutes(b.endTime);
+
+            if (isPastDate || isTodayAndPastTime) {
+                hasChanges = true;
+                return { ...b, status: 'หมดเวลา' as const };
+            }
+        }
+        return b;
+      });
+      
+      setBookings(processedData);
+
+      // Persist status changes to ensure consistency across all users.
+      if (hasChanges && !isBackground) { // Only save on foreground fetches to prevent loops/spam
+        saveData('rooms', processedData)
+            .then(() => {
+                console.log("System: Automatically updated status for expired bookings.");
+            })
+            .catch(err => {
+                console.error("System: Failed to save updated statuses for expired bookings:", err);
+            });
+      }
+
       setLastUpdated(new Date());
       setError(null);
       setConnectionStatus('connected');

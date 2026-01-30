@@ -48,8 +48,10 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => 
   }, [bookings, selectedYear, selectedMonth]);
 
   const stats = useMemo(() => {
+    const total = filteredBookings.length;
     const completed = filteredBookings.filter(b => b.status === 'หมดเวลา' || b.status === 'จองแล้ว').length;
     const cancelled = filteredBookings.filter(b => b.status === 'ยกเลิก').length;
+    const usageRate = total > 0 ? ((completed / total) * 100).toFixed(0) : 0;
     
     const bookingsByRoom = ROOMS.map(room => ({
       name: room.name,
@@ -68,9 +70,10 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => 
     const maxRoomCount = Math.max(...bookingsByRoom.map(r => r.count), 1);
     
     return {
-      total: filteredBookings.length,
+      total,
       completed,
       cancelled,
+      usageRate,
       bookingsByRoom,
       monthlyData,
       maxMonthlyCount,
@@ -146,7 +149,7 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => 
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
             <StatCard 
                 icon="📊"
                 title="รายการจองรวม"
@@ -167,6 +170,13 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => 
                 value={stats.cancelled}
                 description="รายการที่ไม่เกิดขึ้นจริง"
                 color="text-red-600"
+            />
+            <StatCard 
+                icon="📈"
+                title="อัตราการใช้งาน"
+                value={`${stats.usageRate}%`}
+                description="สัดส่วนการจองที่ใช้งานจริง"
+                color="text-purple-600"
             />
         </div>
 

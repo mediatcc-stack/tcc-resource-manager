@@ -50,6 +50,7 @@ const BorrowingStatisticsPage: React.FC<BorrowingStatisticsPageProps> = ({ borro
         const total = filteredBorrowings.length;
         const returned = filteredBorrowings.filter(b => b.status === BorrowStatus.Returned).length;
         const borrowing = filteredBorrowings.filter(b => b.status === BorrowStatus.Borrowing || b.status === BorrowStatus.Overdue).length;
+        const cancelled = filteredBorrowings.filter(b => b.status === BorrowStatus.Cancelled).length;
 
         const deptCounts: Record<string, number> = {};
         filteredBorrowings.forEach(b => {
@@ -76,7 +77,7 @@ const BorrowingStatisticsPage: React.FC<BorrowingStatisticsPageProps> = ({ borro
         const maxMonthly = Math.max(...monthlyData.map(d => d.count), 1);
         const maxDept = Math.max(...topDepartments.map(d => d.count), 1);
 
-        return { total, returned, borrowing, topDepartments, topBorrowers, monthlyData, maxMonthly, maxDept };
+        return { total, returned, borrowing, cancelled, topDepartments, topBorrowers, monthlyData, maxMonthly, maxDept };
     }, [filteredBorrowings]);
 
     const handleExportExcel = () => {
@@ -142,10 +143,11 @@ const BorrowingStatisticsPage: React.FC<BorrowingStatisticsPageProps> = ({ borro
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                     <StatCard icon="📥" title="รายการยืมทั้งหมด" value={stats.total} description="จำนวนใบคำขอในช่วงเวลา" color="text-indigo-600" />
                     <StatCard icon="📦" title="กำลังยืม / เกินกำหนด" value={stats.borrowing} description="อุปกรณ์ที่ยังไม่ถูกส่งคืน" color="text-orange-600" />
                     <StatCard icon="✅" title="คืนสำเร็จ" value={stats.returned} description="ทำรายการเรียบร้อยแล้ว" color="text-emerald-600" />
+                    <StatCard icon="❌" title="ยกเลิก" value={stats.cancelled} description="คำขอที่ถูกยกเลิก" color="text-red-600" />
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">

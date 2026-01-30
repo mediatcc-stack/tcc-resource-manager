@@ -23,7 +23,7 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
 
     return (
         <div 
-            className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 animate-fade-in"
+            className="fixed inset-0 w-screen h-screen bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 animate-fade-in"
             onClick={onClose}
         >
             <div 
