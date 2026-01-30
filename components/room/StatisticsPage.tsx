@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Booking } from '../../types';
 import { ROOMS } from '../../constants';
 import Button from '../shared/Button';
-import * as XLSX from 'https://esm.sh/xlsx';
+import * as XLSX from 'xlsx';
 
 interface StatisticsPageProps {
   bookings: Booking[];

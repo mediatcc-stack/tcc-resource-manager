@@ -1,4 +1,3 @@
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
@@ -6,25 +5,7 @@ const corsHeaders = {
 };
 
 // --- LINE Messaging API Functions ---
-async function replyToLine(replyToken, message, env) {
-  try {
-    const response = await fetch('https://api.line.me/v2/bot/message/reply', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
-      },
-      body: JSON.stringify({ replyToken, messages: [{ type: 'text', text: message }] }),
-    });
-    if (!response.ok) {
-        const errorBody = await response.text();
-        console.error(`[LINE Reply Error] Status: ${response.status}, Body: ${errorBody}`);
-    }
-  } catch (error) {
-    console.error(`[LINE Reply Fetch Error] Failed to send reply: ${error.message}`);
-  }
-}
-
+// This function sends a push notification to the configured RECIPIENT_ID.
 async function sendNotification(message, env) {
   const recipientId = env.RECIPIENT_ID;
 
@@ -71,6 +52,7 @@ export default {
     const path = url.pathname;
 
     try {
+      // Endpoint for the frontend to check worker configuration status
       if (path === '/status') {
         const status = {
           lineApiToken: !!env.CHANNEL_ACCESS_TOKEN,
@@ -81,6 +63,7 @@ export default {
         return new Response(JSON.stringify(status), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
       }
 
+      // Endpoint for fetching/saving data from/to KV storage
       if (path === '/data') {
         const type = url.searchParams.get('type');
         const KV_NAME = type === 'rooms' ? 'ROOM_BOOKINGS_KV' : 'EQUIPMENT_BORROWINGS_KV';
@@ -97,25 +80,14 @@ export default {
         }
       }
 
+      // Endpoint for the frontend to trigger a LINE notification
       if (path === '/notify' && request.method === 'POST') {
         const { message } = await request.json();
         await sendNotification(message, env);
         return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
       }
       
-      if (path === '/webhook' && request.method === 'POST') {
-        const body = await request.json();
-        for (const event of body.events) {
-          if (event.type === 'message' && event.message.type === 'text' && event.message.text.trim().toLowerCase() === '/getid') {
-            const id = event.source.groupId || event.source.userId;
-            const idType = event.source.groupId ? 'Group ID' : 'User ID';
-            if (id) {
-              await replyToLine(event.replyToken, `✅ ${idType} ของแชทนี้คือ:\n\n${id}`, env);
-            }
-          }
-        }
-        return new Response('OK');
-      }
+      // The /webhook endpoint for replying to user messages has been intentionally removed.
 
       return new Response(JSON.stringify({ error: `Route not found` }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
@@ -125,6 +97,7 @@ export default {
     }
   },
 
+  // Scheduled task to send a daily summary of bookings
   async scheduled(event, env, ctx) {
     const today = new Date().toISOString().split('T')[0];
     const bookings = await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json') || [];

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { BorrowingRequest, BorrowStatus } from '../../types';
 import Button from '../shared/Button';
-import * as XLSX from 'https://esm.sh/xlsx';
+import * as XLSX from 'xlsx';
 
 interface BorrowingStatisticsPageProps {
     borrowings: BorrowingRequest[];
