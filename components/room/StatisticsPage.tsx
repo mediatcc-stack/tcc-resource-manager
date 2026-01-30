@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { Booking } from '../../types';
 import { ROOMS } from '../../constants';
@@ -89,7 +88,8 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => 
         'ผู้จอง': b.bookerName,
         'เบอร์โทรศัพท์': b.phone,
         'จำนวนผู้เข้าร่วม': b.participants,
-        'รูปแบบ': b.meetingType === 'Hybrid' ? 'ไฮบริด' : b.meetingType === 'Online' ? 'ออนไลน์' : 'ออนไซต์',
+        // FIX: The meetingType property is an array of strings. Updated logic to check array contents instead of comparing to a string.
+        'รูปแบบ': b.meetingType.includes('Onsite') && b.meetingType.includes('Online') ? 'ไฮบริด' : b.meetingType.includes('Online') ? 'ออนไลน์' : 'ออนไซต์',
         'สถานะ': b.status,
         'อุปกรณ์เพิ่มเติม': b.equipment || '-'
     }));
