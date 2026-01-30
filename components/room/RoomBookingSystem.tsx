@@ -250,16 +250,28 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
               const firstBooking = createdBookings[0];
               const roomNames = [...new Set(createdBookings.map(b => b.roomName))].join(', ');
               const allDates = createdBookings.map(b => new Date(b.date));
-              const firstDate = new Date(Math.min.apply(null, allDates.map(d => d.getTime()))).toLocaleDateString('th-TH');
-              const lastDate = new Date(Math.max.apply(null, allDates.map(d => d.getTime()))).toLocaleDateString('th-TH');
-              const dateRange = firstDate === lastDate ? firstDate : `${firstDate} - ${lastDate}`;
+              const firstDate = new Date(Math.min.apply(null, allDates.map(d => d.getTime())));
+              const lastDate = new Date(Math.max.apply(null, allDates.map(d => d.getTime())));
               
-              const notifyMessage = `🏢 แจ้งเตือนการจอง (กลุ่ม)\n\n👤 ผู้จอง: ${firstBooking.bookerName}\n🎯 เรื่อง: ${firstBooking.purpose}\n\n📌 ห้อง: ${roomNames}\n📅 วันที่: ${dateRange}\n⏰ เวลา: ${firstBooking.startTime} - ${firstBooking.endTime} น.\n\n🌐 ตรวจสอบ: ${APP_URL}`;
+              const formatDate = (d: Date, withYear = false) => d.toLocaleDateString('th-TH', { 
+                  day: 'numeric', 
+                  month: 'short', 
+                  year: withYear ? 'numeric' : undefined 
+              });
+
+              let dateRange;
+              if (firstDate.getTime() === lastDate.getTime()) {
+                  dateRange = formatDate(firstDate, true);
+              } else {
+                  dateRange = `${formatDate(firstDate)} - ${formatDate(lastDate, true)}`;
+              }
+
+              const notifyMessage = `จองหลายรายการ: ${roomNames}\n🕒 ${dateRange} | ${firstBooking.startTime} - ${firstBooking.endTime} น.\n- ${firstBooking.purpose}\n\n👤 ผู้จอง: ${firstBooking.bookerName}`;
               await sendLineNotification(notifyMessage);
           } else if (createdBookings.length === 1) {
               const booking = createdBookings[0];
-              const bookingDate = new Date(booking.date).toLocaleDateString('th-TH');
-              const notifyMessage = `🏢 แจ้งเตือนการจองใหม่\n\n👤 ผู้จอง: ${booking.bookerName}\n📞 เบอร์โทร: ${booking.phone || '-'}\n🎯 เรื่อง: ${booking.purpose}\n👥 จำนวน: ${booking.participants} คน\n\n📌 ห้อง: ${booking.roomName}\n📅 วันที่: ${bookingDate}\n⏰ เวลา: ${booking.startTime} - ${booking.endTime} น.\n\n🌐 ตรวจสอบ: ${APP_URL}`;
+              const bookingDate = new Date(booking.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+              const notifyMessage = `${booking.roomName}\n🕒 ${bookingDate} | ${booking.startTime} - ${booking.endTime} น.\n- ${booking.purpose}\n\n👤 ผู้จอง: ${booking.bookerName}`;
               await sendLineNotification(notifyMessage);
           }
       } catch (e) {

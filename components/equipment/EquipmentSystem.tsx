@@ -133,10 +133,16 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
             setBorrowings(updatedBorrowings);
             setLastUpdated(new Date());
 
-            const borrowDateStr = new Date(createdRequest.borrowDate).toLocaleDateString('th-TH');
-            const returnDateStr = new Date(createdRequest.returnDate).toLocaleDateString('th-TH');
+            const borrowDate = new Date(createdRequest.borrowDate);
+            const returnDate = new Date(createdRequest.returnDate);
+            
+            const formatDate = (d: Date) => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
 
-            const notifyMessage = `📋 แจ้งเตือนยืมอุปกรณ์ใหม่\n\n👤 ผู้ยืม: ${createdRequest.borrowerName}\n📞 เบอร์โทร: ${createdRequest.phone || '-'}\n🎯 เรื่อง: ${createdRequest.purpose}\n📅 ระยะเวลา: ${borrowDateStr} ถึง ${returnDateStr}\n\n📦 รายการอุปกรณ์:\n${createdRequest.equipmentList}\n\n🌐 ตรวจสอบ: ${APP_URL}`;
+            const dateRange = borrowDate.getTime() === returnDate.getTime()
+                ? borrowDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
+                : `${formatDate(borrowDate)} - ${returnDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+
+            const notifyMessage = `📷 ยืมอุปกรณ์\n🕒 ${dateRange}\n- ${createdRequest.purpose}\n\n👤 ผู้ยืม: ${createdRequest.borrowerName}\n📦 รายการ:\n${createdRequest.equipmentList}`;
 
             await sendLineNotification(notifyMessage);
             setCurrentPage('list');
