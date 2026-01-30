@@ -13,7 +13,6 @@ import { v4 as uuidv4 } from 'uuid';
 import NavButton from './NavButton';
 import LoadingSpinner from '../shared/LoadingSpinner';
 import Button from '../shared/Button';
-import NotificationSettingsModal from '../admin/NotificationSettingsModal';
 
 interface RoomBookingSystemProps {
   onBackToLanding: () => void;
@@ -32,7 +31,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'error' | 'syncing'>('connected');
-  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   
   const pollTimer = useRef<number | null>(null);
 
@@ -295,7 +293,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
                   onEditBooking={(b) => { setEditingBooking(b); setCurrentPage('booking'); }}
                   onBack={() => setCurrentPage('home')}
                   isAdmin={isAdmin}
-                  onOpenNotificationSettings={() => setIsNotificationModalOpen(true)}
                 />;
       case 'statistics':
         return <StatisticsPage bookings={bookings} onBack={() => setCurrentPage('home')} />;
@@ -338,14 +335,6 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
         </div>
       </div>
       {renderCurrentPage()}
-      
-      {isNotificationModalOpen && (
-        <NotificationSettingsModal 
-            isOpen={isNotificationModalOpen}
-            onClose={() => setIsNotificationModalOpen(false)}
-            showToast={showToast}
-        />
-      )}
     </div>
   );
 };

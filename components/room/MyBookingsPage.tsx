@@ -14,7 +14,6 @@ interface MyBookingsPageProps {
   onEditBooking: (booking: Booking) => void;
   onBack: () => void;
   isAdmin: boolean;
-  onOpenNotificationSettings: () => void;
 }
 
 const thaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
@@ -180,7 +179,7 @@ const BookingCard: React.FC<{
 };
 
 
-const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onDeleteBookingGroup, onEditBooking, onBack, isAdmin, onOpenNotificationSettings }) => {
+const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onDeleteBookingGroup, onEditBooking, onBack, isAdmin }) => {
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
   const [purposeFilter, setPurposeFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState<string>('all');
@@ -275,7 +274,6 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
         <div className="bg-white rounded-3xl shadow-xl p-6 md:p-10 border border-gray-100">
             <div className="flex flex-wrap justify-between items-center gap-4 mb-8 pb-6 border-b border-gray-100">
                 <h2 className="text-2xl font-black text-gray-800 tracking-tight">รายการจองห้องประชุม</h2>
-                {isAdmin && <Button onClick={onOpenNotificationSettings} variant="primary" className="bg-green-600 hover:bg-green-700 focus:ring-green-500">⚙️ ตั้งค่า LINE</Button>}
             </div>
 
             <div className="flex p-1.5 bg-gray-100 rounded-2xl mb-8 max-w-sm">
