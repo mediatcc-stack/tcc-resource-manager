@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Room, Booking } from '../../types';
 import Button from '../shared/Button';
 import { ROOMS } from '../../constants';
@@ -17,8 +17,6 @@ interface BookingFormProps {
   onCancel: () => void;
   showToast: (message: string, type: 'success' | 'error') => void;
 }
-
-const timeSlots = Array.from({ length: 12 }, (_, i) => `${(i + 7).toString().padStart(2, '0')}:00`);
 
 const timeToMinutes = (timeStr: string): number => {
   if (!timeStr) return 0;
@@ -61,6 +59,10 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Time picker options
+  const hours = useMemo(() => Array.from({ length: 14 }, (_, i) => (i + 5).toString().padStart(2, '0')), []); // 05:00 to 18:00
+  const minutes = useMemo(() => ['00', '15', '30', '45'], []);
 
   useEffect(() => {
     if (isDirty.current) return;
@@ -127,6 +129,27 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     if (error) setError('');
+  };
+
+  const handleTimePartChange = (
+    fieldName: 'startTime' | 'endTime', 
+    part: 'hour' | 'minute', 
+    value: string
+  ) => {
+    isDirty.current = true;
+    setError('');
+    
+    const oldTime = formData[fieldName] || '--:--';
+    let [oldHour, oldMinute] = oldTime.split(':');
+    
+    let newTime;
+    if (part === 'hour') {
+        newTime = `${value}:${!oldMinute || oldMinute === '--' ? '00' : oldMinute}`;
+    } else {
+        newTime = `${!oldHour || oldHour === '--' ? '09' : oldHour}:${value}`;
+    }
+    
+    setFormData(prev => ({ ...prev, [fieldName]: newTime }));
   };
   
   const handleMeetingTypeToggle = (type: string) => {
@@ -208,8 +231,10 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     for (const roomId of selectedRoomIds) {
       const roomName = rooms.find(r => r.id === roomId)?.name;
       if (!roomName) continue;
-      const loopDate = new Date(firstDate);
-      for (let d = loopDate; d <= lastDate; d.setDate(d.getDate() + 1)) {
+      
+      // Reset loopDate for each room to avoid compounding date increments
+      const loopStartDate = new Date(firstDate);
+      for (let d = loopStartDate; d <= lastDate; d.setDate(d.getDate() + 1)) {
           bookingsToCreate.push({ 
               ...formData, 
               roomName,
@@ -226,6 +251,15 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
   };
 
   const inputClasses = "block w-full rounded-xl border border-gray-200 bg-white p-3.5 text-gray-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all duration-200 placeholder-gray-400";
+  
+  const SelectWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <div className="relative">
+      {children}
+      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+        <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+      </div>
+    </div>
+  );
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in px-4 md:px-0 mb-20">
@@ -296,16 +330,56 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <FormField label="เริ่มเวลา" icon="⏰" required>
-                <select name="startTime" value={formData.startTime} onChange={handleInputChange} className={inputClasses} required>
-                    <option value="">-- เลือกเวลา --</option>
-                    {timeSlots.slice(0, -1).map(t => <option key={t} value={t}>{t} น.</option>)}
-                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  <SelectWrapper>
+                    <select
+                      value={formData.startTime?.split(':')[0] || ''}
+                      onChange={(e) => handleTimePartChange('startTime', 'hour', e.target.value)}
+                      className={`${inputClasses} appearance-none`}
+                      required
+                    >
+                      <option value="" disabled>ชั่วโมง</option>
+                      {hours.map(h => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                  </SelectWrapper>
+                  <SelectWrapper>
+                    <select
+                      value={formData.startTime?.split(':')[1] || ''}
+                      onChange={(e) => handleTimePartChange('startTime', 'minute', e.target.value)}
+                      className={`${inputClasses} appearance-none`}
+                      required
+                    >
+                      <option value="" disabled>นาที</option>
+                      {minutes.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </SelectWrapper>
+                </div>
               </FormField>
               <FormField label="ถึงเวลา" icon="⏰" required>
-                <select name="endTime" value={formData.endTime} onChange={handleInputChange} className={inputClasses} required>
-                    <option value="">-- เลือกเวลา --</option>
-                    {timeSlots.map(t => <option key={t} value={t} disabled={timeToMinutes(t) <= timeToMinutes(formData.startTime)}>{t} น.</option>)}
-                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  <SelectWrapper>
+                    <select
+                      value={formData.endTime?.split(':')[0] || ''}
+                      onChange={(e) => handleTimePartChange('endTime', 'hour', e.target.value)}
+                      className={`${inputClasses} appearance-none`}
+                      required
+                    >
+                      <option value="" disabled>ชั่วโมง</option>
+                      {hours.map(h => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                  </SelectWrapper>
+                  <SelectWrapper>
+                    <select
+                      value={formData.endTime?.split(':')[1] || ''}
+                      onChange={(e) => handleTimePartChange('endTime', 'minute', e.target.value)}
+                      className={`${inputClasses} appearance-none`}
+                      required
+                    >
+                      <option value="" disabled>นาที</option>
+                      {minutes.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </SelectWrapper>
+                </div>
               </FormField>
             </div>
           </fieldset>

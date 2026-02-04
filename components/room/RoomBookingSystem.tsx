@@ -245,7 +245,10 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
 
       // --- Send LINE Notification ---
       try {
+          if (createdBookings.length === 0) return;
+
           const isMultiBooking = createdBookings.length > 1 || createdBookings[0]?.isMultiDay;
+          
           if (isMultiBooking) {
               const firstBooking = createdBookings[0];
               const roomNames = [...new Set(createdBookings.map(b => b.roomName))].join(', ');
@@ -253,7 +256,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
               const firstDate = new Date(Math.min.apply(null, allDates.map(d => d.getTime())));
               const lastDate = new Date(Math.max.apply(null, allDates.map(d => d.getTime())));
               
-              const formatDate = (d: Date, withYear = false) => d.toLocaleDateString('th-TH', { 
+              const formatDate = (d: Date, withYear = true) => d.toLocaleDateString('th-TH', { 
                   day: 'numeric', 
                   month: 'short', 
                   year: withYear ? 'numeric' : undefined 
@@ -261,14 +264,16 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
 
               let dateRange;
               if (firstDate.getTime() === lastDate.getTime()) {
-                  dateRange = formatDate(firstDate, true);
+                  dateRange = formatDate(firstDate);
               } else {
-                  dateRange = `${formatDate(firstDate)} - ${formatDate(lastDate, true)}`;
+                  // Format start date without year if it's the same year as end date
+                  const startDateFormat = firstDate.getFullYear() === lastDate.getFullYear() ? formatDate(firstDate, false) : formatDate(firstDate);
+                  dateRange = `${startDateFormat} - ${formatDate(lastDate)}`;
               }
 
               const notifyMessage = `จองหลายรายการ: ${roomNames}\n🕒 ${dateRange} | ${firstBooking.startTime} - ${firstBooking.endTime} น.\n- ${firstBooking.purpose}\n\n👤 ผู้จอง: ${firstBooking.bookerName}`;
               await sendLineNotification(notifyMessage);
-          } else if (createdBookings.length === 1) {
+          } else { // Single booking
               const booking = createdBookings[0];
               const bookingDate = new Date(booking.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
               const notifyMessage = `${booking.roomName}\n🕒 ${bookingDate} | ${booking.startTime} - ${booking.endTime} น.\n- ${booking.purpose}\n\n👤 ผู้จอง: ${booking.bookerName}`;

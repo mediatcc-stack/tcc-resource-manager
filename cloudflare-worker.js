@@ -46,7 +46,7 @@ const checkKvBinding = (kv, name) => {
 
 // --- Main Worker Logic ---
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
     const url = new URL(request.url);
     const path = url.pathname;
@@ -83,7 +83,7 @@ export default {
       // Endpoint for the frontend to trigger a LINE notification
       if (path === '/notify' && request.method === 'POST') {
         const { message } = await request.json();
-        await sendNotification(message, env);
+        ctx.waitUntil(sendNotification(message, env));
         return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
       }
       

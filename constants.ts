@@ -23,10 +23,10 @@ export const ROOMS: Room[] = [
   { id: 2, name: "ห้องประชุมเฉลิมพระเกียรติ", status: 'available' },
   { id: 3, name: "ห้องประชุมมูลนิธิสมเด็จพระธีรญาณมุนี", status: 'available' },
   { id: 4, name: "ห้องประชุมสำเภาทอง", status: 'available' },
+  { id: 5, name: "ห้องประชุมไพโรจน์ปวะบุตร", status: 'available' },
   { id: 7, name: "ห้องงานสื่อการเรียนการสอน 421", status: 'available' },
   { id: 8, name: "ห้อง CVM (ศูนย์บริหารเครือข่าย)", status: 'available' },
   { id: 9, name: "ลานโดมอเนกประสงค์", status: 'available' },
-  { id: 5, name: "ห้องประชุมไพโรจน์ปวะบุตร", status: 'closed' },
   { id: 6, name: "หอประชุมประทีป ปฐมกสิกุล", status: 'closed' }
 ];
 
