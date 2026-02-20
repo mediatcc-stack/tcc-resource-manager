@@ -1,7 +1,9 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+import './index.css';
 import { WORKER_BASE_URL } from './constants';
 
 // --- DEBUG CODE ---
@@ -18,7 +20,9 @@ if (!rootElement) {
     const root = ReactDOM.createRoot(rootElement);
     root.render(
       <React.StrictMode>
-        <App />
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
       </React.StrictMode>
     );
     console.log("TCC Resource Manager successfully initialized.");

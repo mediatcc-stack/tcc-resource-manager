@@ -111,10 +111,10 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
 
     const handleNotifyOverdue = useCallback(async (req: BorrowingRequest) => {
         const msg = `⚠️ แจ้งเตือน: เลยกำหนดคืนอุปกรณ์\n\n👤 ผู้ยืม: ${req.borrowerName}\n📦 อุปกรณ์: ${req.equipmentList}\n🗓️ กำหนดคืน: ${new Date(req.returnDate).toLocaleDateString('th-TH')}\n\n🚩 กรุณาติดต่อคืนอุปกรณ์ที่งานสื่อฯ โดยด่วนครับ`;
-        try {
-            await sendLineNotification(msg);
+        const success = await sendLineNotification(msg);
+        if (success) {
             showToast('ส่งแจ้งเตือน LINE สำเร็จ', 'success');
-        } catch (e) {
+        } else {
             showToast('ส่งแจ้งเตือนไม่สำเร็จ', 'error');
         }
     }, [showToast]);
@@ -144,9 +144,15 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
 
             const notifyMessage = `📷 ยืมอุปกรณ์\n🕒 ${dateRange}\n- ${createdRequest.purpose}\n\n👤 ผู้ยืม: ${createdRequest.borrowerName}\n📦 รายการ:\n${createdRequest.equipmentList}`;
 
-            await sendLineNotification(notifyMessage);
+            const notificationSent = await sendLineNotification(notifyMessage);
             setCurrentPage('list');
-            showToast('ส่งคำขอยืมอุปกรณ์สำเร็จ', 'success');
+            
+            if (notificationSent) {
+                showToast('ส่งคำขอยืมอุปกรณ์สำเร็จ! คำขอได้ถูกส่งแจ้งเตือนให้ งานสื่อการเรียนการสอน ทราบแล้ว', 'success');
+            } else {
+                showToast('ส่งคำขอยืมอุปกรณ์สำเร็จ! แต่การแจ้งเตือน LINE ขัดข้อง (ระบบบันทึกข้อมูลแล้ว) รบกวนแจ้งงานสื่อการเรียนการสอนด้วยตนเองอีกครั้งเพื่อความแน่นอนครับ', 'success');
+            }
+            
             fetchBorrowings(true);
         } catch (error: any) {
             showToast(`บันทึกข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
