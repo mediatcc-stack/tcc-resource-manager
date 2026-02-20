@@ -1,23 +1,16 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { APP_CONFIG } from '../../constants';
 import { SystemType } from '../../types';
+import { APP_CONFIG } from '../../constants';
 
-const Navbar: React.FC = () => {
-  const location = useLocation();
-  const currentPath = location.pathname;
+interface NavbarProps {
+  currentSystem: SystemType;
+  onBackToLanding: () => void;
+}
 
-  if (currentPath === '/') {
+const Navbar: React.FC<NavbarProps> = ({ currentSystem, onBackToLanding }) => {
+  if (currentSystem === 'landing') {
     return null;
   }
-
-  const getCurrentSystem = (): SystemType => {
-    if (currentPath.startsWith('/room')) return 'room';
-    if (currentPath.startsWith('/equipment')) return 'equipment';
-    return 'landing';
-  }
-
-  const currentSystem = getCurrentSystem();
 
   const systemTitles: Record<SystemType, string> = {
     room: APP_CONFIG.systemTitle,
@@ -40,13 +33,13 @@ const Navbar: React.FC = () => {
                 {systemTitles[currentSystem]}
             </h1>
         </div>
-        <Link 
-          to="/"
+        <button 
+          onClick={onBackToLanding}
           className="px-4 py-2 bg-blue-50 text-[#0D448D] rounded-xl text-xs font-bold hover:bg-blue-100 transition-all active:scale-95 flex items-center gap-2 border border-blue-200"
         >
           <span>🏠</span>
           <span className="hidden md:inline">กลับเมนูหลัก</span>
-        </Link>
+        </button>
       </div>
     </header>
   );
