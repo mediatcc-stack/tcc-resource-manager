@@ -240,7 +240,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       setBookings(updatedBookings);
       setLastUpdated(new Date());
       setCurrentPage('home');
-      showToast('คำขอได้ถูกส่งแจ้งเตือนให้ งานสื่อการเรียนการสอน ทราบแล้ว', 'success');
+      showToast('การจองห้องสำเร็จ!', 'success');
       fetchBookings(true);
 
       // --- Send LINE Notification ---

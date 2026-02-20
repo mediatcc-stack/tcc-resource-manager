@@ -1,5 +1,4 @@
 import React, { useState, useCallback } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import LandingPage from './components/landing/LandingPage';
 import RoomBookingSystem from './components/room/RoomBookingSystem';
 import EquipmentSystem from './components/equipment/EquipmentSystem';
@@ -9,14 +8,9 @@ import ToastContainer from './components/shared/ToastContainer';
 import { STAFF_PASSWORDS } from './constants';
 
 const App: React.FC = () => {
+  const [currentSystem, setCurrentSystem] = useState<SystemType>('landing');
   const [toastMessages, setToastMessages] = useState<ToastMessage[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const navigate = useNavigate();
-
-  const handleSelectSystem = (system: SystemType) => {
-    if (system === 'room') navigate('/room');
-    else if (system === 'equipment') navigate('/equipment');
-  };
 
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
     const newToast: ToastMessage = {
@@ -47,17 +41,27 @@ const App: React.FC = () => {
   };
 
 
+  const goBackToLanding = () => {
+    setCurrentSystem('landing');
+  };
 
+  const renderSystem = () => {
+    switch (currentSystem) {
+      case 'room':
+        return <RoomBookingSystem onBackToLanding={goBackToLanding} showToast={showToast} isAdmin={isAdmin} />;
+      case 'equipment':
+        return <EquipmentSystem onBackToLanding={goBackToLanding} showToast={showToast} isAdmin={isAdmin} />;
+      case 'landing':
+      default:
+        return <LandingPage onSelectSystem={setCurrentSystem} onAdminLogin={handleAdminLogin} isAdmin={isAdmin} />;
+    }
+  };
 
   return (
-    <div className="app-container flex flex-col min-h-screen bg-slate-50 text-slate-800">
-      <Navbar />
+    <div className="app-container flex flex-col min-h-screen">
+      <Navbar currentSystem={currentSystem} onBackToLanding={goBackToLanding} />
       <main className="main-content flex-1 p-4 md:p-8 w-full">
-        <Routes>
-          <Route path="/room" element={<RoomBookingSystem showToast={showToast} isAdmin={isAdmin} />} />
-          <Route path="/equipment" element={<EquipmentSystem showToast={showToast} isAdmin={isAdmin} />} />
-          <Route path="/" element={<LandingPage onSelectSystem={handleSelectSystem} onAdminLogin={handleAdminLogin} isAdmin={isAdmin} />} />
-        </Routes>
+        {renderSystem()}
       </main>
       <ToastContainer messages={toastMessages} onRemove={removeToast} />
     </div>

@@ -146,7 +146,7 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, show
 
             await sendLineNotification(notifyMessage);
             setCurrentPage('list');
-            showToast('คำขอได้ถูกส่งแจ้งเตือนให้ งานสื่อการเรียนการสอน ทราบแล้ว', 'success');
+            showToast('ส่งคำขอยืมอุปกรณ์สำเร็จ', 'success');
             fetchBorrowings(true);
         } catch (error: any) {
             showToast(`บันทึกข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
