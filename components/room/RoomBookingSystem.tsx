@@ -240,47 +240,54 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
       setBookings(updatedBookings);
       setLastUpdated(new Date());
       setCurrentPage('home');
-      showToast('การจองห้องสำเร็จ!', 'success');
+      
       fetchBookings(true);
 
       // --- Send LINE Notification ---
+      let notificationSent = false;
       try {
-          if (createdBookings.length === 0) return;
-
-          const isMultiBooking = createdBookings.length > 1 || createdBookings[0]?.isMultiDay;
-          
-          if (isMultiBooking) {
-              const firstBooking = createdBookings[0];
-              const roomNames = [...new Set(createdBookings.map(b => b.roomName))].join(', ');
-              const allDates = createdBookings.map(b => new Date(b.date));
-              const firstDate = new Date(Math.min.apply(null, allDates.map(d => d.getTime())));
-              const lastDate = new Date(Math.max.apply(null, allDates.map(d => d.getTime())));
+          if (createdBookings.length > 0) {
+              const isMultiBooking = createdBookings.length > 1 || createdBookings[0]?.isMultiDay;
+              let notifyMessage = '';
               
-              const formatDate = (d: Date, withYear = true) => d.toLocaleDateString('th-TH', { 
-                  day: 'numeric', 
-                  month: 'short', 
-                  year: withYear ? 'numeric' : undefined 
-              });
+              if (isMultiBooking) {
+                  const firstBooking = createdBookings[0];
+                  const roomNames = [...new Set(createdBookings.map(b => b.roomName))].join(', ');
+                  const allDates = createdBookings.map(b => new Date(b.date));
+                  const firstDate = new Date(Math.min.apply(null, allDates.map(d => d.getTime())));
+                  const lastDate = new Date(Math.max.apply(null, allDates.map(d => d.getTime())));
+                  
+                  const formatDate = (d: Date, withYear = true) => d.toLocaleDateString('th-TH', { 
+                      day: 'numeric', 
+                      month: 'short', 
+                      year: withYear ? 'numeric' : undefined 
+                  });
 
-              let dateRange;
-              if (firstDate.getTime() === lastDate.getTime()) {
-                  dateRange = formatDate(firstDate);
-              } else {
-                  // Format start date without year if it's the same year as end date
-                  const startDateFormat = firstDate.getFullYear() === lastDate.getFullYear() ? formatDate(firstDate, false) : formatDate(firstDate);
-                  dateRange = `${startDateFormat} - ${formatDate(lastDate)}`;
+                  let dateRange;
+                  if (firstDate.getTime() === lastDate.getTime()) {
+                      dateRange = formatDate(firstDate);
+                  } else {
+                      const startDateFormat = firstDate.getFullYear() === lastDate.getFullYear() ? formatDate(firstDate, false) : formatDate(firstDate);
+                      dateRange = `${startDateFormat} - ${formatDate(lastDate)}`;
+                  }
+
+                  notifyMessage = `จองหลายรายการ: ${roomNames}\n🕒 ${dateRange} | ${firstBooking.startTime} - ${firstBooking.endTime} น.\n- ${firstBooking.purpose}\n\n👤 ผู้จอง: ${firstBooking.bookerName}`;
+              } else { // Single booking
+                  const booking = createdBookings[0];
+                  const bookingDate = new Date(booking.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+                  notifyMessage = `${booking.roomName}\n🕒 ${bookingDate} | ${booking.startTime} - ${booking.endTime} น.\n- ${booking.purpose}\n\n👤 ผู้จอง: ${booking.bookerName}`;
               }
-
-              const notifyMessage = `จองหลายรายการ: ${roomNames}\n🕒 ${dateRange} | ${firstBooking.startTime} - ${firstBooking.endTime} น.\n- ${firstBooking.purpose}\n\n👤 ผู้จอง: ${firstBooking.bookerName}`;
-              await sendLineNotification(notifyMessage);
-          } else { // Single booking
-              const booking = createdBookings[0];
-              const bookingDate = new Date(booking.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
-              const notifyMessage = `${booking.roomName}\n🕒 ${bookingDate} | ${booking.startTime} - ${booking.endTime} น.\n- ${booking.purpose}\n\n👤 ผู้จอง: ${booking.bookerName}`;
-              await sendLineNotification(notifyMessage);
+              
+              notificationSent = await sendLineNotification(notifyMessage);
           }
       } catch (e) {
           console.error("Failed to send LINE notification:", e);
+      }
+
+      if (notificationSent) {
+          showToast('การจองห้องสำเร็จ! คำขอได้ถูกส่งแจ้งเตือนให้ งานสื่อการเรียนการสอน ทราบแล้ว', 'success');
+      } else {
+          showToast('การจองห้องสำเร็จ! แต่การแจ้งเตือน LINE ขัดข้อง (ระบบบันทึกข้อมูลแล้ว) รบกวนแจ้งงานสื่อการเรียนการสอนด้วยตนเองอีกครั้งเพื่อความแน่นอนครับ', 'success');
       }
       // --- End Notification ---
 
