@@ -21,12 +21,11 @@ const timeToMinutes = (timeStr: string): number => {
 };
 
 interface RoomBookingSystemProps {
-  onBackToLanding: () => void;
   showToast: (message: string, type: 'success' | 'error') => void;
   isAdmin: boolean;
 }
 
-const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, showToast, isAdmin }) => {
+const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmin }) => {
   const [currentPage, setCurrentPage] = useState<RoomPage>('home');
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -315,9 +314,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
             <Button onClick={() => fetchBookings(false)} className="px-8 py-3">
               🔄 ลองใหม่อีกครั้ง
             </Button>
-            <Button variant="secondary" onClick={onBackToLanding} className="px-8 py-3">
-              🏠 กลับหน้าหลัก
-            </Button>
+
           </div>
         </div>
       );
@@ -358,7 +355,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ onBackToLanding, 
             rooms={ROOMS} 
             bookings={bookings} 
             onSelectRoom={handleSelectRoom}
-            onBackToLanding={onBackToLanding}
+
             onNavigateToMyBookings={() => setCurrentPage('mybookings')}
             onQuickBook={handleQuickBook}
           />

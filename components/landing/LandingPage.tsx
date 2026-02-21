@@ -1,15 +1,15 @@
 import React from 'react';
-import { SystemType } from '../../types';
+import { useNavigate } from 'react-router-dom';
 import SystemCard from './SystemCard';
 import { APP_CONFIG } from '../../constants';
 
 interface LandingPageProps {
-  onSelectSystem: (system: SystemType) => void;
   onAdminLogin: () => void;
   isAdmin: boolean;
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onSelectSystem, onAdminLogin, isAdmin }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onAdminLogin, isAdmin }) => {
+  const navigate = useNavigate();
   return (
     <>
       <div className="flex flex-col items-center justify-center min-h-[70vh] p-5 text-center animate-fade-in">
@@ -24,13 +24,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSelectSystem, onAdminLogin,
             icon="📷"
             title={APP_CONFIG.equipmentTitle}
             description="จัดการการยืม-คืนอุปกรณ์ กล้อง โน๊ตบุ๊ค และอุปกรณ์สื่อต่างๆ"
-            onClick={() => onSelectSystem('equipment')}
+            onClick={() => navigate('/equipment')}
           />
           <SystemCard
             icon="🏢"
             title={APP_CONFIG.systemTitle}
             description="จองห้องประชุมออนไลน์ ตรวจสอบความพร้อม และจัดการการจอง"
-            onClick={() => onSelectSystem('room')}
+            onClick={() => navigate('/room')}
           />
         </div>
         <div className="mt-16 text-center">

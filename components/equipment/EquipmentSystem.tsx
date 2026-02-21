@@ -13,12 +13,11 @@ import Button from '../shared/Button';
 import { APP_URL } from '../../constants';
 
 interface EquipmentSystemProps {
-  onBackToLanding: () => void;
   showToast: (message: string, type: 'success' | 'error') => void;
   isAdmin: boolean;
 }
 
-const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ onBackToLanding, showToast, isAdmin }) => {
+const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin }) => {
     const [currentPage, setCurrentPage] = useState<EquipmentPage>('list');
     const [borrowings, setBorrowings] = useState<BorrowingRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
