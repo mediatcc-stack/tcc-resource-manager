@@ -1,7 +1,7 @@
 
 import { NOTIFICATION_URL } from '../constants';
 
-export const sendLineNotification = async (message: string): Promise<void> => {
+export const sendLineNotification = async (message: string): Promise<boolean> => {
   console.log(`กำลังส่งข้อความแจ้งเตือนไปยัง Cloudflare Worker...`);
   
   try {
@@ -17,11 +17,14 @@ export const sendLineNotification = async (message: string): Promise<void> => {
       console.warn(`Worker ตอบกลับด้วยสถานะ: ${response.status}`);
       const errorText = await response.text();
       console.error("รายละเอียดข้อผิดพลาด:", errorText);
+      return false;
     } else {
       console.log(`ส่งการแจ้งเตือนสำเร็จผ่าน Cloudflare Worker`);
+      return true;
     }
 
   } catch (error) {
     console.error("เกิดข้อผิดพลาดในการส่งแจ้งเตือน:", error);
+    return false;
   }
 };
