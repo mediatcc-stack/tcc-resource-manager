@@ -30,7 +30,7 @@ export const ROOMS: Room[] = [
   { id: 6, name: "หอประชุมประทีป ปฐมกสิกุล", status: 'closed' }
 ];
 
-export const STAFF_PASSWORDS = ['010', 'media@2021', 'tcc2024'];
+
 
 export const EQUIPMENT_CATEGORIES = [
     { title: "กล้องและวิดีโอ", items: "DSLR, Mirrorless, วิดีโอ" },

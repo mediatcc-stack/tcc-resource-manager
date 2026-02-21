@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { RoomPage, Booking, Room } from '../../types';
-import { ROOMS, STAFF_PASSWORDS, APP_URL } from '../../constants';
+import { ROOMS, APP_URL } from '../../constants';
 import HomePage from './HomePage';
 import BookingForm from './BookingForm';
 import MyBookingsPage from './MyBookingsPage';

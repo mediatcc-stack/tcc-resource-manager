@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from 'react';
+import { WORKER_BASE_URL } from './constants';
 import LandingPage from './components/landing/LandingPage';
 import RoomBookingSystem from './components/room/RoomBookingSystem';
 import EquipmentSystem from './components/equipment/EquipmentSystem';
 import Navbar from './components/layout/Navbar';
 import { SystemType, ToastMessage } from './types';
 import ToastContainer from './components/shared/ToastContainer';
-import { STAFF_PASSWORDS } from './constants';
+
 
 const App: React.FC = () => {
   const [currentSystem, setCurrentSystem] = useState<SystemType>('landing');
@@ -25,18 +26,35 @@ const App: React.FC = () => {
     setToastMessages(prev => prev.filter(toast => toast.id !== id));
   }, []);
 
-  const handleAdminLogin = () => {
+  const handleAdminLogin = async () => {
     if (isAdmin) {
       setIsAdmin(false);
       showToast('ออกจากโหมดเจ้าหน้าที่', 'success');
       return;
     }
     const password = prompt('กรุณาใส่รหัสผ่านเจ้าหน้าที่:');
-    if (password && STAFF_PASSWORDS.includes(password)) {
-        setIsAdmin(true);
-        showToast('เข้าสู่โหมดเจ้าหน้าที่สำเร็จ', 'success');
-    } else if (password) {
-        showToast('รหัสผ่านไม่ถูกต้อง', 'error');
+    if (password) {
+      try {
+        const response = await fetch(`${WORKER_BASE_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setIsAdmin(true);
+            showToast('เข้าสู่โหมดเจ้าหน้าที่สำเร็จ', 'success');
+          } else {
+            showToast('รหัสผ่านไม่ถูกต้อง', 'error');
+          }
+        } else {
+          showToast('รหัสผ่านไม่ถูกต้อง', 'error');
+        }
+      } catch (error) {
+        console.error('Admin login error:', error);
+        showToast('เกิดข้อผิดพลาดในการเข้าสู่ระบบ', 'error');
+      }
     }
   };
 

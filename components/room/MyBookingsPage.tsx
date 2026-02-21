@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Booking } from '../../types';
 import Button from '../shared/Button';
-import { ROOMS, STAFF_PASSWORDS } from '../../constants';
+import { ROOMS } from '../../constants';
 
 interface MyBookingsPageProps {
   bookings: Booking[];
@@ -103,15 +103,8 @@ const BookingCard: React.FC<{
 
     if (isAdmin) {
         performAction();
-        return;
-    }
-    
-    const password = prompt(`(สำหรับเจ้าหน้าที่) กรุณาใส่รหัสผ่าน:`);
-    if (password === null) return;
-    if (STAFF_PASSWORDS.includes(password)) {
-        performAction();
     } else {
-        alert('รหัสผ่านไม่ถูกต้อง');
+        alert('การกระทำนี้สำหรับเจ้าหน้าที่เท่านั้น');
     }
   };
 

@@ -8,7 +8,8 @@ export const sendLineNotification = async (message: string): Promise<void> => {
     const response = await fetch(NOTIFICATION_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+                'Content-Type': 'application/json',
+        'X-API-Key': import.meta.env.VITE_API_SECRET_KEY,
       },
       body: JSON.stringify({ message }), 
     });

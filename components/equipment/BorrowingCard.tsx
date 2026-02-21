@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { BorrowingRequest, BorrowStatus } from '../../types';
 import Button from '../shared/Button';
-import { STAFF_PASSWORDS } from '../../constants';
+
 
 interface BorrowingCardProps {
     req: BorrowingRequest;
@@ -86,13 +86,8 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
     const handleActionWithAuth = (action: () => void) => {
         if (isAdmin) {
             action();
-            return;
-        }
-        const password = prompt('กรุณาใส่รหัสผ่านเจ้าหน้าที่:');
-        if (password && STAFF_PASSWORDS.includes(password)) {
-            action();
-        } else if (password !== null) {
-            alert('รหัสผ่านไม่ถูกต้อง');
+        } else {
+            alert('การกระทำนี้สำหรับเจ้าหน้าที่เท่านั้น');
         }
     };
 

@@ -10,6 +10,12 @@ export interface WorkerStatus {
     recipientIdSet: boolean;
 }
 
+const getApiHeaders = () => ({
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'X-API-Key': import.meta.env.VITE_API_SECRET_KEY,
+});
+
 const handleResponse = async (response: Response, errorMessagePrefix: string): Promise<any> => {
     if (!response.ok) {
         let errorMsg = `HTTP error! Status: ${response.status}`;
@@ -39,7 +45,7 @@ export const fetchData = async (type: DataType): Promise<any[]> => {
     try {
         const response = await fetch(`${WORKER_BASE_URL}/data?type=${type}`, {
             method: 'GET',
-            headers: { 'Accept': 'application/json' }
+            headers: getApiHeaders()
         });
         const data = await handleResponse(response, `ดึงข้อมูล ${type} ล้มเหลว`);
         return Array.isArray(data) ? data : [];
@@ -53,7 +59,7 @@ export const saveData = async (type: DataType, data: Booking[] | BorrowingReques
     try {
         const response = await fetch(`${WORKER_BASE_URL}/data?type=${type}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getApiHeaders(),
             body: JSON.stringify(data),
         });
         await handleResponse(response, `บันทึกข้อมูล ${type} ล้มเหลว`);

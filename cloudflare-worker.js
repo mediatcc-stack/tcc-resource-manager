@@ -1,7 +1,11 @@
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-control-allow-headers': 'Content-Type, Authorization, Accept',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, X-API-Key',
+};
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, X-API-Key',
 };
 
 // --- LINE Messaging API Functions ---
@@ -44,12 +48,34 @@ const checkKvBinding = (kv, name) => {
     return null;
 };
 
+// --- Worker Middleware --- 
+const withApiKeyAuth = (request, env) => {
+  const apiKey = request.headers.get('X-API-Key');
+  if (!env.API_SECRET_KEY || apiKey !== env.API_SECRET_KEY) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  return null;
+};
+
 // --- Main Worker Logic ---
 export default {
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
     const url = new URL(request.url);
     const path = url.pathname;
+
+    // --- Authentication Routes (Public) ---
+    if (path === '/auth/login' && request.method === 'POST') {
+      const { password } = await request.json();
+      if (env.ADMIN_PASSWORD && password === env.ADMIN_PASSWORD) {
+        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      } else {
+        return new Response(JSON.stringify({ success: false }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
 
     try {
       // Endpoint for the frontend to check worker configuration status
@@ -62,6 +88,10 @@ export default {
         };
         return new Response(JSON.stringify(status), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
       }
+
+      // Protected routes - require API Key
+      const authError = withApiKeyAuth(request, env);
+      if (authError) return authError;
 
       // Endpoint for fetching/saving data from/to KV storage
       if (path === '/data') {

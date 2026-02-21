@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { BorrowingRequest, BorrowStatus } from '../../types';
 import Button from '../shared/Button';
-import { STAFF_PASSWORDS, CONTACTS } from '../../constants';
+import { CONTACTS } from '../../constants';
 import BorrowingCard from './BorrowingCard';
 
 interface BorrowingListPageProps {
