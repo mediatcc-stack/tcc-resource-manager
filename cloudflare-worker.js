@@ -5,31 +5,41 @@ const corsHeaders = {
 };
 
 // --- LINE Messaging API Functions ---
-// This function sends a push notification to the configured RECIPIENT_ID.
+// This function sends a push notification to all subscribed users.
 async function sendNotification(message, env) {
-  const recipientId = env.RECIPIENT_ID;
+  let recipientIds = await env.ROOM_BOOKINGS_KV.get('recipient_ids', 'json') || [];
 
-  if (!recipientId) {
-    console.error("[LINE Push Error] The RECIPIENT_ID environment variable is not set. Please add it to the Cloudflare Worker settings to enable notifications.");
-    return;
+  // Fallback to the single RECIPIENT_ID if the KV list is empty or fails to load
+  if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
+    if (env.RECIPIENT_ID) {
+      recipientIds = [env.RECIPIENT_ID];
+    } else {
+      console.error("[LINE Push Error] No recipients found. Neither 'recipient_ids' in KV nor RECIPIENT_ID in environment variables is set.");
+      return;
+    }
   }
-  
-  try {
-    const response = await fetch('https://api.line.me/v2/bot/message/push', {
+
+  const pushPromises = recipientIds.map(recipientId => {
+    return fetch('https://api.line.me/v2/bot/message/push', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
       },
       body: JSON.stringify({ to: recipientId, messages: [{ type: 'text', text: message }] }),
+    })
+    .then(async response => {
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`[LINE Push Error] Failed to send to ID: ${recipientId}, Status: ${response.status}, Body: ${errorBody}`);
+      }
+    })
+    .catch(error => {
+      console.error(`[LINE Push Fetch Error] Failed to send to ID: ${recipientId}, Error: ${error.message}`);
     });
-    if (!response.ok) {
-      const errorBody = await response.text();
-      console.error(`[LINE Push Error] Failed to send to ID: ${recipientId}, Status: ${response.status}, Body: ${errorBody}`);
-    }
-  } catch (error) {
-     console.error(`[LINE Push Fetch Error] Failed to send to ID: ${recipientId}, Error: ${error.message}`);
-  }
+  });
+
+  await Promise.all(pushPromises);
 }
 
 const checkKvBinding = (kv, name) => {
@@ -115,6 +125,33 @@ export default {
         return new Response(JSON.stringify({ success: true }), { headers: corsHeaders });
       }
       
+      // Endpoint for LINE webhook to handle follow events
+      if (path === '/webhook' && request.method === 'POST') {
+        const body = await request.json();
+        const events = body.events || [];
+
+        for (const event of events) {
+          if (event.type === 'follow') {
+            const userId = event.source.userId;
+            if (userId) {
+              let recipientIds = await env.ROOM_BOOKINGS_KV.get('recipient_ids', 'json') || [];
+              if (!Array.isArray(recipientIds)) recipientIds = [];
+              if (!recipientIds.includes(userId)) {
+                recipientIds.push(userId);
+                await env.ROOM_BOOKINGS_KV.put('recipient_ids', JSON.stringify(recipientIds));
+              }
+            }
+          }
+        }
+        return new Response('OK', { status: 200 });
+      }
+
+      // Endpoint for admin to get all recipient IDs
+      if (path === '/recipients' && request.method === 'GET') {
+        const recipientIds = await env.ROOM_BOOKINGS_KV.get('recipient_ids', 'json') || [];
+        return new Response(JSON.stringify(recipientIds), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
       // The /webhook endpoint for replying to user messages has been intentionally removed.
 
       return new Response(JSON.stringify({ error: `Route not found` }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
