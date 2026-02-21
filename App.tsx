@@ -15,7 +15,7 @@ const App: React.FC = () => {
 
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
     const newToast: ToastMessage = {
-      id: Date.now(),
+      id: Date.now() + Math.random(),
       message,
       type,
     };

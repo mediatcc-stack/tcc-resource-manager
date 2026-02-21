@@ -3,10 +3,6 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, X-API-Key',
 };
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, X-API-Key',
-};
 
 // --- LINE Messaging API Functions ---
 // This function sends a push notification to the configured RECIPIENT_ID.
@@ -63,7 +59,9 @@ const withApiKeyAuth = (request, env) => {
 // --- Main Worker Logic ---
 export default {
   async fetch(request, env, ctx) {
-    if (request.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+        if (request.method === 'OPTIONS') {
+      return new Response('OK', { headers: corsHeaders, status: 200 });
+    }
     const url = new URL(request.url);
     const path = url.pathname;
 

@@ -10,11 +10,14 @@ export interface WorkerStatus {
     recipientIdSet: boolean;
 }
 
-const getApiHeaders = () => ({
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'X-API-Key': import.meta.env.VITE_API_SECRET_KEY,
-});
+const getApiHeaders = () => {
+    console.log('API Key:', import.meta.env.VITE_API_SECRET_KEY); // Temporary debug log
+    return {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-API-Key': import.meta.env.VITE_API_SECRET_KEY,
+    };
+};
 
 const handleResponse = async (response: Response, errorMessagePrefix: string): Promise<any> => {
     if (!response.ok) {
