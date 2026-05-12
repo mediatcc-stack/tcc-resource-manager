@@ -26,6 +26,18 @@ const getRoomStatusInfo = (room: Room, roomBookings: Booking[]) => {
 };
 
 
+const ROOM_METADATA: Record<string, { bgColor: string, textColor: string, icon: string }> = {
+  'ห้องประชุมธีรธรรมานันท์': { bgColor: '#E1F5EE', textColor: '#0F6E56', icon: '🍵' },
+  'ห้องประชุมเฉลิมพระเกียรติ': { bgColor: '#E6F1FB', textColor: '#185FA5', icon: '🏛️' },
+  'ห้องประชุมมูลนิธิฯ': { bgColor: '#EAF3DE', textColor: '#3B6D11', icon: '🌱' },
+  'ห้องประชุมสำเภาทอง': { bgColor: '#FAEEDA', textColor: '#854F0B', icon: '🚢' },
+  'ห้องประชุมไพโรจน์ฯ': { bgColor: '#EEEDFE', textColor: '#534AB7', icon: '📘' },
+  'ห้องงานสื่อฯ 421': { bgColor: '#E1F5EE', textColor: '#085041', icon: '📽️' },
+  'ห้อง CVM': { bgColor: '#F1EFE8', textColor: '#444441', icon: '💻' },
+  'ลานโดมอเนกประสงค์': { bgColor: '#FAEEDA', textColor: '#633806', icon: '🌳' },
+  'หอประชุมประทีปฯ': { bgColor: '#F1EFE8', textColor: '#2C2C2A', icon: '🎓' },
+};
+
 const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNavigateToMyBookings, onQuickBook }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -33,6 +45,25 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
   const [modalOpen, setModalOpen] = useState(false);
   const [modalBookings, setModalBookings] = useState<Booking[]>([]);
   const [modalRoom, setModalRoom] = useState<Room | null>(null);
+
+  // Calculate Popular Rooms
+  const popularRooms = useMemo(() => {
+    const counts: Record<string, number> = {};
+    bookings.forEach(b => {
+      if (b.status === 'จองแล้ว') {
+        counts[b.roomName] = (counts[b.roomName] || 0) + 1;
+      }
+    });
+
+    let maxCount = 0;
+    Object.values(counts).forEach(count => {
+      if (count > maxCount) maxCount = count;
+    });
+
+    if (maxCount < 3) return [];
+
+    return Object.keys(counts).filter(name => counts[name] === maxCount);
+  }, [bookings]);
 
   const handleDayClick = (dateStr: string) => {
     setSelectedDate(dateStr);
@@ -195,18 +226,45 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
               const isAvailable = room.status === 'available';
               const roomBookings = bookings.filter(b => b.roomName === room.name && b.date === selectedDate && b.status === 'จองแล้ว');
               const statusInfo = getRoomStatusInfo(room, roomBookings);
+              const meta = ROOM_METADATA[room.name] || { bgColor: '#f1f5f9', textColor: '#475569', icon: '🏢' };
+              const isPopular = popularRooms.includes(room.name);
 
               return (
                 <div key={room.id}
-                  className={`flex flex-col bg-white rounded-[2rem] border-2 transition-all duration-300 group relative
-                    ${isAvailable ? 'border-slate-100 hover:border-[#0D448D] hover:shadow-2xl hover:-translate-y-2 shadow-sm' : 'border-gray-100 bg-gray-50/50 opacity-60 cursor-default shadow-none'}`}>
+                  className={`flex flex-col bg-white rounded-[2.5rem] border transition-all duration-300 group relative overflow-hidden
+                    ${isAvailable ? 'border-slate-100 hover:border-[#0D448D]/20 hover:shadow-2xl hover:-translate-y-2 shadow-lg shadow-slate-200/50' : 'border-gray-100 bg-gray-50/50 opacity-60 cursor-default shadow-none'}`}>
                   
-                  <div className="p-6 flex flex-col h-full">
-                    <h3 className="text-lg font-bold text-gray-800 leading-snug break-words mb-4 flex-grow">{room.name}</h3>
+                  {/* Banner / Header */}
+                  <div 
+                    className="h-32 flex items-center justify-center relative overflow-hidden transition-transform group-hover:scale-105 duration-500"
+                    style={{ backgroundColor: meta.bgColor }}
+                  >
+                    <span 
+                      className="text-6xl transition-transform group-hover:scale-110 duration-500"
+                      style={{ color: meta.textColor }}
+                    >
+                      {meta.icon}
+                    </span>
                     
-                    <div className="flex items-center gap-2 mb-5">
-                        <span className="text-xl">{statusInfo.icon}</span>
-                        <span className={`text-sm font-bold ${statusInfo.textColor}`}>
+                    {isPopular && isAvailable && (
+                      <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm flex items-center gap-1 border border-green-100 animate-bounce">
+                        <span className="text-xs font-black text-green-600 uppercase tracking-tighter">ยอดนิยม</span>
+                        <span className="text-xs">🔥</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-8 flex flex-col h-full relative">
+                    <h3 className="text-xl font-black text-slate-800 leading-tight mb-4 flex-grow line-clamp-2">
+                       {room.name}
+                    </h3>
+                    
+                    <div className="flex items-center gap-2.5 mb-8">
+                        <div className={`w-2.5 h-2.5 rounded-full ${
+                          room.status === 'closed' ? 'bg-red-400' : 
+                          roomBookings.length > 0 ? 'bg-amber-400' : 'bg-emerald-400'
+                        } shadow-[0_0_8px_rgba(0,0,0,0.1)]`}></div>
+                        <span className={`text-[11px] font-bold uppercase tracking-widest ${statusInfo.textColor}`}>
                             {statusInfo.text}
                         </span>
                     </div>
@@ -215,14 +273,14 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
                       <Button 
                         onClick={() => handleShowRoomDetails(room)}
                         variant="primary"
-                        className="w-full mt-auto"
+                        className="w-full mt-auto py-4 rounded-2xl shadow-lg hover:shadow-blue-200 transition-all active:scale-95"
                       >
                         ดูรายละเอียด / จอง
                       </Button>
                     )}
                     {!isAvailable && (
-                      <div className="w-full text-center bg-gray-200 text-gray-400 py-3 rounded-xl font-bold text-sm mt-auto">
-                        ไม่สามารถจองได้
+                      <div className="w-full text-center bg-slate-100 text-slate-400 py-4 rounded-2xl font-bold text-xs mt-auto">
+                        ปิดปรับปรุงชั่วคราว
                       </div>
                     )}
                   </div>
