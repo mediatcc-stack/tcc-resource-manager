@@ -55,6 +55,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     endTime: '',
     isMultiDay: false,
     endDate: currentDate,
+    roomArrangement: '',
+    roomArrangementComment: '',
   });
 
   const [error, setError] = useState('');
@@ -97,6 +99,10 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
             endTime: bookingToEdit.endTime,
             isMultiDay: bookingToEdit.isMultiDay || false,
             endDate: endDateForForm,
+            roomArrangement: bookingToEdit.roomArrangement || '',
+            roomArrangementComment: bookingToEdit.roomArrangement?.startsWith('other:')
+              ? bookingToEdit.roomArrangement.slice(6)
+              : '',
         });
     } else {
         setSelectedRoomIds([room.id]);
@@ -235,13 +241,19 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
       // Reset loopDate for each room to avoid compounding date increments
       const loopStartDate = new Date(firstDate);
       for (let d = loopStartDate; d <= lastDate; d.setDate(d.getDate() + 1)) {
+          // รวม roomArrangement: ถ้าเลือก "อื่นๆ" ให้เก็บเป็น "other:<comment>"
+          const finalArrangement = formData.roomArrangement === 'other'
+            ? `other:${formData.roomArrangementComment}`
+            : formData.roomArrangement;
+
           bookingsToCreate.push({ 
               ...formData, 
               roomName,
               date: d.toISOString().split('T')[0], 
               groupId,
               dateRange,
-              isMultiDay: formData.isMultiDay
+              isMultiDay: formData.isMultiDay,
+              roomArrangement: finalArrangement || undefined,
           });
       }
     }
@@ -416,6 +428,73 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
                 <p className="mt-2 text-[10px] text-gray-400 font-bold">* สามารถเลือกได้ทั้งสองอย่างหากเป็นรูปแบบไฮบริด</p>
               </FormField>
             </div>
+
+            {/* ── รูปแบบการจัดห้องประชุม ── */}
+            <FormField label="รูปแบบการจัดห้องประชุม" icon="🪑">
+              <div className="space-y-2">
+                {[
+                  {
+                    value: 'classroom',
+                    label: 'จัดแบบห้องเรียนปกติ',
+                    desc: 'ผู้เข้าประชุมทุกคนหันหน้าเข้าหาผู้พูดเพียงคนเดียว',
+                  },
+                  {
+                    value: 'u-shape',
+                    label: 'จัดแบบตัว U',
+                    desc: 'ประธานอยู่หัวโต๊ะ ผู้เข้าร่วมล้อมรอบเป็นรูปตัว U',
+                  },
+                  {
+                    value: 'other',
+                    label: 'อื่นๆ',
+                    desc: 'ระบุเพิ่มเติมในช่องด้านล่าง',
+                  },
+                ].map((opt) => {
+                  const isSelected = formData.roomArrangement === opt.value;
+                  return (
+                    <label
+                      key={opt.value}
+                      className={`flex items-start gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all select-none
+                        ${isSelected ? 'border-blue-500 bg-blue-50 shadow-sm' : 'border-gray-100 bg-white hover:border-blue-200 hover:bg-blue-50/40'}`}
+                    >
+                      <input
+                        type="radio"
+                        name="roomArrangement"
+                        value={opt.value}
+                        checked={isSelected}
+                        onChange={() => {
+                          isDirty.current = true;
+                          setFormData(prev => ({
+                            ...prev,
+                            roomArrangement: opt.value,
+                            roomArrangementComment: opt.value !== 'other' ? '' : prev.roomArrangementComment,
+                          }));
+                        }}
+                        className="h-4 w-4 mt-0.5 shrink-0 accent-blue-600"
+                      />
+                      <div>
+                        <p className="text-sm font-bold text-gray-800">{opt.label}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{opt.desc}</p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {/* กล่องหมายเหตุ แสดงเฉพาะเมื่อเลือก "อื่นๆ" */}
+              {formData.roomArrangement === 'other' && (
+                <textarea
+                  rows={2}
+                  value={formData.roomArrangementComment}
+                  onChange={(e) => {
+                    isDirty.current = true;
+                    setFormData(prev => ({ ...prev, roomArrangementComment: e.target.value }));
+                  }}
+                  className={`${inputClasses} mt-3`}
+                  placeholder="โปรดระบุรูปแบบการจัดห้องที่ต้องการ..."
+                />
+              )}
+              <p className="mt-2 text-[10px] text-gray-400 font-bold">* ไม่บังคับ — ทิ้งว่างได้หากไม่มีความต้องการพิเศษ</p>
+            </FormField>
           </fieldset>
           
           <fieldset className="space-y-6 p-6 border-2 border-gray-100 rounded-3xl">
