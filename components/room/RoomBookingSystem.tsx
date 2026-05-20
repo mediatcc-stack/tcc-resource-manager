@@ -270,12 +270,28 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
                   dateRange = `${startDateFormat} - ${formatDate(lastDate)}`;
               }
 
-              const notifyMessage = `จองหลายรายการ: ${roomNames}\n🕒 ${dateRange} | ${firstBooking.startTime} - ${firstBooking.endTime} น.\n- ${firstBooking.purpose}\n\n👤 ผู้จอง: ${firstBooking.bookerName}`;
+              const arrangementLabel = (a?: string) => {
+                if (!a) return null;
+                if (a === 'classroom') return 'แบบห้องเรียนปกติ';
+                if (a === 'u-shape') return 'แบบตัว U';
+                if (a.startsWith('other:')) return `อื่นๆ — ${a.slice(6)}`;
+                return null;
+              };
+              const multiArrangement = arrangementLabel(firstBooking.roomArrangement);
+              const notifyMessage = `จองหลายรายการ: ${roomNames}\n🕒 ${dateRange} | ${firstBooking.startTime} - ${firstBooking.endTime} น.\n- ${firstBooking.purpose}${multiArrangement ? `\n🪑 จัดห้อง: ${multiArrangement}` : ''}\n\n👤 ผู้จอง: ${firstBooking.bookerName}`;
               await sendLineNotification(notifyMessage);
           } else { // Single booking
               const booking = createdBookings[0];
               const bookingDate = new Date(booking.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
-              const notifyMessage = `${booking.roomName}\n🕒 ${bookingDate} | ${booking.startTime} - ${booking.endTime} น.\n- ${booking.purpose}\n\n👤 ผู้จอง: ${booking.bookerName}`;
+              const getArrangementLabel = (a?: string) => {
+                if (!a) return null;
+                if (a === 'classroom') return 'แบบห้องเรียนปกติ';
+                if (a === 'u-shape') return 'แบบตัว U';
+                if (a.startsWith('other:')) return `อื่นๆ — ${a.slice(6)}`;
+                return null;
+              };
+              const arrangementText = getArrangementLabel(booking.roomArrangement);
+              const notifyMessage = `${booking.roomName}\n🕒 ${bookingDate} | ${booking.startTime} - ${booking.endTime} น.\n- ${booking.purpose}${arrangementText ? `\n🪑 จัดห้อง: ${arrangementText}` : ''}\n\n👤 ผู้จอง: ${booking.bookerName}`;
               await sendLineNotification(notifyMessage);
           }
       } catch (e) {
