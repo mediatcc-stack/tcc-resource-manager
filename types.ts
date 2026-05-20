@@ -28,6 +28,7 @@ export interface Booking {
   isMultiDay: boolean;
   dateRange?: string;
   reminderSent?: boolean;
+  roomArrangement?: string;       // รูปแบบการจัดห้องประชุม เช่น 'classroom' | 'u-shape' | 'other:<comment>'
 }
 
 export enum BorrowStatus {
