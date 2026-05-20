@@ -149,7 +149,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
         <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
 
           {/* ── Calendar ─────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 h-fit sticky top-20">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 h-fit lg:sticky lg:top-20">
             <h2 className="text-base font-bold text-[#0D448D] mb-5 flex items-center gap-2">
               <span className="text-xl">📅</span> ปฏิทินการใช้ห้อง
             </h2>
@@ -265,7 +265,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
             </div>
 
             {/* Room grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
               {filteredRooms.map(room => {
                 const meta = ROOM_METADATA[room.name];
                 const isAvailable = room.status === 'available';
@@ -283,7 +283,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
                   >
                     {/* Banner */}
                     <div
-                      className="h-20 flex items-center justify-center relative"
+                      className="h-14 md:h-20 flex items-center justify-center relative"
                       style={{ backgroundColor: meta?.bgColor ?? '#374151' }}
                     >
                       <span className="text-4xl opacity-25">🏢</span>
