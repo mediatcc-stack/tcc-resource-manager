@@ -59,6 +59,15 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
                                         <div className="pl-4 mt-1 border-l-2 border-blue-100 ml-1 space-y-1">
                                            <p className="text-xs text-gray-700"><strong className="font-semibold text-gray-500">เรื่อง:</strong> {booking.purpose}</p>
                                            <p className="text-xs text-gray-600"><strong className="font-semibold text-gray-500">ผู้จอง:</strong> {booking.bookerName}</p>
+                                           {booking.roomArrangement && (
+                                             <p className="text-xs text-gray-600">
+                                               <strong className="font-semibold text-gray-500">🪑 จัดห้อง:</strong>{' '}
+                                               {booking.roomArrangement === 'classroom' && 'แบบห้องเรียนปกติ'}
+                                               {booking.roomArrangement === 'u-shape' && 'แบบตัว U'}
+                                               {booking.roomArrangement?.startsWith('other:') && `อื่นๆ — ${booking.roomArrangement.slice(6)}`}
+                                               {booking.roomArrangement === 'other' && 'อื่นๆ'}
+                                             </p>
+                                           )}
                                         </div>
                                     </div>
                                 ))}
