@@ -279,16 +279,27 @@ export default {
         const body = await request.json();
         const events = body.events || [];
         for (const event of events) {
-          if (event.type === 'follow') {
-            const userId = event.source.userId;
-            if (userId) {
-              let recipientIds = await env.ROOM_BOOKINGS_KV.get('recipient_ids', 'json') || [];
-              if (!Array.isArray(recipientIds)) recipientIds = [];
-              if (!recipientIds.includes(userId)) {
-                recipientIds.push(userId);
-                await env.ROOM_BOOKINGS_KV.put('recipient_ids', JSON.stringify(recipientIds));
-              }
+
+          // Helper — เพิ่ม id เข้า recipient_ids ถ้ายังไม่มี
+          const saveId = async (id) => {
+            if (!id) return;
+            let ids = await env.ROOM_BOOKINGS_KV.get('recipient_ids', 'json') || [];
+            if (!Array.isArray(ids)) ids = [];
+            if (!ids.includes(id)) {
+              ids.push(id);
+              await env.ROOM_BOOKINGS_KV.put('recipient_ids', JSON.stringify(ids));
+              console.log(`[Webhook] Saved new recipient: ${id} (type: ${event.type})`);
             }
+          };
+
+          if (event.type === 'follow') {
+            // คนแอดเพื่อน Bot → เก็บ userId
+            await saveId(event.source.userId);
+          }
+
+          if (event.type === 'join') {
+            // Bot ถูกเชิญเข้ากลุ่ม → เก็บ groupId
+            await saveId(event.source.groupId);
           }
         }
       } catch (e) {
