@@ -323,6 +323,103 @@ export default {
               console.log(`[Webhook] Removed recipient: ${removeId} (user unfollowed)`);
             }
           }
+
+          // ── @Mention Handler ──────────────────────────────────────────────
+          // ทริกเกอร์เฉพาะเมื่อมีคน @Bot ในกลุ่มเท่านั้น
+          // ใช้ Reply Token → ไม่กิน Push quota เลย
+          if (event.type === 'message' && event.message?.type === 'text') {
+            const isBotMentioned = event.message.mention?.mentionees?.some(m => m.isSelf === true);
+
+            if (isBotMentioned) {
+              const text = event.message.text.toLowerCase();
+
+              // คำสั่ง: @Bot รายงาน / จอง / จองพรุ่งนี้ / จอง 16-6-69
+              if (text.includes('รายงาน') || text.includes('จอง')) {
+
+                // ── แปลงวันที่จากข้อความ ──────────────────────────────────
+                const nowTH = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
+
+                const parseDate = (t) => {
+                  if (t.includes('พรุ่งนี้') || t.includes('พรุ่ง')) {
+                    const d = new Date(nowTH); d.setDate(d.getDate() + 1); return d;
+                  }
+                  if (t.includes('มะรืน') || t.includes('มะเรืน')) {
+                    const d = new Date(nowTH); d.setDate(d.getDate() + 2); return d;
+                  }
+                  // รูปแบบ DD-M-YY, DD-MM-YY, DD/M/YY, DD.M.YY ฯลฯ
+                  const match = t.match(/(\d{1,2})[-\/\.](\d{1,2})[-\/\.](\d{2,4})/);
+                  if (match) {
+                    let [_, dd, mm, yy] = match;
+                    if (yy.length === 2) yy = '25' + yy;           // 69 → 2569
+                    if (parseInt(yy) > 2500) yy = String(parseInt(yy) - 543); // พ.ศ. → ค.ศ.
+                    return new Date(parseInt(yy), parseInt(mm) - 1, parseInt(dd));
+                  }
+                  return nowTH; // default = วันนี้
+                };
+
+                const targetDate = parseDate(text);
+                const targetISO = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+                const targetDisplay = targetDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+
+                // label วันสำหรับหัวข้อ
+                const todayISO0 = `${nowTH.getFullYear()}-${String(nowTH.getMonth() + 1).padStart(2, '0')}-${String(nowTH.getDate()).padStart(2, '0')}`;
+                const tom = new Date(nowTH); tom.setDate(nowTH.getDate() + 1);
+                const tomISO = `${tom.getFullYear()}-${String(tom.getMonth() + 1).padStart(2, '0')}-${String(tom.getDate()).padStart(2, '0')}`;
+                const dayAfter = new Date(nowTH); dayAfter.setDate(nowTH.getDate() + 2);
+                const dayAfterISO = `${dayAfter.getFullYear()}-${String(dayAfter.getMonth() + 1).padStart(2, '0')}-${String(dayAfter.getDate()).padStart(2, '0')}`;
+
+                let dayLabel = targetDisplay;
+                if (targetISO === todayISO0) dayLabel += ' (วันนี้)';
+                else if (targetISO === tomISO) dayLabel += ' (พรุ่งนี้)';
+                else if (targetISO === dayAfterISO) dayLabel += ' (มะรืนนี้)';
+
+                // ── ดึงข้อมูลจอง ──────────────────────────────────────────
+                const bookings = await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json') || [];
+                const dayBookings = bookings
+                  .filter(b => b.date === targetISO && b.status === 'จองแล้ว')
+                  .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+                const arrangementLabel = (a) => {
+                  if (!a) return null;
+                  if (a === 'classroom') return 'จัดโต๊ะรูปแบบคลาสรูม';
+                  if (a === 'u-shape') return 'จัดโต๊ะรูปแบบตัวยู U';
+                  if (a.startsWith('other:')) return `จัดโต๊ะ: ${a.slice(6)}`;
+                  return null;
+                };
+
+                let replyText;
+                if (dayBookings.length === 0) {
+                  replyText = `📅 รายการจองวันนี้\n${dayLabel}\n──────────────\nไม่มีการจองครับ`;
+                } else {
+                  replyText = `📅 รายการจองวันนี้ (${dayBookings.length} รายการ)\n`;
+                  dayBookings.forEach((b, i) => {
+                    const arr = arrangementLabel(b.roomArrangement);
+                    replyText += `\n${b.date} | ${b.startTime}–${b.endTime} น.\n`;
+                    replyText += `🏢 ${b.roomName}\n`;
+                    replyText += `📝 ${b.purpose}\n`;
+                    replyText += `👤 ${b.bookerName}\n`;
+                    if (arr) replyText += `🪑 ${arr}\n`;
+                    if (i < dayBookings.length - 1) replyText += '\n━━━━━━\n';
+                  });
+                }
+
+                await fetch('https://api.line.me/v2/bot/message/reply', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
+                  },
+                  body: JSON.stringify({
+                    replyToken: event.replyToken,
+                    messages: [{ type: 'text', text: replyText }],
+                  }),
+                });
+
+                console.log(`[Mention] Replied with ${dayBookings.length} bookings for ${targetISO}`);
+              }
+            }
+          }
+          // ── End Mention Handler ───────────────────────────────────────────
         }
       } catch (e) {
         console.error(`[Webhook Error] ${e.message}`);
