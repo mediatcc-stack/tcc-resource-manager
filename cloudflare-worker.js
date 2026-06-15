@@ -301,6 +301,28 @@ export default {
             // Bot ถูกเชิญเข้ากลุ่ม → เก็บ groupId
             await saveId(event.source.groupId);
           }
+
+          if (event.type === 'leave') {
+            // Bot ถูกเตะออกจากกลุ่ม → ลบ groupId ออกจาก KV อัตโนมัติ
+            const removeId = event.source.groupId;
+            if (removeId) {
+              let ids = await env.ROOM_BOOKINGS_KV.get('recipient_ids', 'json') || [];
+              ids = ids.filter(id => id !== removeId);
+              await env.ROOM_BOOKINGS_KV.put('recipient_ids', JSON.stringify(ids));
+              console.log(`[Webhook] Removed recipient: ${removeId} (bot left group)`);
+            }
+          }
+
+          if (event.type === 'unfollow') {
+            // คน unfollow Bot → ลบ userId ออกจาก KV อัตโนมัติ
+            const removeId = event.source.userId;
+            if (removeId) {
+              let ids = await env.ROOM_BOOKINGS_KV.get('recipient_ids', 'json') || [];
+              ids = ids.filter(id => id !== removeId);
+              await env.ROOM_BOOKINGS_KV.put('recipient_ids', JSON.stringify(ids));
+              console.log(`[Webhook] Removed recipient: ${removeId} (user unfollowed)`);
+            }
+          }
         }
       } catch (e) {
         console.error(`[Webhook Error] ${e.message}`);
