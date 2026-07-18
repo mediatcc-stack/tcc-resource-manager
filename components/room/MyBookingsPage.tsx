@@ -3,7 +3,7 @@ import { Booking } from '../../types';
 import Button from '../shared/Button';
 import { ROOMS } from '../../constants';
 import Modal from '../shared/Modal';
-import { Target, Users, Monitor, Package, Paperclip, Building2, Calendar, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Target, Users, Monitor, Package, Paperclip, Building2, Calendar, AlertTriangle, AlertCircle, ClipboardList } from 'lucide-react';
 
 interface MyBookingsPageProps {
   bookings: Booking[];
