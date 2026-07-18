@@ -11,26 +11,52 @@
     <style>
       body {
         font-family: 'Prompt', sans-serif;
-        background-color: #f8fafc; /* bg-slate-50 */
+        background-color: #f8fafc;
         margin: 0;
-        color: #1e293b; /* text-slate-800 */
+        color: #1e293b;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
       }
       .text-shadow-md {
         text-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
       }
+      /* Fade in from bottom */
       @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
+        from { opacity: 0; transform: translateY(12px); }
+        to   { opacity: 1; transform: translateY(0); }
       }
       .animate-fade-in {
         animation: fadeIn 0.4s ease-out forwards;
       }
+      /* Zoom in */
       @keyframes zoomIn {
-        from { opacity: 0; transform: scale(0.95); }
-        to { opacity: 1; transform: scale(1); }
+        from { opacity: 0; transform: scale(0.96); }
+        to   { opacity: 1; transform: scale(1); }
       }
       .animate-zoom-in {
-          animation: zoomIn 0.3s ease-out forwards;
+        animation: zoomIn 0.3s ease-out forwards;
+      }
+      /* Slide in from right (toast) */
+      @keyframes slideInRight {
+        from { opacity: 0; transform: translateX(60px); }
+        to   { opacity: 1; transform: translateX(0); }
+      }
+      .animate-slide-in-right {
+        animation: slideInRight 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      }
+      /* Custom scrollbar */
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: #f1f5f9; }
+      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      /* Smooth card transitions */
+      .card-hover {
+        transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+      }
+      .card-hover:hover {
+        box-shadow: 0 12px 28px rgba(13,68,141,0.14);
+        transform: translateY(-4px);
+        border-color: #0D448D !important;
       }
     </style>
 <script type="importmap">

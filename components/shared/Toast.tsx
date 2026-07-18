@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { ToastMessage } from '../../types';
 
@@ -7,53 +6,116 @@ interface ToastProps {
   onRemove: (id: number) => void;
 }
 
+const typeConfig = {
+  success: {
+    bg: '#f0fdf4',
+    border: '#86efac',
+    iconBg: '#dcfce7',
+    iconColor: '#16a34a',
+    textColor: '#15803d',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    ),
+  },
+  error: {
+    bg: '#fff1f2',
+    border: '#fca5a5',
+    iconBg: '#fee2e2',
+    iconColor: '#dc2626',
+    textColor: '#b91c1c',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    ),
+  },
+};
+
 const Toast: React.FC<ToastProps> = ({ toast, onRemove }) => {
   const [isFadingOut, setIsFadingOut] = useState(false);
+  const config = typeConfig[toast.type];
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      handleRemove();
-    }, 4000); // Auto remove after 4 seconds
-
-    return () => {
-      clearTimeout(timer);
-    };
+    const timer = setTimeout(() => handleRemove(), 4000);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleRemove = () => {
     setIsFadingOut(true);
-    setTimeout(() => {
-      onRemove(toast.id);
-    }, 300); // Match fade-out duration
+    setTimeout(() => onRemove(toast.id), 350);
   };
-  
-  const baseClasses = "flex items-center w-full max-w-xs p-4 my-2 text-gray-500 bg-white rounded-lg shadow-lg transition-all duration-300";
-  const typeClasses = {
-    success: 'text-green-800 bg-green-50',
-    error: 'text-red-800 bg-red-50',
-  };
-  const iconClasses = {
-      success: '✅',
-      error: '❌'
-  }
 
   return (
-    <div 
-        className={`${baseClasses} ${typeClasses[toast.type]} ${isFadingOut ? 'opacity-0 translate-x-full' : 'opacity-100 translate-x-0'}`}
-        role="alert"
+    <div
+      role="alert"
+      className={isFadingOut ? '' : 'animate-slide-in-right'}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        padding: '12px 14px',
+        borderRadius: '14px',
+        background: config.bg,
+        border: `1.5px solid ${config.border}`,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.10)',
+        minWidth: '280px',
+        maxWidth: '360px',
+        transition: 'opacity 0.35s ease, transform 0.35s ease',
+        opacity: isFadingOut ? 0 : 1,
+        transform: isFadingOut ? 'translateX(60px)' : 'translateX(0)',
+        cursor: 'default',
+      }}
     >
-      <div className={`inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg`}>
-        {iconClasses[toast.type]}
-      </div>
-      <div className="ml-3 text-sm font-semibold">{toast.message}</div>
-      <button 
-        type="button" 
-        className="ml-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex h-8 w-8" 
-        onClick={handleRemove} 
-        aria-label="ปิด"
+      {/* ไอคอน */}
+      <div
+        style={{
+          flexShrink: 0,
+          width: '32px',
+          height: '32px',
+          borderRadius: '10px',
+          background: config.iconBg,
+          color: config.iconColor,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
       >
-        <span className="sr-only">ปิด</span>
-        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"></path></svg>
+        {config.icon}
+      </div>
+
+      {/* ข้อความ */}
+      <div style={{ flex: 1, fontSize: '0.85rem', fontWeight: 600, color: config.textColor, lineHeight: '1.4' }}>
+        {toast.message}
+      </div>
+
+      {/* ปุ่มปิด */}
+      <button
+        type="button"
+        onClick={handleRemove}
+        aria-label="ปิด"
+        style={{
+          flexShrink: 0,
+          width: '28px',
+          height: '28px',
+          borderRadius: '8px',
+          background: 'transparent',
+          border: 'none',
+          color: config.iconColor,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: 0.6,
+          transition: 'opacity 0.15s',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+        onMouseLeave={e => (e.currentTarget.style.opacity = '0.6')}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="w-4 h-4">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
       </button>
     </div>
   );

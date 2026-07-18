@@ -7,27 +7,87 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
 }
 
-const Button: React.FC<ButtonProps> = ({ children, variant = 'primary', size = 'md', loading = false, className = '', ...props }) => {
-  const baseClasses = 'font-semibold rounded-xl shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:transform-none';
+// สีตาม TCC Brand Identity
+const variantStyles: Record<string, React.CSSProperties> = {
+  primary: {
+    background: 'linear-gradient(135deg, #0D448D 0%, #1a5ba8 100%)',
+    color: 'white',
+    border: 'none',
+    boxShadow: '0 2px 8px rgba(13,68,141,0.30)',
+  },
+  secondary: {
+    background: '#ffffff',
+    color: '#0D448D',
+    border: '1.5px solid #c7d9f5',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+  },
+  danger: {
+    background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
+    color: 'white',
+    border: 'none',
+    boxShadow: '0 2px 8px rgba(220,38,38,0.25)',
+  },
+  nav: {
+    background: '#eff6ff',
+    color: '#0D448D',
+    border: '1px solid #bfdbfe',
+    boxShadow: 'none',
+  },
+  stats: {
+    background: 'white',
+    color: '#0D448D',
+    border: '1.5px solid #0D448D',
+    fontWeight: '700',
+    boxShadow: 'none',
+  },
+};
 
-  const sizeClasses = {
-    md: 'px-6 py-3 text-sm',
-    sm: 'px-4 py-2 text-xs',
-  };
+const hoverStyles: Record<string, React.CSSProperties> = {
+  primary: { background: 'linear-gradient(135deg, #0b3a77 0%, #1650a0 100%)', transform: 'translateY(-1px)', boxShadow: '0 4px 14px rgba(13,68,141,0.40)' },
+  secondary: { background: '#f0f6ff', transform: 'translateY(-1px)' },
+  danger: { background: 'linear-gradient(135deg, #b91c1c 0%, #991b1b 100%)', transform: 'translateY(-1px)', boxShadow: '0 4px 14px rgba(220,38,38,0.35)' },
+  nav: { background: '#dbeafe' },
+  stats: { background: '#eff6ff' },
+};
 
-  const variantClasses = {
-    primary: 'bg-blue-800 text-white hover:bg-blue-700 focus:ring-blue-500 hover:-translate-y-0.5 shadow-lg disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none',
-    secondary: 'bg-white text-blue-800 border border-slate-300 hover:bg-slate-50 focus:ring-slate-400 focus:ring-offset-1 disabled:bg-gray-200 disabled:text-gray-400 disabled:border-gray-200',
-    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 hover:-translate-y-0.5 disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none',
-    nav: 'px-3 py-2 text-sm bg-blue-50 text-blue-800 hover:bg-blue-100 rounded-lg',
-    stats: 'px-4 py-2 text-sm border-2 border-blue-800 bg-white text-blue-800 hover:bg-blue-50 font-bold rounded-xl',
-  };
+const sizeClasses: Record<string, string> = {
+  md: 'px-5 py-2.5 text-sm',
+  sm: 'px-4 py-2 text-xs',
+};
 
+const Button: React.FC<ButtonProps> = ({
+  children,
+  variant = 'primary',
+  size = 'md',
+  loading = false,
+  className = '',
+  ...props
+}) => {
+  const [hovered, setHovered] = React.useState(false);
   const disabled = props.disabled || loading;
+
+  const baseStyle: React.CSSProperties = {
+    fontWeight: 600,
+    borderRadius: '12px',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    transition: 'all 0.2s ease',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    outline: 'none',
+    opacity: disabled ? 0.55 : 1,
+    ...(disabled ? {} : (hovered ? hoverStyles[variant] : variantStyles[variant])),
+    ...(!hovered ? variantStyles[variant] : {}),
+    ...(hovered && !disabled ? hoverStyles[variant] : {}),
+  };
 
   return (
     <button
-      className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}
+      className={`${sizeClasses[size]} ${className}`}
+      style={baseStyle}
+      onMouseEnter={() => !disabled && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       {...props}
       disabled={disabled}
     >
