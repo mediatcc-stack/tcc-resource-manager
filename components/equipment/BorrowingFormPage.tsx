@@ -77,7 +77,7 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
         <div className="max-w-4xl mx-auto animate-fade-in">
             <div className="bg-white p-6 md:p-10 rounded-2xl shadow-xl">
                  <div className="mb-8 pb-5 border-b border-gray-100">
-                    <h2 className="text-2xl font-bold text-[#0D448D] flex items-center gap-3">
+                    <h2 className="text-2xl font-bold text-primary flex items-center gap-3">
                         <span className="text-3xl">📋</span>
                         แบบฟอร์มขอยืมอุปกรณ์
                     </h2>
@@ -101,7 +101,7 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
                     {error && <p className="text-red-600 bg-red-50 p-4 rounded-lg font-semibold border border-red-200">⚠️ {error}</p>}
                     
                     <fieldset className="space-y-6 p-6 border-2 border-gray-100 rounded-3xl bg-gray-50/50">
-                        <legend className="px-4 text-lg font-black text-[#0D448D]">1. ข้อมูลผู้ยืมและวัตถุประสงค์</legend>
+                        <legend className="px-4 text-lg font-black text-primary">1. ข้อมูลผู้ยืมและวัตถุประสงค์</legend>
                         <FormField icon="🏢" label="หน่วยงาน / งาน" required>
                             <input type="text" name="borrowerName" placeholder="ระบุหน่วยงาน..." value={formData.borrowerName} onChange={handleInputChange} className={inputClasses} required />
                         </FormField>
@@ -114,7 +114,7 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
                     </fieldset>
                     
                     <fieldset className="space-y-6 p-6 border-2 border-gray-100 rounded-3xl">
-                        <legend className="px-4 text-lg font-black text-[#0D448D]">2. ระยะเวลาและอุปกรณ์</legend>
+                        <legend className="px-4 text-lg font-black text-primary">2. ระยะเวลาและอุปกรณ์</legend>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <ThaiDatePicker 
                                 label="วันที่เริ่มยืม" 

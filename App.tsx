@@ -119,12 +119,21 @@ import EquipmentSystem from './components/equipment/EquipmentSystem';
 import Navbar from './components/layout/Navbar';
 import { SystemType, ToastMessage } from './types';
 import ToastContainer from './components/shared/ToastContainer';
+import Modal from './components/shared/Modal';
+import Button from './components/shared/Button';
 
 
 const App: React.FC = () => {
-  
   const [toastMessages, setToastMessages] = useState<ToastMessage[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
+  
+  // โหลดสถานะ admin จาก sessionStorage เพื่อไม่ให้หลุดเมื่อรีเฟรช
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    return sessionStorage.getItem('isAdmin') === 'true';
+  });
+  
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
     const newToast: ToastMessage = {
@@ -139,39 +148,50 @@ const App: React.FC = () => {
     setToastMessages(prev => prev.filter(toast => toast.id !== id));
   }, []);
 
-  // ── ระบบ Login Admin ────────────────────────────────────────────────────────
-  // ⚠️  TODO: เปลี่ยนจาก prompt() เป็น Modal component เพื่อ UX ที่ดีกว่า
-  // ⚠️  TODO: เก็บ isAdmin ใน sessionStorage เพื่อไม่ให้หายเมื่อ refresh
-  // รหัสผ่านตรวจสอบกับ ADMIN_PASSWORD ใน Cloudflare Worker Settings
-  const handleAdminLogin = async () => {
+  // ── ระบบ Login/Logout Admin ──────────────────────────────────────────────────
+  const handleAdminToggle = () => {
     if (isAdmin) {
       setIsAdmin(false);
+      sessionStorage.removeItem('isAdmin');
       showToast('ออกจากโหมดเจ้าหน้าที่', 'success');
       return;
     }
-    const password = prompt('กรุณาใส่รหัสผ่านเจ้าหน้าที่:');
-    if (password) {
-      try {
-        const response = await fetch(`${WORKER_BASE_URL}/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password }),
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success) {
-            setIsAdmin(true);
-            showToast('เข้าสู่โหมดเจ้าหน้าที่สำเร็จ', 'success');
-          } else {
-            showToast('รหัสผ่านไม่ถูกต้อง', 'error');
-          }
+    setPassword('');
+    setIsLoginModalOpen(true);
+  };
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password) {
+      showToast('กรุณากรอกรหัสผ่าน', 'error');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${WORKER_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setIsAdmin(true);
+          sessionStorage.setItem('isAdmin', 'true');
+          setIsLoginModalOpen(false);
+          showToast('เข้าสู่โหมดเจ้าหน้าที่สำเร็จ', 'success');
         } else {
           showToast('รหัสผ่านไม่ถูกต้อง', 'error');
         }
-      } catch (error) {
-        console.error('Admin login error:', error);
-        showToast('เกิดข้อผิดพลาดในการเข้าสู่ระบบ', 'error');
+      } else {
+        showToast('รหัสผ่านไม่ถูกต้อง', 'error');
       }
+    } catch (error) {
+      console.error('Admin login error:', error);
+      showToast('เกิดข้อผิดพลาดในการเข้าสู่ระบบ', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -180,15 +200,60 @@ const App: React.FC = () => {
       <Navbar />
       <main className="main-content flex-1 p-4 md:p-8 w-full">
         <Routes>
-          <Route path="/"          element={<LandingPage onAdminLogin={handleAdminLogin} isAdmin={isAdmin} />} />
+          <Route path="/"          element={<LandingPage onAdminLogin={handleAdminToggle} isAdmin={isAdmin} />} />
           <Route path="/room"      element={<RoomBookingSystem showToast={showToast} isAdmin={isAdmin} />} />
           <Route path="/equipment" element={<EquipmentSystem showToast={showToast} isAdmin={isAdmin} />} />
           <Route path="*"          element={<Navigate to="/" replace />} />
         </Routes>
       </main>
       <ToastContainer messages={toastMessages} onRemove={removeToast} />
+
+      {/* ── Modal ล็อกอินเจ้าหน้าที่ ── */}
+      <Modal
+        isOpen={isLoginModalOpen}
+        onClose={() => !isSubmitting && setIsLoginModalOpen(false)}
+        title="🔑 เข้าสู่โหมดเจ้าหน้าที่ (Admin)"
+        size="sm"
+      >
+        <form onSubmit={handleLoginSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+              รหัสผ่านเจ้าหน้าที่
+            </label>
+            <input
+              type="password"
+              placeholder="กรุณากรอกรหัสผ่าน..."
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              disabled={isSubmitting}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-slate-800 placeholder-slate-400 font-medium"
+              autoFocus
+            />
+          </div>
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={isSubmitting}
+              onClick={() => setIsLoginModalOpen(false)}
+            >
+              ยกเลิก
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              loading={isSubmitting}
+            >
+              เข้าสู่ระบบ
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
 
 export default App;
+

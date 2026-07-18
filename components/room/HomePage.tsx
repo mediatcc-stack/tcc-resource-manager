@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Room, Booking } from '../../types';
 import BookingDetailsModal from './BookingDetailsModal';
 import Button from '../shared/Button';
+import { Calendar, Building2, Wrench, Users } from 'lucide-react';
 
 // ── ข้อมูลเสริมเกี่ยวกับแต่ละห้อง (capacity, equipment, type) ──────────────
 const ROOM_METADATA: Record<string, { capacity: number; equipment: string[]; type: string; bgColor: string }> = {
@@ -134,7 +135,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
               <div className="flex flex-wrap gap-4 mt-3">
                 {['เลือกวันที่', 'เลือกห้อง', 'กรอกแบบฟอร์ม'].map((s, i) => (
                   <span key={i} className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700">
-                    <span className="w-5 h-5 rounded-full bg-[#0D448D] text-white flex items-center justify-center text-[10px]">{i + 1}</span>
+                    <span className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px]">{i + 1}</span>
                     {s}
                   </span>
                 ))}
@@ -150,8 +151,8 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
 
           {/* ── Calendar ─────────────────────────────────────────── */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 h-fit lg:sticky lg:top-20">
-            <h2 className="text-base font-bold text-[#0D448D] mb-5 flex items-center gap-2">
-              <span className="text-xl">📅</span> ปฏิทินการใช้ห้อง
+            <h2 className="text-base font-bold text-primary mb-5 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-primary shrink-0" /> ปฏิทินการใช้ห้อง
             </h2>
 
             <div className="flex justify-between items-center mb-5">
@@ -160,9 +161,9 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
                 aria-label="เดือนก่อน"
                 className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-all active:scale-95"
               >
-                <svg className="w-4 h-4 text-[#0D448D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
               </button>
-              <h3 className="text-base font-bold text-[#0D448D]">
+              <h3 className="text-base font-bold text-primary">
                 {thaiMonths[currentMonth.getMonth()]} {currentMonth.getFullYear() + 543}
               </h3>
               <button
@@ -170,7 +171,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
                 aria-label="เดือนถัดไป"
                 className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-all active:scale-95"
               >
-                <svg className="w-4 h-4 text-[#0D448D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </button>
             </div>
 
@@ -198,7 +199,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
                       'rounded-xl p-1 flex flex-col items-center transition-all min-h-[52px] border',
                       !item.currentMonth ? 'opacity-0 pointer-events-none border-transparent' : '',
                       item.currentMonth && !booked && !selected ? 'border-transparent hover:border-sky-200 hover:bg-sky-50' : '',
-                      selected ? 'border-[#0D448D] bg-blue-50 shadow-sm' : '',
+                      selected ? 'border-primary bg-blue-50 shadow-sm' : '',
                       booked && !selected && item.currentMonth ? 'border-red-200 bg-red-50' : '',
                     ].join(' ')}
                   >
@@ -224,7 +225,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
                 {[
                   { colorClass: 'bg-emerald-500', label: 'วันนี้' },
                   { colorClass: 'bg-red-200 border border-red-300', label: 'มีการจอง' },
-                  { colorClass: 'bg-blue-50 border border-[#0D448D]', label: 'วันที่เลือก' },
+                  { colorClass: 'bg-blue-50 border border-primary', label: 'วันที่เลือก' },
                   { colorClass: 'bg-emerald-300 opacity-70', label: 'ว่าง' },
                 ].map((l, i) => (
                   <div key={i} className="flex items-center gap-1.5 text-[11px] text-gray-500 font-medium">
@@ -239,8 +240,8 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
           {/* ── Room List ────────────────────────────────────────────── */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-              <h2 className="text-base font-bold text-[#0D448D] flex items-center gap-2">
-                <span className="text-xl">🏢</span> เลือกห้องประชุม
+              <h2 className="text-base font-bold text-primary flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-primary shrink-0" /> เลือกห้องประชุม
               </h2>
               <span className="text-xs font-semibold text-gray-500 bg-gray-50 border border-gray-100 rounded-full px-3 py-1.5">
                 {selectedDateLabel}
@@ -255,7 +256,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
                   onClick={() => setActiveFilter(type)}
                   className={`text-xs font-bold px-3.5 py-1.5 rounded-full border transition-all ${
                     activeFilter === type
-                      ? 'bg-[#0D448D] text-white border-[#0D448D]'
+                      ? 'bg-primary text-white border-primary shadow-sm shadow-primary/10'
                       : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-700'
                   }`}
                 >
@@ -277,7 +278,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
                     key={room.id}
                     className={`rounded-2xl border overflow-hidden flex flex-col transition-all duration-200 ${
                       isAvailable
-                        ? 'border-gray-100 hover:border-[#0D448D] hover:shadow-lg hover:-translate-y-1'
+                        ? 'border-gray-100 hover:border-primary hover:shadow-lg hover:-translate-y-1'
                         : 'border-gray-100 opacity-55'
                     }`}
                   >
@@ -286,15 +287,15 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
                       className="h-14 md:h-20 flex items-center justify-center relative"
                       style={{ backgroundColor: meta?.bgColor ?? '#374151' }}
                     >
-                      <span className="text-4xl opacity-25">🏢</span>
+                      <Building2 className="w-12 h-12 text-white opacity-25" />
                       {meta && (
                         <span className="absolute top-2 left-2 text-[9px] font-bold bg-black/40 text-white/90 rounded-full px-2 py-0.5">
                           {meta.type}
                         </span>
                       )}
                       {room.status === 'closed' && (
-                        <span className="absolute top-2 right-2 text-[9px] font-bold bg-black/50 text-gray-300 rounded-full px-2 py-0.5">
-                          🔧 ปิดซ่อม
+                        <span className="absolute top-2 right-2 text-[9px] font-bold bg-black/50 text-gray-300 rounded-full px-2 py-0.5 flex items-center gap-1">
+                          <Wrench className="w-2.5 h-2.5" /> ปิดซ่อม
                         </span>
                       )}
                     </div>
@@ -305,8 +306,8 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
                       {/* Specs */}
                       {meta && (
                         <div className="flex flex-wrap gap-1.5 mb-3">
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-500 bg-gray-50 rounded-md px-2 py-0.5">
-                            👤 {meta.capacity} ที่นั่ง
+                          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 bg-gray-50 rounded-md px-2 py-0.5">
+                            <Users className="w-3 h-3 text-slate-400 shrink-0" /> {meta.capacity} ที่นั่ง
                           </span>
                           {meta.equipment.slice(0, 2).map(eq => (
                             <span key={eq} className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-500 bg-gray-50 rounded-md px-2 py-0.5">
@@ -326,7 +327,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
                       {isAvailable ? (
                         <button
                           onClick={() => handleShowRoomDetails(room)}
-                          className="mt-auto w-full bg-[#0D448D] hover:bg-[#0a357a] text-white text-xs font-bold py-2.5 rounded-xl transition-all active:scale-95"
+                          className="mt-auto w-full bg-primary hover:bg-primary-hover text-white text-xs font-bold py-2.5 rounded-xl transition-all active:scale-95 shadow-sm shadow-primary/5"
                         >
                           ดูรายละเอียด / จอง
                         </button>
@@ -343,7 +344,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
 
             {filteredRooms.length === 0 && (
               <div className="text-center py-16 text-gray-400">
-                <p className="text-5xl mb-3">🏢</p>
+                <Building2 className="w-16 h-16 text-slate-300 mx-auto mb-3" />
                 <p className="text-sm font-semibold">ไม่พบห้องในหมวดหมู่นี้</p>
               </div>
             )}
@@ -354,7 +355,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
         <div className="md:hidden fixed bottom-6 right-5 z-30">
           <button
             onClick={onQuickBook}
-            className="flex items-center gap-2 bg-[#0D448D] text-white px-5 py-3 rounded-2xl shadow-xl text-sm font-bold active:scale-95 transition-all"
+            className="flex items-center gap-2 bg-primary text-white px-5 py-3 rounded-2xl shadow-xl shadow-primary/20 text-sm font-bold active:scale-95 hover:bg-primary-hover transition-all"
           >
             <span className="text-lg font-black">+</span> จองห้องประชุม
           </button>

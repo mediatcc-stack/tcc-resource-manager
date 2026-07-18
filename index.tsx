@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { WORKER_BASE_URL } from './constants';
+import './index.css';
 
 // --- DEBUG CODE ---
 console.log("--- TCC App Bootloader v1.1 ---");

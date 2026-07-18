@@ -1,9 +1,9 @@
-
-
 import React, { useState, useMemo } from 'react';
 import { Booking } from '../../types';
 import Button from '../shared/Button';
 import { ROOMS } from '../../constants';
+import Modal from '../shared/Modal';
+import { Target, Users, Monitor, Package, Paperclip, Building2, Calendar, AlertTriangle, AlertCircle } from 'lucide-react';
 
 interface MyBookingsPageProps {
   bookings: Booking[];
@@ -21,14 +21,13 @@ const thaiMonths = ["มกราคม", "กุมภาพันธ์", "ม
 const formatThaiDateShort = (dateStr: string) => {
     if (!dateStr) return '';
     try {
-        // Assuming dateStr is 'YYYY-MM-DD'
         return new Date(dateStr).toLocaleDateString('th-TH', {
             day: 'numeric',
             month: 'short',
             year: 'numeric',
         });
     } catch (e) {
-        return dateStr; // Fallback for existing dd/mm/yyyy format
+        return dateStr;
     }
 };
 
@@ -44,88 +43,70 @@ const getStatusInfo = (status: Booking['status'], isToday: boolean) => {
   }
 };
 
-const DetailItem: React.FC<{icon: string, children: React.ReactNode}> = ({ icon, children }) => (
+const DetailItem: React.FC<{icon: React.ReactNode, children: React.ReactNode}> = ({ icon, children }) => (
     <div className="flex items-start gap-3 text-sm">
-        <span className="text-lg text-gray-500 mt-0.5">{icon}</span>
-        <div className="text-gray-800 break-words">{children}</div>
+        <span className="text-gray-400 shrink-0 mt-0.5">{icon}</span>
+        <div className="text-gray-800 break-words font-medium">{children}</div>
     </div>
 );
 
+// SVG icons
+const CalendarIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-slate-400">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+  </svg>
+);
+
+const UserIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-slate-400">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+  </svg>
+);
 
 const BookingCard: React.FC<{
   booking: Booking;
   isExpanded: boolean;
   onToggle: () => void;
   isAdmin: boolean;
-  onCancelBooking: (id: string) => void;
-  onCancelBookingGroup: (groupId: string) => void;
-  onDeleteBooking: (id: string) => void;
-  onDeleteBookingGroup: (groupId: string) => void;
   onEditBooking: (booking: Booking) => void;
   groupDetails?: { roomCount: number; roomNames: string[] };
   isToday: boolean;
-}> = ({ booking, isExpanded, onToggle, isAdmin, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onDeleteBookingGroup, onEditBooking, groupDetails, isToday }) => {
+  onTriggerConfirm: (actionType: 'cancel' | 'delete', booking: Booking) => void;
+}> = ({ booking, isExpanded, onToggle, isAdmin, onEditBooking, groupDetails, isToday, onTriggerConfirm }) => {
   const statusInfo = getStatusInfo(booking.status, isToday);
   
   const formattedDate = booking.isMultiDay && booking.dateRange 
-    ? booking.dateRange // Keep pre-formatted range
+    ? booking.dateRange
     : formatThaiDateShort(booking.date);
-
-  const handleStaffAction = (action: 'cancel' | 'delete' | 'edit') => {
-    if (action === 'edit') {
-      onEditBooking(booking);
-      return;
-    }
-
-    const performAction = () => {
-        if (action === 'cancel') {
-            const isGroup = !!booking.groupId;
-            const confirmMessage = isGroup
-                ? `ยืนยันการยกเลิกการจองกลุ่ม "${booking.purpose}" ทั้งหมดใช่หรือไม่?`
-                : `ยืนยันการยกเลิกการจอง "${booking.purpose}" ใช่หรือไม่?`;
-            
-            if (confirm(confirmMessage)) {
-                if (isGroup) onCancelBookingGroup(booking.groupId!);
-                else onCancelBooking(booking.id);
-            }
-        } else if (action === 'delete') {
-             const isGroup = !!booking.groupId;
-             const confirmMessage = isGroup
-                ? `⚠️ ยืนยันการลบถาวร ⚠️\n\nการจองกลุ่ม "${booking.purpose}" ทั้งหมดจะถูกลบออกจากระบบ\n\nต้องการดำเนินการต่อใช่หรือไม่?`
-                : `⚠️ ยืนยันการลบถาวร ⚠️\n\nการจอง "${booking.purpose}" จะถูกลบออกจากระบบ\n\nต้องการดำเนินการต่อใช่หรือไม่?`;
-
-            if (confirm(confirmMessage)) {
-                if (isGroup) onDeleteBookingGroup(booking.groupId!);
-                else onDeleteBooking(booking.id);
-            }
-        }
-    };
-
-    if (isAdmin) {
-        performAction();
-    } else {
-        alert('การกระทำนี้สำหรับเจ้าหน้าที่เท่านั้น');
-    }
-  };
 
   const roomTitle = groupDetails && groupDetails.roomNames.length > 1
     ? `${groupDetails.roomNames[0]} และอีก ${groupDetails.roomCount - 1} ห้อง`
     : booking.roomName;
 
   return (
-      <div className={`bg-white rounded-2xl shadow-sm border-2 ${isExpanded ? 'border-blue-500 shadow-lg' : 'border-gray-100'} transition-all animate-fade-in`}>
-          <div className="p-3 cursor-pointer" onClick={onToggle}>
+      <div 
+        className={`bg-white rounded-2xl shadow-sm border transition-all duration-200 overflow-hidden ${
+          isExpanded ? 'border-primary shadow-md' : 'border-slate-100 hover:border-slate-200'
+        }`}
+      >
+          <div className="p-4 cursor-pointer hover:bg-slate-50/40 transition-all" onClick={onToggle}>
             <div className="flex justify-between items-start gap-3">
-                <div className="flex-1">
-                    <div className={`px-3 py-1 text-xs font-bold rounded-full inline-block mb-2 ${statusInfo.color}`}>{statusInfo.text}</div>
-                    <h4 className="font-bold text-lg text-[#0D448D]">{roomTitle}</h4>
-                    <p className="text-sm text-gray-500 font-medium">
-                      🕒 {formattedDate} | {booking.startTime} - {booking.endTime} น.
-                    </p>
+                <div className="flex-1 space-y-2">
+                    <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full inline-block ${statusInfo.color}`}>
+                      {statusInfo.text}
+                    </span>
+                    <h4 className="font-bold text-base text-primary tracking-tight">{roomTitle}</h4>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                      <CalendarIcon />
+                      <span>{formattedDate} | {booking.startTime} - {booking.endTime} น.</span>
+                    </div>
                 </div>
-                <div className="text-right flex flex-col items-end">
-                  <p className="text-sm font-semibold text-gray-700">👤 {booking.bookerName}</p>
-                  <svg className={`w-5 h-5 text-gray-400 mt-2 transition-transform ${isExpanded ? 'rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <div className="text-right flex flex-col items-end gap-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg">
+                    <UserIcon />
+                    <span>{booking.bookerName}</span>
+                  </div>
+                  <svg className={`w-5 h-5 text-slate-400 mt-2 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
                 </div>
@@ -133,38 +114,40 @@ const BookingCard: React.FC<{
           </div>
           
           {isExpanded && (
-            <div className="px-3 pb-3 animate-fade-in">
-              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
-                  <DetailItem icon="🎯">{booking.purpose}</DetailItem>
-                  <DetailItem icon="👥">{booking.participants} คน</DetailItem>
-                  <DetailItem icon="💻">{Array.isArray(booking.meetingType) ? booking.meetingType.join(', ') : booking.meetingType}</DetailItem>
-                  {booking.equipment && <DetailItem icon="📦">{booking.equipment}</DetailItem>}
+            <div className="px-4 pb-4 animate-fade-in">
+              <div className="p-4 bg-slate-50/60 rounded-xl border border-slate-100 space-y-3">
+                  <DetailItem icon={<Target className="w-4 h-4 text-slate-400" />} >{booking.purpose}</DetailItem>
+                  <DetailItem icon={<Users className="w-4 h-4 text-slate-400" />} >{booking.participants} คน</DetailItem>
+                  <DetailItem icon={<Monitor className="w-4 h-4 text-slate-400" />} >{Array.isArray(booking.meetingType) ? booking.meetingType.join(', ') : booking.meetingType}</DetailItem>
+                  {booking.equipment && <DetailItem icon={<Package className="w-4 h-4 text-slate-400" />} >{booking.equipment}</DetailItem>}
                   {booking.attachmentUrl && (
-                      <DetailItem icon="📎">
-                          <a href={booking.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline truncate">
-                              คลิกเพื่อเปิดไฟล์
+                      <DetailItem icon={<Paperclip className="w-4 h-4 text-slate-400" />} >
+                          <a href={booking.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 font-bold hover:underline truncate">
+                              คลิกเพื่อเปิดไฟล์แนบ
                           </a>
                       </DetailItem>
                   )}
                   {groupDetails && groupDetails.roomCount > 1 && (
-                      <DetailItem icon="🏢">
-                          <ul className="list-disc pl-5">
+                      <DetailItem icon={<Building2 className="w-4 h-4 text-slate-400" />} >
+                          <ul className="list-disc pl-5 space-y-0.5">
                             {groupDetails.roomNames.map(name => <li key={name}>{name}</li>)}
                           </ul>
                       </DetailItem>
                   )}
               </div>
-              <div className="flex justify-end gap-2 pt-3 mt-3 border-t border-gray-100">
-                  {booking.status === 'จองแล้ว' && (
-                      <>
-                        <Button size="sm" variant="primary" onClick={() => handleStaffAction('edit')}>แก้ไข</Button>
-                        <Button size="sm" variant="secondary" onClick={() => handleStaffAction('cancel')}>ยกเลิก</Button>
-                      </>
-                  )}
-                  {isAdmin && (
-                      <Button size="sm" variant="danger" onClick={() => handleStaffAction('delete')}>ลบถาวร</Button>
-                  )}
-              </div>
+              
+              {/* ซ่อนปุ่มทั้งหมดสำหรับผู้ใช้ทั่วไป (Affordance) */}
+              {isAdmin && (
+                <div className="flex justify-end gap-2 pt-3 mt-3 border-t border-slate-100">
+                    {booking.status === 'จองแล้ว' && (
+                        <>
+                          <Button size="sm" variant="primary" onClick={() => onEditBooking(booking)}>แก้ไข</Button>
+                          <Button size="sm" variant="secondary" onClick={() => onTriggerConfirm('cancel', booking)}>ยกเลิกการจอง</Button>
+                        </>
+                    )}
+                    <Button size="sm" variant="danger" onClick={() => onTriggerConfirm('delete', booking)}>ลบถาวร</Button>
+                </div>
+              )}
             </div>
           )}
       </div>
@@ -172,13 +155,35 @@ const BookingCard: React.FC<{
 };
 
 
-const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooking, onCancelBookingGroup, onDeleteBooking, onDeleteBookingGroup, onEditBooking, onBack, isAdmin }) => {
+const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ 
+  bookings, 
+  onCancelBooking, 
+  onCancelBookingGroup, 
+  onDeleteBooking, 
+  onDeleteBookingGroup, 
+  onEditBooking, 
+  onBack, 
+  isAdmin 
+}) => {
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
   const [purposeFilter, setPurposeFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState<string>('all');
   const [yearFilter, setYearFilter] = useState<string>(new Date().getFullYear().toString());
   const [roomFilter, setRoomFilter] = useState('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // State สำหรับ Confirm Modal แสนสวย
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
   const years = useMemo(() => {
     const yearsSet = new Set<string>();
@@ -236,8 +241,46 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
     setRoomFilter('all');
   };
   
-  const inputClasses = "w-full rounded-xl border border-gray-200 bg-white p-2.5 text-gray-800 transition-all text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none";
+  const inputClasses = "w-full rounded-xl border border-slate-200 bg-white p-2.5 text-gray-800 transition-all text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none";
   
+  const handleTriggerConfirm = (actionType: 'cancel' | 'delete', booking: Booking) => {
+    const isGroup = !!booking.groupId;
+    
+    if (actionType === 'cancel') {
+      const title = '⚠️ ยืนยันการยกเลิกการจอง';
+      const message = isGroup
+        ? `คุณต้องการยกเลิกการจองกลุ่ม "${booking.purpose}" ทั้งหมดใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้`
+        : `คุณต้องการยกเลิกการจองห้อง "${booking.roomName}" หัวข้อ "${booking.purpose}" ใช่หรือไม่?`;
+      
+      setConfirmModal({
+        isOpen: true,
+        title,
+        message,
+        onConfirm: () => {
+          if (isGroup) onCancelBookingGroup(booking.groupId!);
+          else onCancelBooking(booking.id);
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }
+      });
+    } else {
+      const title = '🚨 ยืนยันการลบรายการถาวร';
+      const message = isGroup
+        ? `คุณต้องการลบข้อมูลการจองกลุ่ม "${booking.purpose}" ทั้งหมดออกจากระบบอย่างถาวรใช่หรือไม่? การกระทำนี้จะลบฐานข้อมูลทั้งหมด`
+        : `คุณต้องการลบข้อมูลการจองห้อง "${booking.roomName}" หัวข้อ "${booking.purpose}" ออกจากระบบอย่างถาวรใช่หรือไม่?`;
+      
+      setConfirmModal({
+        isOpen: true,
+        title,
+        message,
+        onConfirm: () => {
+          if (isGroup) onDeleteBookingGroup(booking.groupId!);
+          else onDeleteBooking(booking.id);
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }
+      });
+    }
+  };
+
   const renderBookingList = (list: Booking[], isToday = false) => {
       if (list.length === 0) return null;
       return (
@@ -250,12 +293,9 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
                       isToday={isToday}
                       isExpanded={expandedId === (b.groupId || b.id)}
                       onToggle={() => setExpandedId(expandedId === (b.groupId || b.id) ? null : (b.groupId || b.id))}
-                      onCancelBooking={onCancelBooking}
-                      onCancelBookingGroup={onCancelBookingGroup}
-                      onDeleteBooking={onDeleteBooking}
-                      onDeleteBookingGroup={onDeleteBookingGroup}
                       onEditBooking={onEditBooking}
                       groupDetails={b.groupId ? groupedAndFilteredBookings.groupDetailsMap.get(b.groupId) : undefined}
+                      onTriggerConfirm={handleTriggerConfirm}
                   />
               ))}
           </div>
@@ -270,8 +310,8 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
             </div>
 
             <div className="flex p-1.5 bg-gray-100 rounded-2xl mb-8 max-w-sm">
-                <button onClick={() => { setActiveTab('current'); setExpandedId(null); }} className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'current' ? 'bg-white text-[#0D448D] shadow-md' : 'text-gray-400'}`}>ปัจจุบัน</button>
-                <button onClick={() => { setActiveTab('history'); setExpandedId(null); }} className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'history' ? 'bg-white text-[#0D448D] shadow-md' : 'text-gray-400'}`}>ประวัติ</button>
+                <button onClick={() => { setActiveTab('current'); setExpandedId(null); }} className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer ${activeTab === 'current' ? 'bg-white text-primary shadow-md' : 'text-gray-400'}`}>ปัจจุบัน</button>
+                <button onClick={() => { setActiveTab('history'); setExpandedId(null); }} className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer ${activeTab === 'history' ? 'bg-white text-primary shadow-md' : 'text-gray-400'}`}>ประวัติ</button>
             </div>
             
             <div className="pb-6 mb-6 border-b border-gray-200">
@@ -287,14 +327,65 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ bookings, onCancelBooki
             <div className="space-y-10">
                 {activeTab === 'current' ? (
                     <>
-                        {groupedAndFilteredBookings.today.length > 0 && <div><h3 className="text-rose-600 font-bold mb-4">🔴 วันนี้</h3>{renderBookingList(groupedAndFilteredBookings.today, true)}</div>}
-                        <div><h3 className="text-sky-700 font-bold mb-4">📅 เร็วๆ นี้</h3>{renderBookingList(groupedAndFilteredBookings.upcoming) || <p className="text-center text-gray-400 pt-8">ไม่มีรายการจองที่จะมาถึง</p>}</div>
+                        {groupedAndFilteredBookings.today.length > 0 && (
+                            <div>
+                                <h3 className="text-rose-600 font-bold mb-4 flex items-center gap-2">
+                                    <span className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                                    </span>
+                                    วันนี้
+                                </h3>
+                                {renderBookingList(groupedAndFilteredBookings.today, true)}
+                            </div>
+                        )}
+                        <div>
+                            <h3 className="text-sky-700 font-bold mb-4 flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-sky-600 shrink-0" />
+                                เร็วๆ นี้
+                            </h3>
+                            {renderBookingList(groupedAndFilteredBookings.upcoming) || <p className="text-center text-gray-400 pt-8">ไม่มีรายการจองที่จะมาถึง</p>}
+                        </div>
                     </>
                 ) : (
-                    <div><h3 className="text-gray-500 font-bold mb-4">📂 ประวัติ</h3>{renderBookingList(groupedAndFilteredBookings.history) || <p className="text-center text-gray-400 pt-8">ไม่พบประวัติการจอง</p>}</div>
+                    <div>
+                        <h3 className="text-gray-500 font-bold mb-4 flex items-center gap-2">
+                            <ClipboardList className="w-4 h-4 text-gray-400 shrink-0" />
+                            ประวัติ
+                        </h3>
+                        {renderBookingList(groupedAndFilteredBookings.history) || <p className="text-center text-gray-400 pt-8">ไม่พบประวัติการจอง</p>}
+                    </div>
                 )}
             </div>
         </div>
+
+        {/* Confirmation Modal สำหรับการลบและยกเลิก */}
+        <Modal
+          isOpen={confirmModal.isOpen}
+          onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+          title={confirmModal.title}
+          size="sm"
+        >
+          <div className="space-y-4">
+            <p className="text-slate-600 font-medium">{confirmModal.message}</p>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+              >
+                ยกเลิก
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={confirmModal.onConfirm}
+              >
+                ยืนยันดำเนินการ
+              </Button>
+            </div>
+          </div>
+        </Modal>
     </div>
   );
 };

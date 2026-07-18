@@ -92,13 +92,13 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
                 <div className="flex p-1 bg-slate-100 rounded-xl">
                     <button 
                         onClick={() => setActiveTab('current')}
-                        className={`flex-1 px-5 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'current' ? 'bg-white text-[#0D448D] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        className={`flex-1 px-5 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'current' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                     >
                         รายการปัจจุบัน
                     </button>
                     <button 
                         onClick={() => setActiveTab('history')}
-                        className={`flex-1 px-5 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'history' ? 'bg-white text-[#0D448D] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        className={`flex-1 px-5 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'history' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                     >
                         ประวัติการยืม
                     </button>

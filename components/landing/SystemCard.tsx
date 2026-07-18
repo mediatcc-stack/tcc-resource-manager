@@ -11,10 +11,10 @@ const SystemCard: React.FC<SystemCardProps> = ({ icon, title, description, onCli
   return (
     <div
       onClick={onClick}
-      className="bg-white p-8 md:p-10 rounded-3xl shadow-xl hover:shadow-2xl cursor-pointer transition-all duration-300 transform hover:-translate-y-2 border-2 border-transparent hover:border-[#0D448D]"
+      className="bg-white p-8 md:p-10 rounded-3xl shadow-xl hover:shadow-2xl cursor-pointer transition-all duration-300 transform hover:-translate-y-2 border-2 border-transparent hover:border-primary"
     >
       <div className="text-7xl md:text-8xl mb-6 drop-shadow-sm">{icon}</div>
-      <h2 className="text-2xl font-bold text-[#0D448D] mb-3 tracking-tight">{title}</h2>
+      <h2 className="text-2xl font-bold text-primary mb-3 tracking-tight">{title}</h2>
       <p className="text-slate-500 leading-relaxed font-medium">{description}</p>
     </div>
   );

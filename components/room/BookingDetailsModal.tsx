@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Booking, Room } from '../../types';
 import Button from '../shared/Button';
 import RoomAvailabilityTimeline from './RoomAvailabilityTimeline';
+import { Calendar, Clock } from 'lucide-react';
 
 interface BookingDetailsModalProps {
     isOpen: boolean;
@@ -32,8 +33,8 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
                 onClick={e => e.stopPropagation()}
             >
                 <div className="p-6 bg-gray-50/50 border-b border-gray-200 rounded-t-2xl">
-                    <h3 className="text-xl font-bold text-[#0D448D] flex items-center gap-3">
-                        <span className="text-2xl">🗓️</span>
+                    <h3 className="text-xl font-bold text-primary flex items-center gap-3">
+                        <Calendar className="w-5 h-5 text-primary shrink-0" />
                         <span>
                             {room.name}
                             <p className="text-sm font-normal text-gray-500">วันที่ {formattedDate}</p>
@@ -53,15 +54,15 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
                             <div className="space-y-3">
                                 {bookings.map(booking => (
                                     <div key={booking.id} className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                                        <p className="font-bold text-gray-800 text-md">
-                                            <span className="text-blue-500">⏰</span> {booking.startTime} - {booking.endTime}
+                                        <p className="font-bold text-gray-800 text-sm flex items-center gap-1.5">
+                                            <Clock className="w-3.5 h-3.5 text-blue-500 shrink-0" /> {booking.startTime} - {booking.endTime} น.
                                         </p>
                                         <div className="pl-4 mt-1 border-l-2 border-blue-100 ml-1 space-y-1">
                                            <p className="text-xs text-gray-700"><strong className="font-semibold text-gray-500">เรื่อง:</strong> {booking.purpose}</p>
                                            <p className="text-xs text-gray-600"><strong className="font-semibold text-gray-500">ผู้จอง:</strong> {booking.bookerName}</p>
                                            {booking.roomArrangement && (
                                              <p className="text-xs text-gray-600">
-                                               <strong className="font-semibold text-gray-500">🪑 จัดห้อง:</strong>{' '}
+                                               <strong className="font-semibold text-gray-500">จัดห้อง:</strong>{' '}
                                                {booking.roomArrangement === 'classroom' && 'แบบห้องเรียนปกติ'}
                                                {booking.roomArrangement === 'u-shape' && 'แบบตัว U'}
                                                {booking.roomArrangement?.startsWith('other:') && `อื่นๆ — ${booking.roomArrangement.slice(6)}`}

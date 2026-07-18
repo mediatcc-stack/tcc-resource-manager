@@ -213,17 +213,17 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => 
                 <div className="space-y-4">
                     {stats.bookingsByRoom.map((room, index) => (
                         <div key={room.name} className="flex items-center gap-4">
-                            <div className={`font-bold w-8 text-center ${index < 3 ? 'text-[#0D448D]' : 'text-gray-300'}`}>
+                            <div className={`font-bold w-8 text-center ${index < 3 ? 'text-primary' : 'text-gray-300'}`}>
                                 {index + 1}
                             </div>
                             <div className="flex-1">
                                 <div className="flex justify-between items-center mb-1">
                                     <p className="font-bold text-gray-700 text-xs truncate max-w-[200px]">{room.name}</p>
-                                    <p className="font-black text-[#0D448D] text-xs">{room.count} ครั้ง</p>
+                                    <p className="font-black text-primary text-xs">{room.count} ครั้ง</p>
                                 </div>
                                 <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
                                     <div 
-                                        className="bg-[#0D448D] h-full rounded-full transition-all duration-700 ease-out" 
+                                        className="bg-primary h-full rounded-full transition-all duration-700 ease-out" 
                                         style={{ width: `${(room.count / stats.maxRoomCount) * 100}%` }}
                                     ></div>
                                 </div>

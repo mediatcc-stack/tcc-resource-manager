@@ -24,6 +24,13 @@ const RoomIcon = () => (
   </svg>
 );
 
+const AppIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+    <circle cx="12" cy="12" r="10"/>
+    <polygon points="12 8 8 12 12 16 16 12 12 8"/>
+  </svg>
+);
+
 const ChevronLeft = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
     <path d="M15 18l-6-6 6-6"/>
@@ -35,7 +42,7 @@ const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const currentPath = location.pathname;
 
-  if (currentPath === '/') return null;
+  const isLanding = currentPath === '/';
 
   const systemTitles: Record<string, string> = {
     '/room': APP_CONFIG.systemTitle,
@@ -47,61 +54,37 @@ const Navbar: React.FC = () => {
     '/equipment': <CameraIcon />,
   };
 
-  const title = systemTitles[currentPath] ?? 'TCC Resource Manager';
-  const icon = systemIcons[currentPath] ?? null;
+  const title = isLanding ? 'ระบบบริหารจัดการทรัพยากรส่วนกลาง' : (systemTitles[currentPath] ?? 'TCC Resource Manager');
+  const icon = isLanding ? <AppIcon /> : (systemIcons[currentPath] ?? null);
 
   return (
-    <header
-      className="sticky top-0 z-40 w-full"
-      style={{
-        background: 'linear-gradient(135deg, #0D448D 0%, #1a5ba8 100%)',
-        boxShadow: '0 2px 16px rgba(13,68,141,0.25)',
-      }}
-    >
+    <header className="sticky top-0 z-40 w-full bg-gradient-to-br from-primary to-blue-600 shadow-md shadow-primary/25">
       <div className="h-14 flex items-center justify-between px-4 md:px-8">
         {/* ชื่อระบบ + ไอคอน */}
         <div className="flex items-center gap-3">
-          <div
-            className="flex items-center justify-center w-9 h-9 rounded-xl"
-            style={{ background: 'rgba(255,255,255,0.18)', color: 'white' }}
-          >
+          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/15 text-white">
             {icon}
           </div>
           <div>
-            <p
-              className="hidden sm:block font-bold text-white leading-tight"
-              style={{ fontSize: '0.95rem', letterSpacing: '-0.01em' }}
-            >
+            <p className="font-bold text-white leading-tight text-[13.5px] tracking-tight">
               {title}
             </p>
-            <p className="text-xs" style={{ color: '#bfdbfe' }}>
+            <p className="text-[10px] text-blue-200">
               {APP_CONFIG.collegeName}
             </p>
           </div>
         </div>
 
-        {/* ปุ่มกลับหน้าหลัก */}
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-2 transition-all duration-200 active:scale-95"
-          style={{
-            padding: '7px 14px',
-            borderRadius: '10px',
-            background: 'rgba(255,255,255,0.15)',
-            border: '1px solid rgba(255,255,255,0.25)',
-            color: 'white',
-            fontSize: '0.8rem',
-            fontWeight: 700,
-            cursor: 'pointer',
-            backdropFilter: 'blur(4px)',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.25)')}
-          onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}
-        >
-          <ChevronLeft />
-          <HomeIcon />
-          <span className="hidden md:inline">กลับเมนูหลัก</span>
-        </button>
+        {/* ปุ่มกลับหน้าหลัก — แสดงเมื่อไม่อยู่หน้า Landing เท่านั้น */}
+        {!isLanding && (
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-bold transition-all duration-200 active:scale-95 hover:bg-white/20 cursor-pointer backdrop-blur-[4px]"
+          >
+            <HomeIcon />
+            <span>หน้าแรกระบบ</span>
+          </button>
+        )}
       </div>
     </header>
   );

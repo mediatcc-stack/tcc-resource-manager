@@ -10,14 +10,14 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 // สีตาม TCC Brand Identity
 const variantStyles: Record<string, React.CSSProperties> = {
   primary: {
-    background: 'linear-gradient(135deg, #0D448D 0%, #1a5ba8 100%)',
+    background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%)',
     color: 'white',
     border: 'none',
-    boxShadow: '0 2px 8px rgba(13,68,141,0.30)',
+    boxShadow: '0 2px 8px rgba(13,68,141,0.25)',
   },
   secondary: {
     background: '#ffffff',
-    color: '#0D448D',
+    color: 'var(--primary)',
     border: '1.5px solid #c7d9f5',
     boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
   },
@@ -28,26 +28,26 @@ const variantStyles: Record<string, React.CSSProperties> = {
     boxShadow: '0 2px 8px rgba(220,38,38,0.25)',
   },
   nav: {
-    background: '#eff6ff',
-    color: '#0D448D',
+    background: 'var(--primary-light)',
+    color: 'var(--primary)',
     border: '1px solid #bfdbfe',
     boxShadow: 'none',
   },
   stats: {
     background: 'white',
-    color: '#0D448D',
-    border: '1.5px solid #0D448D',
+    color: 'var(--primary)',
+    border: '1.5px solid var(--primary)',
     fontWeight: '700',
     boxShadow: 'none',
   },
 };
 
 const hoverStyles: Record<string, React.CSSProperties> = {
-  primary: { background: 'linear-gradient(135deg, #0b3a77 0%, #1650a0 100%)', transform: 'translateY(-1px)', boxShadow: '0 4px 14px rgba(13,68,141,0.40)' },
+  primary: { background: 'linear-gradient(135deg, var(--primary-hover) 0%, var(--primary) 100%)', transform: 'translateY(-1px)', boxShadow: '0 4px 14px rgba(13,68,141,0.35)' },
   secondary: { background: '#f0f6ff', transform: 'translateY(-1px)' },
   danger: { background: 'linear-gradient(135deg, #b91c1c 0%, #991b1b 100%)', transform: 'translateY(-1px)', boxShadow: '0 4px 14px rgba(220,38,38,0.35)' },
   nav: { background: '#dbeafe' },
-  stats: { background: '#eff6ff' },
+  stats: { background: 'var(--primary-light)' },
 };
 
 const sizeClasses: Record<string, string> = {

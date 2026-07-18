@@ -41,7 +41,7 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({ isO
         onClick={e => e.stopPropagation()}
       >
         <div className="p-6 border-b border-gray-200">
-          <h3 className="text-xl font-bold text-[#0D448D] flex items-center gap-3">
+          <h3 className="text-xl font-bold text-primary flex items-center gap-3">
             <span className="text-2xl">⚙️</span>
             <span>ผลการตรวจสอบการตั้งค่าระบบ</span>
           </h3>

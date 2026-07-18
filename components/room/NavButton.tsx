@@ -4,7 +4,7 @@ import { RoomPage } from '../../types';
 interface NavButtonProps {
     page: RoomPage;
     label: string;
-    icon: string;
+    icon: React.ReactNode;
     currentPage: RoomPage;
     setCurrentPage: (page: RoomPage) => void;
 }
@@ -12,15 +12,16 @@ interface NavButtonProps {
 const NavButton: React.FC<NavButtonProps> = ({ page, label, icon, currentPage, setCurrentPage }) => {
     const isActive = currentPage === page;
     const baseClasses = 'flex items-center gap-2 text-sm font-bold rounded-xl transition-all duration-300';
-    const activeClasses = 'bg-[#0D448D] text-white px-5 py-2.5 shadow-md';
-    const inactiveClasses = 'bg-transparent text-slate-500 hover:text-[#0D448D] px-3 py-2.5 hover:bg-blue-50';
+    const activeClasses = 'bg-primary text-white px-5 py-2.5 shadow-md shadow-primary/10';
+    const inactiveClasses = 'bg-transparent text-slate-500 hover:text-primary px-3 py-2.5 hover:bg-primary-light';
 
     return (
         <button 
         onClick={() => setCurrentPage(page)}
         className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses}`}
         >
-        <span>{icon}</span> {label}
+        <span className="text-base flex items-center justify-center shrink-0">{icon}</span>
+        <span>{label}</span>
         </button>
     );
 };

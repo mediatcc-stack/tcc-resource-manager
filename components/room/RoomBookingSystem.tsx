@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 import NavButton from './NavButton';
 import LoadingSpinner from '../shared/LoadingSpinner';
 import Button from '../shared/Button';
+import { Home, ClipboardList, BarChart3 } from 'lucide-react';
 
 const timeToMinutes = (timeStr: string): number => {
     if (!timeStr || !timeStr.includes(':')) return 0;
@@ -383,9 +384,9 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
     <div className="animate-fade-in">
       <div className="bg-white rounded-2xl shadow-lg p-4 mb-8 flex items-center justify-between gap-6 flex-wrap border border-gray-100">
         <div className="flex items-center justify-center gap-3 md:gap-6 flex-wrap">
-          <NavButton page="home" label="หน้าแรก" icon="🏠" currentPage={currentPage} setCurrentPage={setCurrentPage} />
-          <NavButton page="mybookings" label="จัดการจอง" icon="📋" currentPage={currentPage} setCurrentPage={setCurrentPage} />
-          <NavButton page="statistics" label="สรุปรายงาน" icon="📊" currentPage={currentPage} setCurrentPage={setCurrentPage} />
+          <NavButton page="home" label="หน้าแรก" icon={<Home className="w-4 h-4" />} currentPage={currentPage} setCurrentPage={setCurrentPage} />
+          <NavButton page="mybookings" label="จัดการจอง" icon={<ClipboardList className="w-4 h-4" />} currentPage={currentPage} setCurrentPage={setCurrentPage} />
+          <NavButton page="statistics" label="สรุปรายงาน" icon={<BarChart3 className="w-4 h-4" />} currentPage={currentPage} setCurrentPage={setCurrentPage} />
         </div>
         <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-100 shadow-sm">
