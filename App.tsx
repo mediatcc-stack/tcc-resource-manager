@@ -126,9 +126,9 @@ import Button from './components/shared/Button';
 const App: React.FC = () => {
   const [toastMessages, setToastMessages] = useState<ToastMessage[]>([]);
   
-  // โหลดสถานะ admin จาก sessionStorage เพื่อไม่ให้หลุดเมื่อรีเฟรช
+  // โหลดสถานะ admin จาก localStorage เพื่อไม่ให้หลุดเมื่อรีเฟรชหรือเปิดจากไลน์ใหม่
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
-    return sessionStorage.getItem('isAdmin') === 'true';
+    return localStorage.getItem('isAdmin') === 'true';
   });
   
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -152,7 +152,7 @@ const App: React.FC = () => {
   const handleAdminToggle = () => {
     if (isAdmin) {
       setIsAdmin(false);
-      sessionStorage.removeItem('isAdmin');
+      localStorage.removeItem('isAdmin');
       showToast('ออกจากโหมดเจ้าหน้าที่', 'success');
       return;
     }
@@ -178,7 +178,7 @@ const App: React.FC = () => {
         const data = await response.json();
         if (data.success) {
           setIsAdmin(true);
-          sessionStorage.setItem('isAdmin', 'true');
+          localStorage.setItem('isAdmin', 'true');
           setIsLoginModalOpen(false);
           showToast('เข้าสู่โหมดเจ้าหน้าที่สำเร็จ', 'success');
         } else {

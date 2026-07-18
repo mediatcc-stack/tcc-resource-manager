@@ -133,7 +133,7 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
                     
                     {/* แสดงปุ่ม Actions เฉพาะแอดมินเท่านั้น (Affordance) */}
                     {isAdmin && (
-                        <div className="flex flex-col items-end" ref={actionMenuRef}>
+                        <div className="relative flex flex-col items-end" ref={actionMenuRef}>
                            <button onClick={() => setIsActionMenuOpen(prev => !prev)} className="p-2 rounded-full hover:bg-gray-100 text-gray-500" aria-label="เมนูจัดการ">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                     <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />

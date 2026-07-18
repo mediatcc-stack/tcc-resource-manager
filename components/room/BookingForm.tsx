@@ -112,7 +112,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
       }
       // Check conflict
       const firstDate = new Date(currentDate);
-      const lastDate = formData.isMultiDay ? new Date(formData.endDate) : firstDate;
+      const lastDate = formData.isMultiDay ? new Date(formData.endDate) : new Date(firstDate);
       for (const rid of selectedRoomIds) {
         const rName = rooms.find(r => r.id === rid)?.name;
         if (!rName) continue;
@@ -262,7 +262,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
     }
 
     const firstDate = new Date(currentDate);
-    const lastDate = formData.isMultiDay ? new Date(formData.endDate) : firstDate;
+    const lastDate = formData.isMultiDay ? new Date(formData.endDate) : new Date(firstDate);
     const conflictingBookings: Booking[] = [];
 
     for (let d = new Date(firstDate); d <= lastDate; d.setDate(d.getDate() + 1)) {
@@ -382,6 +382,9 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
         setLoading(false);
         return;
     }
+
+    const firstDate = new Date(currentDate);
+    const lastDate = formData.isMultiDay ? new Date(formData.endDate) : new Date(firstDate);
 
     const bookingsToCreate = [];
     const hasMultiple = selectedRoomIds.length > 1 || formData.isMultiDay;

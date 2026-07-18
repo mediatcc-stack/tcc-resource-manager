@@ -156,7 +156,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
       const hasMultiple = selectedRoomIds.length > 1 || formData.isMultiDay;
       const groupId = hasMultiple ? (original.groupId || uuidv4()) : undefined;
       const firstDate = new Date(formData.date);
-      const lastDate = formData.isMultiDay ? new Date(formData.endDate) : firstDate;
+      const lastDate = formData.isMultiDay ? new Date(formData.endDate) : new Date(firstDate);
 
       for (const rid of selectedRoomIds) {
         const rName = ROOMS.find(r => r.id === rid)?.name || original.roomName;
