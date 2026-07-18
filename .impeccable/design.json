@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-18T13:58:00Z",
+  "title": "Design System: TCC Resource Manager",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "TCC Dark Blue",
+        "canonical": "oklch(38.52% 0.142 254.38)",
+        "tonalRamp": ["#001233", "#002555", "#0D448D", "#2E5F9E", "#4F7AB0", "#7598C4", "#A7BDDD", "#E1ECF7"]
+      },
+      "primary-light": {
+        "role": "primary",
+        "displayName": "TCC Light Blue",
+        "canonical": "oklch(96.79% 0.012 242.34)",
+        "tonalRamp": ["#0b1624", "#1a2c42", "#2e4866", "#4a6c91", "#7296bf", "#a3bee0", "#d1e1f5", "#eff6ff"]
+      },
+      "accent": {
+        "role": "secondary",
+        "displayName": "Accent Orange",
+        "canonical": "oklch(64.82% 0.200 44.80)",
+        "tonalRamp": ["#331000", "#662400", "#a13c00", "#d45600", "#f97316", "#ff9d59", "#ffc59e", "#fff0e6"]
+      },
+      "neutral-bg": {
+        "role": "neutral",
+        "displayName": "Soft BG",
+        "canonical": "oklch(97.80% 0.005 240.00)",
+        "tonalRamp": ["#090d16", "#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#f8fafc"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display Title",
+        "purpose": "ชื่องานและหัวข้อขนาดใหญ่พิเศษระดับแรก"
+      },
+      "body": {
+        "displayName": "Body Text",
+        "purpose": "ข้อความเนื้อหาทั่วไป ข้อความหมายเหตุ และข้อมูลการจองหลัก"
+      }
+    },
+    "shadows": [
+      {
+        "name": "active-hover",
+        "value": "0 10px 15px -3px rgba(13, 68, 141, 0.1), 0 4px 6px -4px rgba(13, 68, 141, 0.1)",
+        "purpose": "แสดงการตอบสนองเมื่อชี้พอยเตอร์ไปยังปุ่มหรือการ์ด"
+      },
+      {
+        "name": "modal-overlay",
+        "value": "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+        "purpose": "ใช้สำหรับหน้าต่างป๊อปอัปแจ้งเตือนและฟอร์มต่างๆ"
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "ใช้กับการเปลี่ยนสถานะของอินเตอร์เฟซหลัก"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "ปุ่มหลักสำหรับส่งข้อมูล บันทึกข้อมูล หรือเรียกดูงานสำคัญ",
+      "html": "<button class=\"ds-btn-primary\">ดำเนินการต่อ</button>",
+      "css": ".ds-btn-primary { background-color: #0D448D; color: #ffffff; padding: 12px 24px; font-size: 0.875rem; font-weight: 600; border: none; border-radius: 12px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); outline: none; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); } .ds-btn-primary:hover { background-color: #0b356f; transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(13, 68, 141, 0.15); } .ds-btn-primary:focus-visible { ring: 4px; ring-color: #eff6ff; outline: 2px solid #0D448D; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "ปุ่มรองสำหรับยกเลิก ย้อนกลับ หรือทางเลือกที่ไม่ใช่ปุ่มหลัก",
+      "html": "<button class=\"ds-btn-secondary\">ยกเลิก</button>",
+      "css": ".ds-btn-secondary { background-color: #ffffff; color: #0D448D; border: 1px solid #cbd5e1; padding: 12px 24px; font-size: 0.875rem; font-weight: 600; border-radius: 12px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); outline: none; } .ds-btn-secondary:hover { background-color: #eff6ff; border-color: #0D448D; }"
+    },
+    {
+      "name": "Text Input Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "ช่องกรอกข้อมูลข้อความ เช่น ชื่อผู้จอง เบอร์โทรศัพท์ วัตถุประสงค์",
+      "html": "<input type=\"text\" class=\"ds-input-field\" placeholder=\"ระบุชื่อผู้จอง...\" />",
+      "css": ".ds-input-field { display: block; width: 100%; border-radius: 12px; border: 1px solid #cbd5e1; background-color: #ffffff; padding: 14px; font-size: 0.875rem; color: #1e293b; outline: none; transition: all 0.2s ease-in-out; } .ds-input-field::placeholder { color: #94a3b8; } .ds-input-field:focus { border-color: #0D448D; box-shadow: 0 0 0 4px #eff6ff; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Blue Haven Service",
+    "overview": "ระบบนำเสนออัตลักษณ์และความภาคภูมิใจของสถาบันวิทยาลัยพณิชยการธนบุรีผ่านโครงสีฟ้าและสีขาว สะท้อนความมั่นคง เป็นระเบียบเรียบร้อย และประดับด้วยสีส้มโมเดิร์นเป็นสีเน้น (Accent) เพื่อดึงดูดความสนใจไปยังการกระทำที่สำคัญและระบบแจ้งเตือนที่ฉับไว เพื่ออำนวยความสะดวกให้แก่อาจารย์และแอดมินระบบโสตทัศนูปกรณ์",
+    "keyCharacteristics": [
+      "Trustworthy Structure: โครงสร้างเว็บที่จัดสรรข้อมูลเป็นระบบและใช้สีโทนหลักที่น่าเชื่อถือ",
+      "Vibrant Signals: การใช้สีส้มเพื่อขับเน้นจุดที่มีการอัปเดต สถานะการจอง หรือปุ่มบันทึก",
+      "Tactile Comfort: ปุ่มที่มีขอบมนเด่นชัด ขนาดพอดีสำหรับการกดบนจอมือถือโดยไม่เกิดการคลิกพลาด"
+    ],
+    "rules": [
+      {
+        "name": "The 10% Accent Rule",
+        "body": "สีส้ม (Accent Orange) จะถูกใช้ไม่เกิน 10% ของพื้นผิวหน้าจอแต่ละหน้า ใช้เฉพาะสำหรับจุดสำคัญ เช่น ไอคอนแจ้งเตือนที่ต้องการให้อ่าน, ป้ายสถานะรอแอดมินอนุมัติ หรือสถานะการกดสลับโหมด เพื่อให้เกิดความโดดเด่นสูงสุดเมื่อปรากฏตัว",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink-Only Rule",
+        "body": "ห้ามเขียนข้อความเนื้อหาทั่วไปด้วยสีเทาอ่อนเป็นอันขาด สีตัวหนังสือทั่วไปต้องใช้สี Slate Ink (#1e293b) เพื่อการอ่านง่ายผ่านอุปกรณ์พกพากลางแจ้ง (Contrast ratio สูงกว่า 4.5:1)",
+        "section": "colors"
+      },
+      {
+        "name": "The Auto-Balance Rule",
+        "body": "หัวเรื่องประเภท Display และ Headline ทั้งหมดต้องกำหนดสไตล์ text-wrap: balance เพื่อป้องกันปัญหาวรรณยุกต์ไทยล้นแถวหรือคำตัดกลางคำไม่สมดุล",
+        "section": "typography"
+      },
+      {
+        "name": "The Resting Flat Rule",
+        "body": "คอมโพเนนต์ทั่วไปและการ์ดทั้งหมดไม่มีเงาในสถานะพัก (Resting State) ดีไซน์จะแยกชั้นด้วยการใช้ขอบเส้นและสีพื้นหลังสีเทาหรือฟ้าอ่อนเท่านั้น เงาจะทำงานเมื่อมีการโฮเวอร์หรือเป็นหน้าต่างประเภท Modal เท่านั้น",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do ใช้ขนาดความกว้างและส่วนสูงของปุ่มบนมือถือให้ใหญ่เป็นพิเศษสำหรับการกดด้วยนิ้วหัวแม่มือ (Touch Target >= 44x44px)",
+      "Do ตรวจสอบความถูกต้องของสัดส่วนความต่างสี (Contrast) ของข้อความทุกจุดกับพื้นหลังเสมอ โดยเฉพาะกล่องสถานะต่างๆ",
+      "Do ใช้การ์ดที่มีการจัดสัดส่วนสีพื้นหลังแยกกลุ่มข้อมูลแทนการสร้างกล่องข้อความที่มีเส้นขอบล้อมรอบอย่างเดียวซ้ำๆ"
+    ],
+    "donts": [
+      "Don't ใช้สัญลักษณ์ขอบแถบสีหนาๆ (Side-stripe border) ด้านข้างของการ์ด (เช่น การตีกรอบสีเขียวหนาๆ ด้านซ้ายของการ์ดที่ผ่านการอนุมัติ) ให้ใช้สีพื้นหลังหรือไอคอนสถานะแทน",
+      "Don't ทำปุ่มไล่เฉดสีหรือทำตัวหนังสือไล่เฉดสี (Gradient text) ที่ดูฉูดฉาด ขัดต่อภาพลักษณ์ความน่าเชื่อถือของสถาบัน",
+      "Don't ใช้ปุ่มหรือการ์ดที่มีขอบมนสี่เหลี่ยมตัดมุมฉากหรือโค้งน้อยกว่า 8px บนอินเตอร์เฟซหลัก เพราะจะดูเชยและโบราณ",
+      "Don't ใส่เอฟเฟกต์เบลอแบบกระจก (Glassmorphism) ในจุดที่ต้องกรอกข้อมูลเพราะจะทำให้การอ่านข้อมูลมีความยากลำบากขึ้น"
+    ]
+  }
+}
