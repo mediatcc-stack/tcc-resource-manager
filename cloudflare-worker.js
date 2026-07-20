@@ -339,130 +339,198 @@ export default {
               // คำสั่ง: @Bot รายงาน / จอง / จองพรุ่งนี้ / จอง 16-6-69 / จอง 20 ก.ค. 69
               if (text.includes('รายงาน') || text.includes('จอง')) {
 
-                // ── แปลงวันที่จากข้อความ ──────────────────────────────────
                 const nowTH = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
 
-                // แผนที่ชื่อเดือนไทย (เต็ม / ย่อมีจุด / ย่อไม่มีจุด) → เลขเดือน
-                const thaiMonthMap = {
-                  'มกราคม': 1, 'ม.ค.': 1, 'มค': 1,
-                  'กุมภาพันธ์': 2, 'ก.พ.': 2, 'กพ': 2,
-                  'มีนาคม': 3, 'มี.ค.': 3, 'มีค': 3,
-                  'เมษายน': 4, 'เม.ย.': 4, 'เมย': 4,
-                  'พฤษภาคม': 5, 'พ.ค.': 5, 'พค': 5,
-                  'มิถุนายน': 6, 'มิ.ย.': 6, 'มิย': 6,
-                  'กรกฎาคม': 7, 'ก.ค.': 7, 'กค': 7,
-                  'สิงหาคม': 8, 'ส.ค.': 8, 'สค': 8,
-                  'กันยายน': 9, 'ก.ย.': 9, 'กย': 9,
-                  'ตุลาคม': 10, 'ต.ค.': 10, 'ตค': 10,
-                  'พฤศจิกายน': 11, 'พ.ย.': 11, 'พย': 11,
-                  'ธันวาคม': 12, 'ธ.ค.': 12, 'ธค': 12,
-                };
-                // เรียงชื่อเดือนจากยาว→สั้น กันแมตช์ผิด (เช่น "กค" ไปกินก่อน "กรกฎาคม")
-                // แล้วประกอบเป็น regex เดียว: ตัวเลขวัน + ชื่อเดือน + ปี (ไม่บังคับ)
-                const monthPattern = Object.keys(thaiMonthMap)
-                  .sort((a, b) => b.length - a.length)
-                  .map(k => k.replace(/\./g, '\\.'))
-                  .join('|');
-                const thaiMonthRegex = new RegExp(`(\\d{1,2})\\s*(${monthPattern})\\s*(\\d{2,4})?`);
+                // ── กรณี: รายงานทั้งสัปดาห์ ("รายงานสัปดาห์นี้" / "รายงานสัปดาห์หน้า") ──
+                // สัปดาห์นับแบบไทย: จันทร์–อาทิตย์
+                if (text.includes('สัปดาห์')) {
+                  const dow = nowTH.getDay(); // 0=อาทิตย์ ... 6=เสาร์
+                  const diffToMonday = dow === 0 ? -6 : 1 - dow;
+                  const monday = new Date(nowTH);
+                  monday.setDate(nowTH.getDate() + diffToMonday);
+                  if (text.includes('หน้า')) monday.setDate(monday.getDate() + 7); // สัปดาห์หน้า
 
-                // แปลงปี: ไม่ระบุ → ปีปัจจุบัน, 2 หลัก (69) → พ.ศ., 4 หลัก พ.ศ./ค.ศ. → ค.ศ. เสมอ
-                const normalizeYear = (yy, fallbackYearCE) => {
-                  if (!yy) return fallbackYearCE;
-                  if (yy.length === 2) return 2500 + parseInt(yy) - 543; // 69 → 2569(พ.ศ.) → 2026(ค.ศ.)
-                  const y = parseInt(yy);
-                  return y > 2500 ? y - 543 : y;                        // 2569 → 2026, 2025 → 2025
-                };
-
-                const parseDate = (t) => {
-                  if (t.includes('วันนี้')) {
-                    return nowTH;
-                  }
-                  if (t.includes('พรุ่งนี้') || t.includes('พรุ่ง')) {
-                    const d = new Date(nowTH); d.setDate(d.getDate() + 1); return d;
-                  }
-                  if (t.includes('มะรืน') || t.includes('มะเรืน')) {
-                    const d = new Date(nowTH); d.setDate(d.getDate() + 2); return d;
+                  const weekDates = [];
+                  for (let i = 0; i < 7; i++) {
+                    const d = new Date(monday);
+                    d.setDate(monday.getDate() + i);
+                    weekDates.push(d);
                   }
 
-                  // รูปแบบชื่อเดือนไทย เช่น "20 ก.ค. 69", "20 กรกฎาคม 2569", "20กค2025"
-                  const thaiMatch = t.match(thaiMonthRegex);
-                  if (thaiMatch) {
-                    const [, dd, monthText, yy] = thaiMatch;
-                    const mm = thaiMonthMap[monthText];
-                    const yearCE = normalizeYear(yy, nowTH.getFullYear());
-                    return new Date(yearCE, mm - 1, parseInt(dd));
-                  }
+                  const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                  const thaiDayNames = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+                  const todayISO = toISO(nowTH);
 
-                  // รูปแบบตัวเลข: DD-M-YY, DD-MM-YY, DD/M/YYYY, DD.M.YY ฯลฯ
-                  const match = t.match(/(\d{1,2})[-\/\.](\d{1,2})[-\/\.](\d{2,4})/);
-                  if (match) {
-                    const [, dd, mm, yy] = match;
-                    const yearCE = normalizeYear(yy, nowTH.getFullYear());
-                    return new Date(yearCE, parseInt(mm) - 1, parseInt(dd));
-                  }
+                  const weekLabel = text.includes('หน้า') ? 'สัปดาห์หน้า' : 'สัปดาห์นี้';
+                  const rangeLabel = `${weekDates[0].toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} – ${weekDates[6].toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
-                  return nowTH; // default = วันนี้
-                };
+                  const bookings = await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json') || [];
+                  let replyText = `📊 รายงานการจอง${weekLabel} (${rangeLabel})\n══════════════\n`;
+                  let totalCount = 0;
 
-                const targetDate = parseDate(text);
-                const targetISO = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
-                const targetDisplay = targetDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+                  weekDates.forEach(d => {
+                    const iso = toISO(d);
+                    const dayBookings = bookings
+                      .filter(b => b.date === iso && b.status === 'จองแล้ว')
+                      .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
-                // label วันสำหรับหัวข้อ
-                const todayISO0 = `${nowTH.getFullYear()}-${String(nowTH.getMonth() + 1).padStart(2, '0')}-${String(nowTH.getDate()).padStart(2, '0')}`;
-                const tom = new Date(nowTH); tom.setDate(nowTH.getDate() + 1);
-                const tomISO = `${tom.getFullYear()}-${String(tom.getMonth() + 1).padStart(2, '0')}-${String(tom.getDate()).padStart(2, '0')}`;
-                const dayAfter = new Date(nowTH); dayAfter.setDate(nowTH.getDate() + 2);
-                const dayAfterISO = `${dayAfter.getFullYear()}-${String(dayAfter.getMonth() + 1).padStart(2, '0')}-${String(dayAfter.getDate()).padStart(2, '0')}`;
+                    const dayName = thaiDayNames[d.getDay()];
+                    const todayTag = iso === todayISO ? ' (วันนี้)' : '';
+                    replyText += `\n📆 วัน${dayName} ${d.getDate()}/${d.getMonth() + 1}${todayTag}`;
 
-                let dayLabel = targetDisplay;
-                if (targetISO === todayISO0) dayLabel += ' (วันนี้)';
-                else if (targetISO === tomISO) dayLabel += ' (พรุ่งนี้)';
-                else if (targetISO === dayAfterISO) dayLabel += ' (มะรืนนี้)';
-
-                // ── ดึงข้อมูลจอง ──────────────────────────────────────────
-                const bookings = await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json') || [];
-                const dayBookings = bookings
-                  .filter(b => b.date === targetISO && b.status === 'จองแล้ว')
-                  .sort((a, b) => a.startTime.localeCompare(b.startTime));
-
-                const arrangementLabel = (a) => {
-                  if (!a) return null;
-                  if (a === 'classroom') return 'จัดโต๊ะรูปแบบคลาสรูม';
-                  if (a === 'u-shape') return 'จัดโต๊ะรูปแบบตัวยู U';
-                  if (a.startsWith('other:')) return `จัดโต๊ะ: ${a.slice(6)}`;
-                  return null;
-                };
-
-                let replyText;
-                if (dayBookings.length === 0) {
-                  replyText = `📅 รายการจอง ${dayLabel}\n──────────────\nไม่มีการจองครับ`;
-                } else {
-                  replyText = `📅 รายการจอง ${dayLabel} (${dayBookings.length} รายการ)\n`;
-                  dayBookings.forEach((b, i) => {
-                    const arr = arrangementLabel(b.roomArrangement);
-                    replyText += `\n${b.date} | ${b.startTime}–${b.endTime} น.\n`;
-                    replyText += `🏢 ${b.roomName}\n`;
-                    replyText += `📝 ${b.purpose}\n`;
-                    replyText += `👤 ${b.bookerName}\n`;
-                    if (arr) replyText += `🪑 ${arr}\n`;
-                    if (i < dayBookings.length - 1) replyText += '\n━━━━━━\n';
+                    if (dayBookings.length === 0) {
+                      replyText += ` — ไม่มีการจอง\n`;
+                    } else {
+                      replyText += ` (${dayBookings.length} รายการ)\n`;
+                      dayBookings.forEach(b => {
+                        replyText += `   ${b.startTime}–${b.endTime} น. 🏢${b.roomName} 👤${b.bookerName}\n`;
+                      });
+                      totalCount += dayBookings.length;
+                    }
                   });
+
+                  replyText += `\n──────────────\nรวมทั้งสัปดาห์: ${totalCount} รายการ`;
+
+                  await fetch('https://api.line.me/v2/bot/message/reply', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
+                    },
+                    body: JSON.stringify({
+                      replyToken: event.replyToken,
+                      messages: [{ type: 'text', text: replyText }],
+                    }),
+                  });
+
+                  console.log(`[Mention] Weekly report sent (${totalCount} bookings, ${weekLabel})`);
+
+                } else {
+                  // ── กรณี: รายงานรายวัน (วันนี้ / พรุ่งนี้ / มะรืนนี้ / วันที่ระบุ) ──────────
+
+                  // ── แปลงวันที่จากข้อความ ──────────────────────────────────
+                  // แผนที่ชื่อเดือนไทย (เต็ม / ย่อมีจุด / ย่อไม่มีจุด) → เลขเดือน
+                  const thaiMonthMap = {
+                    'มกราคม': 1, 'ม.ค.': 1, 'มค': 1,
+                    'กุมภาพันธ์': 2, 'ก.พ.': 2, 'กพ': 2,
+                    'มีนาคม': 3, 'มี.ค.': 3, 'มีค': 3,
+                    'เมษายน': 4, 'เม.ย.': 4, 'เมย': 4,
+                    'พฤษภาคม': 5, 'พ.ค.': 5, 'พค': 5,
+                    'มิถุนายน': 6, 'มิ.ย.': 6, 'มิย': 6,
+                    'กรกฎาคม': 7, 'ก.ค.': 7, 'กค': 7,
+                    'สิงหาคม': 8, 'ส.ค.': 8, 'สค': 8,
+                    'กันยายน': 9, 'ก.ย.': 9, 'กย': 9,
+                    'ตุลาคม': 10, 'ต.ค.': 10, 'ตค': 10,
+                    'พฤศจิกายน': 11, 'พ.ย.': 11, 'พย': 11,
+                    'ธันวาคม': 12, 'ธ.ค.': 12, 'ธค': 12,
+                  };
+                  // เรียงชื่อเดือนจากยาว→สั้น กันแมตช์ผิด (เช่น "กค" ไปกินก่อน "กรกฎาคม")
+                  // แล้วประกอบเป็น regex เดียว: ตัวเลขวัน + ชื่อเดือน + ปี (ไม่บังคับ)
+                  const monthPattern = Object.keys(thaiMonthMap)
+                    .sort((a, b) => b.length - a.length)
+                    .map(k => k.replace(/\./g, '\\.'))
+                    .join('|');
+                  const thaiMonthRegex = new RegExp(`(\\d{1,2})\\s*(${monthPattern})\\s*(\\d{2,4})?`);
+
+                  // แปลงปี: ไม่ระบุ → ปีปัจจุบัน, 2 หลัก (69) → พ.ศ., 4 หลัก พ.ศ./ค.ศ. → ค.ศ. เสมอ
+                  const normalizeYear = (yy, fallbackYearCE) => {
+                    if (!yy) return fallbackYearCE;
+                    if (yy.length === 2) return 2500 + parseInt(yy) - 543; // 69 → 2569(พ.ศ.) → 2026(ค.ศ.)
+                    const y = parseInt(yy);
+                    return y > 2500 ? y - 543 : y;                        // 2569 → 2026, 2025 → 2025
+                  };
+
+                  const parseDate = (t) => {
+                    if (t.includes('วันนี้')) {
+                      return nowTH;
+                    }
+                    if (t.includes('พรุ่งนี้') || t.includes('พรุ่ง')) {
+                      const d = new Date(nowTH); d.setDate(d.getDate() + 1); return d;
+                    }
+                    if (t.includes('มะรืน') || t.includes('มะเรืน')) {
+                      const d = new Date(nowTH); d.setDate(d.getDate() + 2); return d;
+                    }
+
+                    // รูปแบบชื่อเดือนไทย เช่น "20 ก.ค. 69", "20 กรกฎาคม 2569", "20กค2025"
+                    const thaiMatch = t.match(thaiMonthRegex);
+                    if (thaiMatch) {
+                      const [, dd, monthText, yy] = thaiMatch;
+                      const mm = thaiMonthMap[monthText];
+                      const yearCE = normalizeYear(yy, nowTH.getFullYear());
+                      return new Date(yearCE, mm - 1, parseInt(dd));
+                    }
+
+                    // รูปแบบตัวเลข: DD-M-YY, DD-MM-YY, DD/M/YYYY, DD.M.YY ฯลฯ
+                    const match = t.match(/(\d{1,2})[-\/\.](\d{1,2})[-\/\.](\d{2,4})/);
+                    if (match) {
+                      const [, dd, mm, yy] = match;
+                      const yearCE = normalizeYear(yy, nowTH.getFullYear());
+                      return new Date(yearCE, parseInt(mm) - 1, parseInt(dd));
+                    }
+
+                    return nowTH; // default = วันนี้
+                  };
+
+                  const targetDate = parseDate(text);
+                  const targetISO = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+                  const targetDisplay = targetDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+
+                  // label วันสำหรับหัวข้อ
+                  const todayISO0 = `${nowTH.getFullYear()}-${String(nowTH.getMonth() + 1).padStart(2, '0')}-${String(nowTH.getDate()).padStart(2, '0')}`;
+                  const tom = new Date(nowTH); tom.setDate(nowTH.getDate() + 1);
+                  const tomISO = `${tom.getFullYear()}-${String(tom.getMonth() + 1).padStart(2, '0')}-${String(tom.getDate()).padStart(2, '0')}`;
+                  const dayAfter = new Date(nowTH); dayAfter.setDate(nowTH.getDate() + 2);
+                  const dayAfterISO = `${dayAfter.getFullYear()}-${String(dayAfter.getMonth() + 1).padStart(2, '0')}-${String(dayAfter.getDate()).padStart(2, '0')}`;
+
+                  let dayLabel = targetDisplay;
+                  if (targetISO === todayISO0) dayLabel += ' (วันนี้)';
+                  else if (targetISO === tomISO) dayLabel += ' (พรุ่งนี้)';
+                  else if (targetISO === dayAfterISO) dayLabel += ' (มะรืนนี้)';
+
+                  // ── ดึงข้อมูลจอง ──────────────────────────────────────────
+                  const bookings = await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json') || [];
+                  const dayBookings = bookings
+                    .filter(b => b.date === targetISO && b.status === 'จองแล้ว')
+                    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+                  const arrangementLabel = (a) => {
+                    if (!a) return null;
+                    if (a === 'classroom') return 'จัดโต๊ะรูปแบบคลาสรูม';
+                    if (a === 'u-shape') return 'จัดโต๊ะรูปแบบตัวยู U';
+                    if (a.startsWith('other:')) return `จัดโต๊ะ: ${a.slice(6)}`;
+                    return null;
+                  };
+
+                  let replyText;
+                  if (dayBookings.length === 0) {
+                    replyText = `📅 รายการจอง ${dayLabel}\n──────────────\nไม่มีการจองครับ`;
+                  } else {
+                    replyText = `📅 รายการจอง ${dayLabel} (${dayBookings.length} รายการ)\n`;
+                    dayBookings.forEach((b, i) => {
+                      const arr = arrangementLabel(b.roomArrangement);
+                      replyText += `\n${b.date} | ${b.startTime}–${b.endTime} น.\n`;
+                      replyText += `🏢 ${b.roomName}\n`;
+                      replyText += `📝 ${b.purpose}\n`;
+                      replyText += `👤 ${b.bookerName}\n`;
+                      if (arr) replyText += `🪑 ${arr}\n`;
+                      if (i < dayBookings.length - 1) replyText += '\n━━━━━━\n';
+                    });
+                  }
+
+                  await fetch('https://api.line.me/v2/bot/message/reply', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
+                    },
+                    body: JSON.stringify({
+                      replyToken: event.replyToken,
+                      messages: [{ type: 'text', text: replyText }],
+                    }),
+                  });
+
+                  console.log(`[Mention] Replied with ${dayBookings.length} bookings for ${targetISO}`);
                 }
-
-                await fetch('https://api.line.me/v2/bot/message/reply', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
-                  },
-                  body: JSON.stringify({
-                    replyToken: event.replyToken,
-                    messages: [{ type: 'text', text: replyText }],
-                  }),
-                });
-
-                console.log(`[Mention] Replied with ${dayBookings.length} bookings for ${targetISO}`);
               }
             }
           }
