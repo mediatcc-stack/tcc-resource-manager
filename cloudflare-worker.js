@@ -405,6 +405,55 @@ export default {
 
                   console.log(`[Mention] Weekly report sent (${totalCount} bookings, ${weekLabel})`);
 
+                } else if (text.includes('ทั้งหมด') || text.includes('ที่จะถึง')) {
+                  // ── กรณี: รายงานการจองที่จะถึงทั้งหมด (จำกัด 20 รายการถัดไป) ──────
+                  const todayISO = `${nowTH.getFullYear()}-${String(nowTH.getMonth() + 1).padStart(2, '0')}-${String(nowTH.getDate()).padStart(2, '0')}`;
+
+                  // แปลง "YYYY-MM-DD" เป็นวันที่แสดงผลแบบไทย โดยไม่พึ่ง new Date(string)
+                  // เพื่อเลี่ยงปัญหา timezone parsing ที่อาจเลื่อนวันผิด
+                  const formatDateDisplay = (iso) => {
+                    const [y, m, d] = iso.split('-').map(Number);
+                    return new Date(y, m - 1, d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+                  };
+
+                  const bookings = await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json') || [];
+                  const allUpcoming = bookings
+                    .filter(b => b.status === 'จองแล้ว' && b.date >= todayISO)
+                    .sort((a, b) => a.date === b.date ? a.startTime.localeCompare(b.startTime) : a.date.localeCompare(b.date));
+                  const upcoming = allUpcoming.slice(0, 20);
+                  const remaining = allUpcoming.length - upcoming.length;
+
+                  let replyText;
+                  if (upcoming.length === 0) {
+                    replyText = `📅 การจองที่จะถึง\n──────────────\nไม่มีการจองที่จะถึงครับ`;
+                  } else {
+                    replyText = `📅 การจองที่จะถึง (${upcoming.length}${remaining > 0 ? ' จาก ' + allUpcoming.length : ''} รายการ)\n`;
+                    upcoming.forEach((b, i) => {
+                      replyText += `\n${formatDateDisplay(b.date)} | ${b.startTime}–${b.endTime} น.\n`;
+                      replyText += `🏢 ${b.roomName}\n`;
+                      replyText += `📝 ${b.purpose}\n`;
+                      replyText += `👤 ${b.bookerName}\n`;
+                      if (i < upcoming.length - 1) replyText += '\n━━━━━━\n';
+                    });
+                    if (remaining > 0) {
+                      replyText += `\n\n...และอีก ${remaining} รายการ (แสดงแค่ 20 รายการถัดไปเท่านั้น)`;
+                    }
+                  }
+
+                  await fetch('https://api.line.me/v2/bot/message/reply', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
+                    },
+                    body: JSON.stringify({
+                      replyToken: event.replyToken,
+                      messages: [{ type: 'text', text: replyText }],
+                    }),
+                  });
+
+                  console.log(`[Mention] Upcoming report sent (${upcoming.length}/${allUpcoming.length} bookings)`);
+
                 } else {
                   // ── กรณี: รายงานรายวัน (วันนี้ / พรุ่งนี้ / มะรืนนี้ / วันที่ระบุ) ──────────
 
