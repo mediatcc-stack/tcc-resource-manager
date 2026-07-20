@@ -137,6 +137,9 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  *  🛠️  แก้ไขล่าสุด
  * ═══════════════════════════════════════════════════════════════════════════════
+ *  v2.1 (2026-07-20) — ปรับ parseDate() ใน @mention handler ให้รองรับ
+ *                       รูปแบบวันที่แบบชื่อเดือนไทย (เต็ม/ย่อ มีจุด/ไม่มีจุด)
+ *                       และปีทั้ง พ.ศ. 2 หลัก / พ.ศ. 4 หลัก / ค.ศ. 4 หลัก
  *  v2.0 (2026-05-20) — แยก public/protected routes ชัดเจน,
  *                       แก้ bug checkKvBinding เรียกซ้ำ,
  *                       เพิ่ม /webhook สำหรับเพิ่ม recipient อัตโนมัติ,
@@ -333,27 +336,71 @@ export default {
             if (isBotMentioned) {
               const text = event.message.text.toLowerCase();
 
-              // คำสั่ง: @Bot รายงาน / จอง / จองพรุ่งนี้ / จอง 16-6-69
+              // คำสั่ง: @Bot รายงาน / จอง / จองพรุ่งนี้ / จอง 16-6-69 / จอง 20 ก.ค. 69
               if (text.includes('รายงาน') || text.includes('จอง')) {
 
                 // ── แปลงวันที่จากข้อความ ──────────────────────────────────
                 const nowTH = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
 
+                // แผนที่ชื่อเดือนไทย (เต็ม / ย่อมีจุด / ย่อไม่มีจุด) → เลขเดือน
+                const thaiMonthMap = {
+                  'มกราคม': 1, 'ม.ค.': 1, 'มค': 1,
+                  'กุมภาพันธ์': 2, 'ก.พ.': 2, 'กพ': 2,
+                  'มีนาคม': 3, 'มี.ค.': 3, 'มีค': 3,
+                  'เมษายน': 4, 'เม.ย.': 4, 'เมย': 4,
+                  'พฤษภาคม': 5, 'พ.ค.': 5, 'พค': 5,
+                  'มิถุนายน': 6, 'มิ.ย.': 6, 'มิย': 6,
+                  'กรกฎาคม': 7, 'ก.ค.': 7, 'กค': 7,
+                  'สิงหาคม': 8, 'ส.ค.': 8, 'สค': 8,
+                  'กันยายน': 9, 'ก.ย.': 9, 'กย': 9,
+                  'ตุลาคม': 10, 'ต.ค.': 10, 'ตค': 10,
+                  'พฤศจิกายน': 11, 'พ.ย.': 11, 'พย': 11,
+                  'ธันวาคม': 12, 'ธ.ค.': 12, 'ธค': 12,
+                };
+                // เรียงชื่อเดือนจากยาว→สั้น กันแมตช์ผิด (เช่น "กค" ไปกินก่อน "กรกฎาคม")
+                // แล้วประกอบเป็น regex เดียว: ตัวเลขวัน + ชื่อเดือน + ปี (ไม่บังคับ)
+                const monthPattern = Object.keys(thaiMonthMap)
+                  .sort((a, b) => b.length - a.length)
+                  .map(k => k.replace(/\./g, '\\.'))
+                  .join('|');
+                const thaiMonthRegex = new RegExp(`(\\d{1,2})\\s*(${monthPattern})\\s*(\\d{2,4})?`);
+
+                // แปลงปี: ไม่ระบุ → ปีปัจจุบัน, 2 หลัก (69) → พ.ศ., 4 หลัก พ.ศ./ค.ศ. → ค.ศ. เสมอ
+                const normalizeYear = (yy, fallbackYearCE) => {
+                  if (!yy) return fallbackYearCE;
+                  if (yy.length === 2) return 2500 + parseInt(yy) - 543; // 69 → 2569(พ.ศ.) → 2026(ค.ศ.)
+                  const y = parseInt(yy);
+                  return y > 2500 ? y - 543 : y;                        // 2569 → 2026, 2025 → 2025
+                };
+
                 const parseDate = (t) => {
+                  if (t.includes('วันนี้')) {
+                    return nowTH;
+                  }
                   if (t.includes('พรุ่งนี้') || t.includes('พรุ่ง')) {
                     const d = new Date(nowTH); d.setDate(d.getDate() + 1); return d;
                   }
                   if (t.includes('มะรืน') || t.includes('มะเรืน')) {
                     const d = new Date(nowTH); d.setDate(d.getDate() + 2); return d;
                   }
-                  // รูปแบบ DD-M-YY, DD-MM-YY, DD/M/YY, DD.M.YY ฯลฯ
+
+                  // รูปแบบชื่อเดือนไทย เช่น "20 ก.ค. 69", "20 กรกฎาคม 2569", "20กค2025"
+                  const thaiMatch = t.match(thaiMonthRegex);
+                  if (thaiMatch) {
+                    const [, dd, monthText, yy] = thaiMatch;
+                    const mm = thaiMonthMap[monthText];
+                    const yearCE = normalizeYear(yy, nowTH.getFullYear());
+                    return new Date(yearCE, mm - 1, parseInt(dd));
+                  }
+
+                  // รูปแบบตัวเลข: DD-M-YY, DD-MM-YY, DD/M/YYYY, DD.M.YY ฯลฯ
                   const match = t.match(/(\d{1,2})[-\/\.](\d{1,2})[-\/\.](\d{2,4})/);
                   if (match) {
-                    let [_, dd, mm, yy] = match;
-                    if (yy.length === 2) yy = '25' + yy;           // 69 → 2569
-                    if (parseInt(yy) > 2500) yy = String(parseInt(yy) - 543); // พ.ศ. → ค.ศ.
-                    return new Date(parseInt(yy), parseInt(mm) - 1, parseInt(dd));
+                    const [, dd, mm, yy] = match;
+                    const yearCE = normalizeYear(yy, nowTH.getFullYear());
+                    return new Date(yearCE, parseInt(mm) - 1, parseInt(dd));
                   }
+
                   return nowTH; // default = วันนี้
                 };
 
@@ -389,9 +436,9 @@ export default {
 
                 let replyText;
                 if (dayBookings.length === 0) {
-                  replyText = `📅 รายการจองวันนี้\n${dayLabel}\n──────────────\nไม่มีการจองครับ`;
+                  replyText = `📅 รายการจอง ${dayLabel}\n──────────────\nไม่มีการจองครับ`;
                 } else {
-                  replyText = `📅 รายการจองวันนี้ (${dayBookings.length} รายการ)\n`;
+                  replyText = `📅 รายการจอง ${dayLabel} (${dayBookings.length} รายการ)\n`;
                   dayBookings.forEach((b, i) => {
                     const arr = arrangementLabel(b.roomArrangement);
                     replyText += `\n${b.date} | ${b.startTime}–${b.endTime} น.\n`;
