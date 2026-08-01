@@ -36,7 +36,10 @@
  *    "rooms_data"       → JSON array ของ Booking[] (การจองห้องทั้งหมด)
  *    "equipment_data"   → JSON array ของ BorrowingRequest[] (การยืมอุปกรณ์)
  *    "repairs_data"     → JSON array ของ RepairRequest[] (การแจ้งซ่อมอุปกรณ์ไอที)
- *    "recipient_ids"    → JSON array ของ LINE User ID ที่รับแจ้งเตือน
+ *    "recipient:<id>"   → "1" ต่อผู้รับแจ้งเตือน 1 คน/กลุ่ม (v2.3 ขึ้นไป — ดูหัวข้อ
+ *                          ระบบแจ้งเตือน LINE ด้านล่าง)
+ *    "recipient_ids"    → (เดิม, ก่อน v2.3) JSON array ของ LINE User ID ที่รับแจ้งเตือน
+ *                          — เก็บไว้เป็น legacy สำหรับ migrate ครั้งแรกเท่านั้น
  *
  *  วิธีดูข้อมูลใน KV:
  *    Cloudflare Dashboard → Workers & Pages → KV
@@ -68,10 +71,14 @@
  *    [แสดง Toast สำเร็จ]
  *
  *  วิธีเพิ่ม LINE Admin คนใหม่ให้รับแจ้งเตือน:
- *    1. เพิ่มเพื่อน LINE Official Account ของระบบ
- *    2. Bot จะรับ Webhook event "follow" อัตโนมัติ
- *    3. Worker จะบันทึก userId ลงใน KV key "recipient_ids" ให้เอง
- *    หรือเพิ่มด้วยตัวเองได้ที่ KV → "recipient_ids" → แก้ไข JSON array
+ *    1. เพิ่มเพื่อน LINE Official Account ของระบบ (หรือเชิญเข้ากลุ่ม)
+ *    2. Bot จะรับ Webhook event "follow"/"join" อัตโนมัติ
+ *    3. Worker จะบันทึกเป็น KV key "recipient:<id>" ให้เอง (v2.3 ขึ้นไป)
+ *    หรือเพิ่มด้วยตัวเองได้ที่ KV → สร้าง key ใหม่ชื่อ "recipient:<LINE ID>" ค่าอะไรก็ได้ เช่น "1"
+ *
+ *  ⚠️  ตั้งแต่ v2.3 เปลี่ยนจากเก็บเป็น array ก้อนเดียวใน "recipient_ids" มาเป็น
+ *      1 key ต่อ 1 ผู้รับ (ดูเหตุผลที่ getRecipientIds() ในโค้ด) — ข้อมูลเก่าจะถูก
+ *      migrate มาเป็น key แยกให้อัตโนมัติครั้งแรกที่มีการเรียกใช้งาน ไม่ต้องทำอะไรเพิ่ม
  *
  *  LINE Console (ดูและแก้ไข Channel):
  *    https://developers.line.biz/console/
@@ -141,6 +148,11 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  *  🛠️  แก้ไขล่าสุด
  * ═══════════════════════════════════════════════════════════════════════════════
+ *  v2.3 (2026-08-01) — แก้บั๊ก race condition ที่ recipient_ids (array ก้อนเดียว)
+ *                       ถูกเขียนทับกันเวลามีหลาย webhook event (join/leave/follow/
+ *                       unfollow) เข้ามาพร้อมกัน ทำให้ผู้รับแจ้งเตือนบางคนหายไป
+ *                       เงียบๆ โดยไม่มี error — เปลี่ยนมาเก็บเป็น 1 key ต่อ 1 ผู้รับ
+ *                       (recipient:<id>) พร้อม migrate ข้อมูลเก่าอัตโนมัติ
  *  v2.2 (2026-08-01) — เพิ่มระบบแจ้งซ่อมอุปกรณ์ไอที (/data?type=repairs),
  *                       เพิ่ม KV Namespace REPAIR_REQUESTS_KV และ repairKvBinding
  *                       ใน /status
@@ -167,6 +179,51 @@ const corsHeaders = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  ระบบเก็บรายชื่อผู้รับแจ้งเตือน — 1 key ต่อ 1 ผู้รับ (recipient:<id>)
+// ─────────────────────────────────────────────────────────────────────────────
+//  เดิมเก็บเป็น array ก้อนเดียวใน key "recipient_ids" ซึ่งต้องอ่านทั้งก้อน
+//  มาแก้ไขแล้วเขียนทับทั้งก้อนกลับไปทุกครั้ง (read-modify-write) — ถ้ามีหลาย
+//  webhook event (เช่น 2 กลุ่ม join ไล่เลี่ยกัน) เข้ามาพร้อมกัน คำเขียนที่มาทีหลัง
+//  จะเขียนทับคำเขียนก่อนหน้าทั้งหมด ทำให้ ID ที่เพิ่งเพิ่มไปหายเงียบๆ โดยไม่มี error
+//
+//  ตอนนี้เปลี่ยนมาเก็บทีละ key แยกกัน (recipient:<id> = "1") แต่ละ webhook event
+//  จะเขียนแค่ key ของตัวเอง ไม่มีทางไปทับ ID อื่นได้อีก ไม่ว่าจะมีกี่ event
+//  เข้ามาพร้อมกันก็ตาม — ใช้ namespace เดิม (ROOM_BOOKINGS_KV) ไม่ต้องเพิ่ม
+//  binding ใหม่ใน Cloudflare
+//
+//  getRecipientIds() จะ migrate ข้อมูลเก่าใน "recipient_ids" มาเป็น key แยก
+//  ให้อัตโนมัติครั้งแรกที่เรียก (ถ้ายังไม่เคย migrate) — ไม่ต้องเพิ่มเพื่อนบอทใหม่
+// ─────────────────────────────────────────────────────────────────────────────
+const RECIPIENT_PREFIX = 'recipient:';
+
+async function getRecipientIds(env) {
+  const list = await env.ROOM_BOOKINGS_KV.list({ prefix: RECIPIENT_PREFIX });
+  if (list.keys.length > 0) {
+    return list.keys.map(k => k.name.slice(RECIPIENT_PREFIX.length));
+  }
+
+  // ยังไม่เคย migrate — ลองอ่านของเก่า (recipient_ids array) มาย้ายเป็น key แยกให้ครั้งเดียว
+  const legacyIds = await env.ROOM_BOOKINGS_KV.get('recipient_ids', 'json') || [];
+  if (Array.isArray(legacyIds) && legacyIds.length > 0) {
+    await Promise.all(legacyIds.map(id => env.ROOM_BOOKINGS_KV.put(`${RECIPIENT_PREFIX}${id}`, '1')));
+    console.log(`[Migration] Migrated ${legacyIds.length} recipient(s) from legacy "recipient_ids" to per-key storage`);
+    return legacyIds;
+  }
+
+  return [];
+}
+
+async function addRecipient(env, id) {
+  if (!id) return;
+  await env.ROOM_BOOKINGS_KV.put(`${RECIPIENT_PREFIX}${id}`, '1');
+}
+
+async function removeRecipient(env, id) {
+  if (!id) return;
+  await env.ROOM_BOOKINGS_KV.delete(`${RECIPIENT_PREFIX}${id}`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  sendNotification(message, env)
 //  ส่งข้อความ Push ไปหา LINE ของเจ้าหน้าที่ทุกคนใน recipient_ids
 //  ถ้า recipient_ids ใน KV ว่าง จะใช้ RECIPIENT_ID จาก env เป็น fallback
@@ -174,7 +231,7 @@ const corsHeaders = {
 async function sendNotification(message, env) {
   let recipientIds = [];
   try {
-    recipientIds = await env.ROOM_BOOKINGS_KV.get('recipient_ids', 'json') || [];
+    recipientIds = await getRecipientIds(env);
   } catch (e) {
     recipientIds = [];
   }
@@ -291,35 +348,23 @@ export default {
         const events = body.events || [];
         for (const event of events) {
 
-          // Helper — เพิ่ม id เข้า recipient_ids ถ้ายังไม่มี
-          const saveId = async (id) => {
-            if (!id) return;
-            let ids = await env.ROOM_BOOKINGS_KV.get('recipient_ids', 'json') || [];
-            if (!Array.isArray(ids)) ids = [];
-            if (!ids.includes(id)) {
-              ids.push(id);
-              await env.ROOM_BOOKINGS_KV.put('recipient_ids', JSON.stringify(ids));
-              console.log(`[Webhook] Saved new recipient: ${id} (type: ${event.type})`);
-            }
-          };
-
           if (event.type === 'follow') {
-            // คนแอดเพื่อน Bot → เก็บ userId
-            await saveId(event.source.userId);
+            // คนแอดเพื่อน Bot → เก็บ userId (เขียนเฉพาะ key ของตัวเอง ไม่ชนกับ ID อื่น)
+            await addRecipient(env, event.source.userId);
+            console.log(`[Webhook] Saved new recipient: ${event.source.userId} (type: follow)`);
           }
 
           if (event.type === 'join') {
             // Bot ถูกเชิญเข้ากลุ่ม → เก็บ groupId
-            await saveId(event.source.groupId);
+            await addRecipient(env, event.source.groupId);
+            console.log(`[Webhook] Saved new recipient: ${event.source.groupId} (type: join)`);
           }
 
           if (event.type === 'leave') {
             // Bot ถูกเตะออกจากกลุ่ม → ลบ groupId ออกจาก KV อัตโนมัติ
             const removeId = event.source.groupId;
             if (removeId) {
-              let ids = await env.ROOM_BOOKINGS_KV.get('recipient_ids', 'json') || [];
-              ids = ids.filter(id => id !== removeId);
-              await env.ROOM_BOOKINGS_KV.put('recipient_ids', JSON.stringify(ids));
+              await removeRecipient(env, removeId);
               console.log(`[Webhook] Removed recipient: ${removeId} (bot left group)`);
             }
           }
@@ -328,9 +373,7 @@ export default {
             // คน unfollow Bot → ลบ userId ออกจาก KV อัตโนมัติ
             const removeId = event.source.userId;
             if (removeId) {
-              let ids = await env.ROOM_BOOKINGS_KV.get('recipient_ids', 'json') || [];
-              ids = ids.filter(id => id !== removeId);
-              await env.ROOM_BOOKINGS_KV.put('recipient_ids', JSON.stringify(ids));
+              await removeRecipient(env, removeId);
               console.log(`[Webhook] Removed recipient: ${removeId} (user unfollowed)`);
             }
           }
@@ -666,7 +709,7 @@ export default {
 
       // ── /recipients — ดูรายชื่อ LINE User ID ที่รับแจ้งเตือน ────────────
       if (path === '/recipients' && request.method === 'GET') {
-        const recipientIds = await env.ROOM_BOOKINGS_KV.get('recipient_ids', 'json') || [];
+        const recipientIds = await getRecipientIds(env);
         return new Response(JSON.stringify(recipientIds), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
