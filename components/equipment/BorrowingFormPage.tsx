@@ -8,6 +8,7 @@ import ThaiDatePicker from '../shared/ThaiDatePicker';
 interface BorrowingFormPageProps {
     onSubmit: (newRequest: Omit<BorrowingRequest, 'id' | 'createdAt' | 'status'>) => void;
     onCancel: () => void;
+    editingRequest?: BorrowingRequest | null;
 }
 
 const FormField: React.FC<{label: string, icon: string, required?: boolean, children: React.ReactNode}> = ({ label, icon, required, children }) => (
@@ -20,16 +21,17 @@ const FormField: React.FC<{label: string, icon: string, required?: boolean, chil
     </div>
 );
 
-const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCancel }) => {
+const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCancel, editingRequest }) => {
+    const isEditing = !!editingRequest;
     const [formData, setFormData] = useState({
-        borrowerName: '',
-        phone: '',
-        department: '',
-        purpose: '',
-        borrowDate: new Date().toISOString().split('T')[0],
-        returnDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-        equipmentList: '',
-        notes: '',
+        borrowerName: editingRequest?.borrowerName ?? '',
+        phone: editingRequest?.phone ?? '',
+        department: editingRequest?.department ?? '',
+        purpose: editingRequest?.purpose ?? '',
+        borrowDate: editingRequest?.borrowDate ?? new Date().toISOString().split('T')[0],
+        returnDate: editingRequest?.returnDate ?? new Date(Date.now() + 86400000).toISOString().split('T')[0],
+        equipmentList: editingRequest?.equipmentList ?? '',
+        notes: editingRequest?.notes ?? '',
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -79,8 +81,13 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
                  <div className="mb-8 pb-5 border-b border-gray-100">
                     <h2 className="text-2xl font-bold text-primary flex items-center gap-3">
                         <span className="text-3xl">📋</span>
-                        แบบฟอร์มขอยืมอุปกรณ์
+                        {isEditing ? 'แก้ไขคำขอยืมอุปกรณ์' : 'แบบฟอร์มขอยืมอุปกรณ์'}
                     </h2>
+                    {!isEditing && (
+                        <p className="text-xs text-slate-400 mt-2">
+                            💡 หลังส่งแล้ว ถ้ากรอกผิดสามารถกลับมาแก้ไขได้เอง (จากอุปกรณ์เครื่องเดิม) ตราบใดที่เจ้าหน้าที่ยังไม่อนุมัติ
+                        </p>
+                    )}
                 </div>
 
                 <div className="mb-8 p-5 border-2 border-blue-200 rounded-xl bg-blue-50/50">
@@ -149,7 +156,7 @@ const BorrowingFormPage: React.FC<BorrowingFormPageProps> = ({ onSubmit, onCance
                     
                     <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
                         <Button type="button" variant="secondary" onClick={onCancel} disabled={loading}>ยกเลิก</Button>
-                        <Button type="submit" variant="primary" loading={loading}>ยืนยันการขอยืม</Button>
+                        <Button type="submit" variant="primary" loading={loading}>{isEditing ? 'บันทึกการแก้ไข' : 'ยืนยันการขอยืม'}</Button>
                     </div>
                 </form>
             </div>
