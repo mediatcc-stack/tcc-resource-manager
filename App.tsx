@@ -15,6 +15,7 @@
  *  URL "/"          → LandingPage    — หน้าแรก เลือกระบบ
  *  URL "/room"      → RoomBookingSystem — ระบบจองห้องประชุม
  *  URL "/equipment" → EquipmentSystem   — ระบบยืมอุปกรณ์
+ *  URL "/repair"    → RepairSystem      — ระบบแจ้งซ่อมอุปกรณ์ไอที
  *  URL อื่นๆ        → redirect ไป "/"
  *
  *  ไฟล์ _redirects (root ของ project) ทำให้ Cloudflare Pages รองรับ React Router:
@@ -96,6 +97,12 @@
  *      BorrowingFormPage.tsx              ← ฟอร์มขอยืมอุปกรณ์
  *      BorrowingStatisticsPage.tsx        ← สรุปสถิติการยืม
  *      BorrowingCard.tsx                  ← การ์ดแสดงรายการยืม
+ *    repair/
+ *      RepairSystem.tsx                   ← controller ระบบแจ้งซ่อมอุปกรณ์ไอที
+ *      RepairListPage.tsx                 ← รายการแจ้งซ่อมทั้งหมด
+ *      RepairFormPage.tsx                 ← ฟอร์มแจ้งซ่อม
+ *      RepairStatisticsPage.tsx           ← สรุปสถิติการแจ้งซ่อม
+ *      RepairCard.tsx                     ← การ์ดแสดงรายการแจ้งซ่อม
  *    shared/
  *      Button.tsx                         ← ปุ่มมาตรฐาน
  *      LoadingSpinner.tsx                 ← Loading indicator
@@ -116,6 +123,7 @@ import { WORKER_BASE_URL } from './constants';
 import LandingPage from './components/landing/LandingPage';
 import RoomBookingSystem from './components/room/RoomBookingSystem';
 import EquipmentSystem from './components/equipment/EquipmentSystem';
+import RepairSystem from './components/repair/RepairSystem';
 import Navbar from './components/layout/Navbar';
 import { SystemType, ToastMessage } from './types';
 import ToastContainer from './components/shared/ToastContainer';
@@ -203,6 +211,7 @@ const App: React.FC = () => {
           <Route path="/"          element={<LandingPage onAdminLogin={handleAdminToggle} isAdmin={isAdmin} />} />
           <Route path="/room"      element={<RoomBookingSystem showToast={showToast} isAdmin={isAdmin} />} />
           <Route path="/equipment" element={<EquipmentSystem showToast={showToast} isAdmin={isAdmin} />} />
+          <Route path="/repair"    element={<RepairSystem showToast={showToast} isAdmin={isAdmin} />} />
           <Route path="*"          element={<Navigate to="/" replace />} />
         </Routes>
       </main>

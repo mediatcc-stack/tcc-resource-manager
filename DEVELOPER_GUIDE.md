@@ -35,6 +35,9 @@
 |---|---|---|
 | `ROOM_BOOKINGS_KV` | `TCC_ROOM_BOOKINGS` | การจองห้อง + recipient IDs |
 | `EQUIPMENT_BORROWINGS_KV` | `TCC_EQUIPMENT_BORROWINGS` | การยืมอุปกรณ์ |
+| `REPAIR_REQUESTS_KV` | `TCC_REPAIR_REQUESTS` | การแจ้งซ่อมอุปกรณ์ไอที |
+
+> ⚠️ **ต้องสร้าง KV Namespace `TCC_REPAIR_REQUESTS` และ bind เป็น `REPAIR_REQUESTS_KV` ใน Worker ก่อนใช้งานระบบแจ้งซ่อม** (Dashboard → Workers & Pages → tcc-line-notifier → Settings → Bindings)
 
 ### Keys ภายใน KV
 
@@ -42,6 +45,7 @@
 |---|---|
 | `rooms_data` | `Booking[]` — การจองห้องทั้งหมด |
 | `equipment_data` | `BorrowingRequest[]` — การยืมอุปกรณ์ทั้งหมด |
+| `repairs_data` | `RepairRequest[]` — การแจ้งซ่อมอุปกรณ์ไอทีทั้งหมด |
 | `recipient_ids` | `string[]` — LINE User IDs ที่รับแจ้งเตือน |
 
 ### วิธี Backup ข้อมูล (ทำเป็นประจำ!)
@@ -54,6 +58,10 @@ curl -H "X-API-Key: [API_SECRET_KEY]" \
 # ดึงข้อมูลการยืมอุปกรณ์
 curl -H "X-API-Key: [API_SECRET_KEY]" \
   https://tcc-line-notifier.media-tcc.workers.dev/data?type=equipment
+
+# ดึงข้อมูลการแจ้งซ่อมอุปกรณ์ไอที
+curl -H "X-API-Key: [API_SECRET_KEY]" \
+  https://tcc-line-notifier.media-tcc.workers.dev/data?type=repairs
 ```
 
 > บันทึก JSON ที่ได้ไว้ใน Google Drive หรือ Sheets เป็นประจำ
@@ -138,6 +146,8 @@ npm run build      # สร้างไฟล์ใน dist/
 | POST | `/data?type=rooms` | X-API-Key | บันทึกข้อมูลการจอง |
 | GET | `/data?type=equipment` | X-API-Key | ดึงข้อมูลการยืม |
 | POST | `/data?type=equipment` | X-API-Key | บันทึกข้อมูลการยืม |
+| GET | `/data?type=repairs` | X-API-Key | ดึงข้อมูลการแจ้งซ่อม |
+| POST | `/data?type=repairs` | X-API-Key | บันทึกข้อมูลการแจ้งซ่อม |
 | POST | `/notify` | X-API-Key | ส่ง LINE แจ้งเตือน |
 | GET | `/recipients` | X-API-Key | ดู LINE recipients |
 
@@ -160,7 +170,7 @@ npm run build      # สร้างไฟล์ใน dist/
 
 ## ⚠️ สิ่งที่ห้ามทำ
 
-- **ห้ามลบ KV Namespace** `TCC_ROOM_BOOKINGS` หรือ `TCC_EQUIPMENT_BORROWINGS`
+- **ห้ามลบ KV Namespace** `TCC_ROOM_BOOKINGS`, `TCC_EQUIPMENT_BORROWINGS` หรือ `TCC_REPAIR_REQUESTS`
 - **ห้าม commit** ไฟล์ `.env.local` ขึ้น GitHub
 - **ห้าม hardcode** รหัสผ่านหรือ token ในโค้ด
 - **ห้ามเปลี่ยน** `id` ของห้องใน `ROOMS` array หากมีข้อมูลการจองอยู่แล้ว

@@ -68,9 +68,14 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({ isO
                 isOk={status.roomKvBinding}
                 failText="ไม่ได้ผูก KV Namespace"
               />
-              <StatusItem 
-                label="ฐานข้อมูลอุปกรณ์" 
+              <StatusItem
+                label="ฐานข้อมูลอุปกรณ์"
                 isOk={status.equipmentKvBinding}
+                failText="ไม่ได้ผูก KV Namespace"
+              />
+              <StatusItem
+                label="ฐานข้อมูลแจ้งซ่อม"
+                isOk={status.repairKvBinding}
                 failText="ไม่ได้ผูก KV Namespace"
               />
             </ul>

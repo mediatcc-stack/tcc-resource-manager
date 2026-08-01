@@ -31,8 +31,10 @@
  *
  *  fetchData('rooms')      → อ่าน KV key "rooms_data"      → Booking[]
  *  fetchData('equipment')  → อ่าน KV key "equipment_data"  → BorrowingRequest[]
+ *  fetchData('repairs')    → อ่าน KV key "repairs_data"    → RepairRequest[]
  *  saveData('rooms', [...])     → เขียนทับ KV key "rooms_data" ทั้งหมด
  *  saveData('equipment', [...]) → เขียนทับ KV key "equipment_data" ทั้งหมด
+ *  saveData('repairs', [...])   → เขียนทับ KV key "repairs_data" ทั้งหมด
  *
  *  ⚠️  saveData ทำงานแบบ overwrite ทั้งหมด ไม่ใช่ append!
  *      ต้องส่ง array ทั้งหมดที่ต้องการบันทึก ไม่ใช่แค่รายการที่เปลี่ยน
@@ -40,15 +42,16 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
-import { Booking, BorrowingRequest } from '../types';
+import { Booking, BorrowingRequest, RepairRequest } from '../types';
 import { WORKER_BASE_URL } from '../constants';
 
-type DataType = 'rooms' | 'equipment';
+type DataType = 'rooms' | 'equipment' | 'repairs';
 
 export interface WorkerStatus {
     lineApiToken: boolean;
     roomKvBinding: boolean;
     equipmentKvBinding: boolean;
+    repairKvBinding: boolean;
     recipientIdSet: boolean;
 }
 
@@ -122,7 +125,7 @@ export const fetchData = async (type: DataType): Promise<any[]> => {
 //  ⚠️  ต้องส่ง array ทั้งหมด ไม่ใช่แค่รายการที่เปลี่ยน
 //  return true ถ้าสำเร็จ, throw Error ถ้าล้มเหลว
 // ─────────────────────────────────────────────────────────────────────────────
-export const saveData = async (type: DataType, data: Booking[] | BorrowingRequest[]): Promise<boolean> => {
+export const saveData = async (type: DataType, data: Booking[] | BorrowingRequest[] | RepairRequest[]): Promise<boolean> => {
     try {
         const response = await fetch(`${WORKER_BASE_URL}/data?type=${type}`, {
             method: 'POST',
