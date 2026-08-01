@@ -23,6 +23,13 @@ const RoomIcon = () => (
   </svg>
 );
 
+// SVG icon: แจ้งซ่อม (ประแจ)
+const RepairIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10">
+    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+  </svg>
+);
+
 const LandingPage: React.FC<LandingPageProps> = ({ onAdminLogin, isAdmin }) => {
   const navigate = useNavigate();
 
@@ -72,7 +79,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onAdminLogin, isAdmin }) => {
 
       {/* ── Cards Section ── */}
       <div className="flex-1 flex flex-col items-center px-4 py-12">
-        <div className="w-full max-w-3xl grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+        <div className="w-full max-w-5xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           {/* การ์ดระบบยืมอุปกรณ์ */}
           <button
             onClick={() => navigate('/equipment')}
@@ -111,6 +118,28 @@ const LandingPage: React.FC<LandingPageProps> = ({ onAdminLogin, isAdmin }) => {
             </p>
             <div className="mt-5 inline-flex items-center gap-1.5 text-sm font-bold text-accent">
               จองห้องประชุม
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </div>
+          </button>
+
+          {/* การ์ดระบบแจ้งซ่อมอุปกรณ์ไอที */}
+          <button
+            onClick={() => navigate('/repair')}
+            className="group card-hover text-left w-full rounded-[24px] p-8 bg-white border border-slate-200 shadow-sm focus:outline-none focus-visible:ring-4 focus-visible:ring-offset-2"
+          >
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-[20px] mb-5 bg-primary-light text-primary transition-colors duration-300">
+              <RepairIcon />
+            </div>
+            <h2 className="font-bold mb-2 text-[1.2rem] text-primary tracking-tight">
+              {APP_CONFIG.repairTitle}
+            </h2>
+            <p className="text-neutral-muted text-sm leading-[1.6]">
+              แจ้งซ่อมคอมพิวเตอร์ ซอฟต์แวร์ และระบบเครือข่าย พร้อมแจ้งเตือนเจ้าหน้าที่ทันที
+            </p>
+            <div className="mt-5 inline-flex items-center gap-1.5 text-sm font-bold text-accent">
+              แจ้งซ่อม
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M5 12h14M12 5l7 7-7 7"/>
               </svg>

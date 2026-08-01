@@ -29,11 +29,13 @@
  *  │  Binding Name              → KV Namespace (ใน Dashboard)               │
  *  │  ROOM_BOOKINGS_KV          → TCC_ROOM_BOOKINGS                         │
  *  │  EQUIPMENT_BORROWINGS_KV   → TCC_EQUIPMENT_BORROWINGS                  │
+ *  │  REPAIR_REQUESTS_KV        → TCC_REPAIR_REQUESTS                       │
  *  └─────────────────────────────────────────────────────────────────────────┘
  *
  *  Key ที่เก็บข้อมูลจริงภายใน KV:
  *    "rooms_data"       → JSON array ของ Booking[] (การจองห้องทั้งหมด)
  *    "equipment_data"   → JSON array ของ BorrowingRequest[] (การยืมอุปกรณ์)
+ *    "repairs_data"     → JSON array ของ RepairRequest[] (การแจ้งซ่อมอุปกรณ์ไอที)
  *    "recipient_ids"    → JSON array ของ LINE User ID ที่รับแจ้งเตือน
  *
  *  วิธีดูข้อมูลใน KV:
@@ -131,12 +133,17 @@
  *    POST /data?type=rooms      → บันทึกข้อมูลการจองห้องทั้งหมด (overwrite)
  *    GET  /data?type=equipment  → ดึงข้อมูลการยืมอุปกรณ์ทั้งหมด
  *    POST /data?type=equipment  → บันทึกข้อมูลการยืมอุปกรณ์ทั้งหมด (overwrite)
+ *    GET  /data?type=repairs    → ดึงข้อมูลการแจ้งซ่อมอุปกรณ์ไอทีทั้งหมด
+ *    POST /data?type=repairs    → บันทึกข้อมูลการแจ้งซ่อมอุปกรณ์ไอทีทั้งหมด (overwrite)
  *    POST /notify               → Body: { message } → ส่ง LINE แจ้งเตือน
  *    GET  /recipients           → ดูรายชื่อ LINE User ID ที่รับแจ้งเตือน
  *
  * ═══════════════════════════════════════════════════════════════════════════════
  *  🛠️  แก้ไขล่าสุด
  * ═══════════════════════════════════════════════════════════════════════════════
+ *  v2.2 (2026-08-01) — เพิ่มระบบแจ้งซ่อมอุปกรณ์ไอที (/data?type=repairs),
+ *                       เพิ่ม KV Namespace REPAIR_REQUESTS_KV และ repairKvBinding
+ *                       ใน /status
  *  v2.1 (2026-07-20) — ปรับ parseDate() ใน @mention handler ให้รองรับ
  *                       รูปแบบวันที่แบบชื่อเดือนไทย (เต็ม/ย่อ มีจุด/ไม่มีจุด)
  *                       และปีทั้ง พ.ศ. 2 หลัก / พ.ศ. 4 หลัก / ค.ศ. 4 หลัก
@@ -244,6 +251,7 @@ export default {
         lineApiToken: !!env.CHANNEL_ACCESS_TOKEN,
         roomKvBinding: !!env.ROOM_BOOKINGS_KV,
         equipmentKvBinding: !!env.EQUIPMENT_BORROWINGS_KV,
+        repairKvBinding: !!env.REPAIR_REQUESTS_KV,
         recipientIdSet: !!env.RECIPIENT_ID,
       };
       return new Response(JSON.stringify(status), {
@@ -611,9 +619,22 @@ export default {
       // POST ?type=rooms      → บันทึก (overwrite ทั้งหมด ระวัง!)
       // GET  ?type=equipment  → ดึงข้อมูลการยืมอุปกรณ์
       // POST ?type=equipment  → บันทึกการยืมอุปกรณ์
+      // GET  ?type=repairs    → ดึงข้อมูลการแจ้งซ่อมอุปกรณ์ไอที
+      // POST ?type=repairs    → บันทึกการแจ้งซ่อมอุปกรณ์ไอที
       if (path === '/data') {
         const type = url.searchParams.get('type');
-        const KV_NAME = type === 'rooms' ? 'ROOM_BOOKINGS_KV' : 'EQUIPMENT_BORROWINGS_KV';
+        const KV_BINDINGS = {
+          rooms: 'ROOM_BOOKINGS_KV',
+          equipment: 'EQUIPMENT_BORROWINGS_KV',
+          repairs: 'REPAIR_REQUESTS_KV',
+        };
+        const KV_NAME = KV_BINDINGS[type];
+        if (!KV_NAME) {
+          return new Response(JSON.stringify({ error: `Unknown data type: ${type}` }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
         const KV = env[KV_NAME];
         const kvError = checkKvBinding(KV, KV_NAME); // เก็บ error ไว้ตัวแปรก่อน (ไม่เรียกซ้ำ)
         if (kvError) return kvError;

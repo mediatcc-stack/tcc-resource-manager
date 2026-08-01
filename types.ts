@@ -1,7 +1,8 @@
 
-export type SystemType = 'landing' | 'room' | 'equipment';
+export type SystemType = 'landing' | 'room' | 'equipment' | 'repair';
 export type RoomPage = 'home' | 'booking' | 'mybookings' | 'statistics';
 export type EquipmentPage = 'list' | 'form' | 'statistics';
+export type RepairPage = 'list' | 'form' | 'statistics';
 
 export interface Room {
   id: number;
@@ -51,6 +52,26 @@ export interface BorrowingRequest {
   status: BorrowStatus;
   createdAt: string;
   notes: string;
+}
+
+export enum RepairStatus {
+  Pending = 'รอดำเนินการ',
+  InProgress = 'กำลังซ่อม',
+  Completed = 'ซ่อมเสร็จสิ้น',
+}
+
+export type RepairPriority = 'ปกติ' | 'ด่วน' | 'ด่วนที่สุด';
+
+export interface RepairRequest {
+  id: string;
+  requesterName: string;
+  department: string;
+  roomName: string;
+  problemType: string;
+  description: string;
+  priority: RepairPriority;
+  status: RepairStatus;
+  createdAt: string;
 }
 
 export interface ToastMessage {
