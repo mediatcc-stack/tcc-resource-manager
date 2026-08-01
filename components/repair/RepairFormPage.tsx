@@ -71,7 +71,7 @@ const RepairFormPage: React.FC<RepairFormPageProps> = ({ onSubmit, onCancel }) =
                     <fieldset className="space-y-6 p-6 border-2 border-gray-100 rounded-3xl bg-gray-50/50">
                         <legend className="px-4 text-lg font-black text-primary">1. ข้อมูลผู้แจ้งซ่อม</legend>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FormField icon="👤" label="ผู้แจ้ง ชื่อ-นามสกุล" required>
+                            <FormField icon="👤" label="ชื่อ-นามสกุลผู้แจ้ง" required>
                                 <input type="text" name="requesterName" placeholder="ระบุชื่อผู้แจ้ง..." value={formData.requesterName} onChange={handleInputChange} className={inputClasses} required />
                             </FormField>
                             <FormField icon="🏢" label="แผนก / ฝ่าย" required>
@@ -87,20 +87,20 @@ const RepairFormPage: React.FC<RepairFormPageProps> = ({ onSubmit, onCancel }) =
                     </fieldset>
 
                     <fieldset className="space-y-6 p-6 border-2 border-gray-100 rounded-3xl">
-                        <legend className="px-4 text-lg font-black text-primary">2. รายละเอียดอาการเสีย</legend>
+                        <legend className="px-4 text-lg font-black text-primary">2. รายละเอียดปัญหา</legend>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FormField icon="🔧" label="ประเภทปัญหา" required>
+                            <FormField icon="🔧" label="ปัญหาที่พบเป็นเรื่องอะไร" required>
                                 <select name="problemType" value={formData.problemType} onChange={handleInputChange} className={inputClasses} required>
                                     {PROBLEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
                             </FormField>
-                            <FormField icon="⏱️" label="ระดับความเร่งด่วน" required>
+                            <FormField icon="⏱️" label="ความเร่งด่วน" required>
                                 <select name="priority" value={formData.priority} onChange={handleInputChange} className={inputClasses} required>
                                     {PRIORITY_LEVELS.map(p => <option key={p} value={p}>{p === 'ด่วนที่สุด' ? `${p} 🔥` : p}</option>)}
                                 </select>
                             </FormField>
                         </div>
-                        <FormField icon="📝" label="รายละเอียดอาการเสีย" required>
+                        <FormField icon="📝" label="รายละเอียดปัญหาที่พบ" required>
                             <textarea
                                 name="description"
                                 value={formData.description}

@@ -46,7 +46,8 @@
 | `rooms_data` | `Booking[]` — การจองห้องทั้งหมด |
 | `equipment_data` | `BorrowingRequest[]` — การยืมอุปกรณ์ทั้งหมด |
 | `repairs_data` | `RepairRequest[]` — การแจ้งซ่อมอุปกรณ์ไอทีทั้งหมด |
-| `recipient_ids` | `string[]` — LINE User IDs ที่รับแจ้งเตือน |
+| `recipient:<id>` | `"1"` — 1 key ต่อ LINE User/Group ID 1 ตัวที่รับแจ้งเตือน (v2.3 ขึ้นไป) |
+| `recipient_ids` | (เดิม ก่อน v2.3) `string[]` — เก็บไว้เป็น legacy สำหรับ migrate ครั้งแรกเท่านั้น |
 
 ### วิธี Backup ข้อมูล (ทำเป็นประจำ!)
 
@@ -84,8 +85,11 @@ curl -H "X-API-Key: [API_SECRET_KEY]" \
 
 **วิธี manual:**
 1. Cloudflare Dashboard → KV → `TCC_ROOM_BOOKINGS`
-2. ค้นหา key `recipient_ids`
-3. แก้ไข JSON array เพิ่ม LINE User ID เข้าไป
+2. สร้าง key ใหม่ชื่อ `recipient:<LINE User/Group ID>` ค่าอะไรก็ได้ เช่น `1`
+
+> ⚠️ ตั้งแต่ v2.3 เปลี่ยนจากเก็บเป็น array ก้อนเดียวใน `recipient_ids` มาเป็น 1 key ต่อ 1 ผู้รับ
+> (`recipient:<id>`) เพื่อแก้บั๊กที่ผู้รับบางคนหายไปเงียบๆ เวลามีหลาย webhook event (join/leave/
+> follow/unfollow) เข้ามาพร้อมกัน — ข้อมูลเก่าจะถูก migrate มาเป็น key แยกให้อัตโนมัติ ไม่ต้องทำอะไรเพิ่ม
 
 ### แจ้งเตือนอัตโนมัติ (Cron)
 
