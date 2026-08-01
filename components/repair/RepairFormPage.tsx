@@ -8,6 +8,7 @@ import { PROBLEM_TYPES, PRIORITY_LEVELS, ROOMS } from '../../constants';
 interface RepairFormPageProps {
     onSubmit: (newRequest: Omit<RepairRequest, 'id' | 'createdAt' | 'status'>) => void;
     onCancel: () => void;
+    editingRequest?: RepairRequest | null;
 }
 
 const FormField: React.FC<{label: string, icon: string, required?: boolean, children: React.ReactNode}> = ({ label, icon, required, children }) => (
@@ -20,14 +21,15 @@ const FormField: React.FC<{label: string, icon: string, required?: boolean, chil
     </div>
 );
 
-const RepairFormPage: React.FC<RepairFormPageProps> = ({ onSubmit, onCancel }) => {
+const RepairFormPage: React.FC<RepairFormPageProps> = ({ onSubmit, onCancel, editingRequest }) => {
+    const isEditing = !!editingRequest;
     const [formData, setFormData] = useState({
-        requesterName: '',
-        department: '',
-        roomName: '',
-        problemType: PROBLEM_TYPES[0],
-        priority: PRIORITY_LEVELS[0] as RepairPriority,
-        description: '',
+        requesterName: editingRequest?.requesterName ?? '',
+        department: editingRequest?.department ?? '',
+        roomName: editingRequest?.roomName ?? '',
+        problemType: editingRequest?.problemType ?? PROBLEM_TYPES[0],
+        priority: (editingRequest?.priority ?? PRIORITY_LEVELS[0]) as RepairPriority,
+        description: editingRequest?.description ?? '',
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -61,8 +63,13 @@ const RepairFormPage: React.FC<RepairFormPageProps> = ({ onSubmit, onCancel }) =
                 <div className="mb-8 pb-5 border-b border-gray-100">
                     <h2 className="text-2xl font-bold text-primary flex items-center gap-3">
                         <span className="text-3xl">🛠️</span>
-                        แบบฟอร์มแจ้งซ่อมอุปกรณ์ไอที
+                        {isEditing ? 'แก้ไขคำขอแจ้งซ่อม' : 'แบบฟอร์มแจ้งซ่อมอุปกรณ์ไอที'}
                     </h2>
+                    {!isEditing && (
+                        <p className="text-xs text-slate-400 mt-2">
+                            💡 หลังส่งแล้ว ถ้ากรอกผิดสามารถกลับมาแก้ไขได้เอง (จากอุปกรณ์เครื่องเดิม) ตราบใดที่เจ้าหน้าที่ยังไม่เริ่มดำเนินการ
+                        </p>
+                    )}
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-8">
@@ -115,7 +122,7 @@ const RepairFormPage: React.FC<RepairFormPageProps> = ({ onSubmit, onCancel }) =
 
                     <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
                         <Button type="button" variant="secondary" onClick={onCancel} disabled={loading}>ยกเลิก</Button>
-                        <Button type="submit" variant="primary" loading={loading}>ส่งแจ้งซ่อม</Button>
+                        <Button type="submit" variant="primary" loading={loading}>{isEditing ? 'บันทึกการแก้ไข' : 'ส่งแจ้งซ่อม'}</Button>
                     </div>
                 </form>
             </div>

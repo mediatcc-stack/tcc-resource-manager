@@ -4,14 +4,16 @@ import React, { useState, useRef, useEffect } from 'react';
 import { BorrowingRequest, BorrowStatus } from '../../types';
 import Button from '../shared/Button';
 import Modal from '../shared/Modal';
-import { Clock, ArrowRightLeft, CheckCircle2, AlertCircle, XCircle, Calendar, Trash2, Bell, HelpCircle } from 'lucide-react';
+import { Clock, ArrowRightLeft, CheckCircle2, AlertCircle, XCircle, Calendar, Trash2, Bell, HelpCircle, Pencil } from 'lucide-react';
 
 interface BorrowingCardProps {
     req: BorrowingRequest;
     onChangeStatus: (id: string, newStatus: BorrowStatus) => void;
     onDeleteRequest: (id: string) => void;
     onNotifyOverdue?: (req: BorrowingRequest) => void;
+    onEdit: (req: BorrowingRequest) => void;
     isAdmin: boolean;
+    isMine: boolean;
 }
 
 const getStatusIcon = (status: BorrowStatus, className = "w-3.5 h-3.5") => {
@@ -50,9 +52,16 @@ const ActionMenu: React.FC<{
     onDeleteRequest: () => void;
     onNotifyOverdue?: () => void;
     onClose: () => void;
-}> = ({ req, onChangeStatus, onDeleteRequest, onNotifyOverdue, onClose }) => {
+    onEdit: () => void;
+}> = ({ req, onChangeStatus, onDeleteRequest, onNotifyOverdue, onClose, onEdit }) => {
     return (
         <div className="absolute top-12 right-0 z-20 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 animate-fade-in">
+            <div className="p-2 border-b border-gray-100">
+                <button onClick={onEdit} className="w-full text-left text-xs font-semibold text-gray-700 hover:bg-gray-100 rounded-md p-2 flex items-center gap-2 cursor-pointer">
+                    <Pencil className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    แก้ไขข้อมูล
+                </button>
+            </div>
             <div className="p-2">
                 <p className="text-xs font-bold text-gray-400 px-2 pt-1 pb-2">เปลี่ยนสถานะเป็น</p>
                 <div className="grid grid-cols-2 gap-1">
@@ -81,14 +90,15 @@ const ActionMenu: React.FC<{
 };
 
 
-const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDeleteRequest, onNotifyOverdue, isAdmin }) => {
+const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDeleteRequest, onNotifyOverdue, onEdit, isAdmin, isMine }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const actionMenuRef = useRef<HTMLDivElement>(null);
-    
+
     const statusInfo = getStatusInfo(req.status);
     const colorClasses = colors[statusInfo.color as keyof typeof colors];
+    const canSelfEdit = isMine && !isAdmin && req.status === BorrowStatus.Pending;
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -116,22 +126,39 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
         if (onNotifyOverdue) onNotifyOverdue(req);
     };
 
+    const handleEditClick = () => {
+        setIsActionMenuOpen(false);
+        onEdit(req);
+    };
+
     return (
         <div className={`bg-white rounded-2xl shadow-sm border ${isExpanded ? 'border-blue-400' : 'border-gray-200'} transition-all`}>
             <div className="p-3">
                 <div className="flex justify-between items-start gap-4">
                     <div className="flex-1 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
-                        <div className={`px-2.5 py-1 text-xs font-bold rounded-full inline-flex items-center gap-1.5 ${colorClasses.bg} ${colorClasses.text}`}>
-                            {getStatusIcon(req.status, "w-3 h-3")} {statusInfo.text}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <div className={`px-2.5 py-1 text-xs font-bold rounded-full inline-flex items-center gap-1.5 ${colorClasses.bg} ${colorClasses.text}`}>
+                                {getStatusIcon(req.status, "w-3 h-3")} {statusInfo.text}
+                            </div>
+                            {isMine && !isAdmin && (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-block bg-primary-light text-primary border border-blue-200">
+                                    รายการของฉัน
+                                </span>
+                            )}
                         </div>
                         <h3 className="text-md font-bold text-gray-800 mt-2">{req.borrowerName}</h3>
                         <p className="text-xs text-slate-500 font-medium flex items-center gap-1 mt-1">
                              <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                              {new Date(req.borrowDate).toLocaleDateString('th-TH')} - {new Date(req.returnDate).toLocaleDateString('th-TH')}
                         </p>
+                        {isMine && !isAdmin && !canSelfEdit && (
+                            <p className="text-[11px] text-slate-400 font-medium mt-1.5 italic">
+                                เจ้าหน้าที่ดำเนินการแล้ว จึงแก้ไขคำขอนี้เองไม่ได้แล้ว
+                            </p>
+                        )}
                     </div>
-                    
-                    {/* แสดงปุ่ม Actions เฉพาะแอดมินเท่านั้น (Affordance) */}
+
+                    {/* แอดมินจัดการได้ทุกอย่าง / เจ้าของคำขอแก้ไขเองได้ตราบใดที่ยังไม่ได้รับการอนุมัติ */}
                     {isAdmin && (
                         <div className="relative flex flex-col items-end" ref={actionMenuRef}>
                            <button onClick={() => setIsActionMenuOpen(prev => !prev)} className="p-2 rounded-full hover:bg-gray-100 text-gray-500" aria-label="เมนูจัดการ">
@@ -140,15 +167,26 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
                                 </svg>
                            </button>
                             {isActionMenuOpen && (
-                                <ActionMenu 
+                                <ActionMenu
                                     req={req}
                                     onChangeStatus={handleStatusChangeAttempt}
                                     onDeleteRequest={handleDeleteClick}
                                     onNotifyOverdue={handleNotifyClick}
                                     onClose={() => setIsActionMenuOpen(false)}
+                                    onEdit={handleEditClick}
                                 />
                             )}
                         </div>
+                    )}
+
+                    {canSelfEdit && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onEdit(req); }}
+                            className="shrink-0 px-3 py-1.5 text-xs font-bold rounded-lg bg-primary-light text-primary hover:bg-blue-100 transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                            <Pencil className="w-3.5 h-3.5" />
+                            แก้ไขคำขอ
+                        </button>
                     )}
                 </div>
 

@@ -7,6 +7,7 @@ import RepairFormPage from './RepairFormPage';
 import RepairStatisticsPage from './RepairStatisticsPage';
 import { sendLineNotification } from '../../services/notificationService';
 import { fetchData, saveData } from '../../services/apiService';
+import { addMyRepairId, getMyRepairIds } from '../../services/myRepairsStorage';
 import { v4 as uuidv4 } from 'uuid';
 import LoadingSpinner from '../shared/LoadingSpinner';
 import Button from '../shared/Button';
@@ -24,6 +25,8 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [connectionStatus, setConnectionStatus] = useState<'connected' | 'error' | 'syncing'>('connected');
+    const [editingRequest, setEditingRequest] = useState<RepairRequest | null>(null);
+    const [myRepairIds, setMyRepairIds] = useState<string[]>(() => getMyRepairIds());
 
     const pollTimer = useRef<number | null>(null);
 
@@ -125,9 +128,36 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
         }
     }, [showToast]);
 
-    const handleFormSubmit = useCallback(async (newRequestData: Omit<RepairRequest, 'id' | 'createdAt' | 'status'>) => {
+    const handleEditRequest = useCallback((req: RepairRequest) => {
+        setEditingRequest(req);
+        setCurrentPage('form');
+    }, []);
+
+    const handleFormCancel = useCallback(() => {
+        setEditingRequest(null);
+        setCurrentPage('list');
+    }, []);
+
+    const handleFormSubmit = useCallback(async (formValues: Omit<RepairRequest, 'id' | 'createdAt' | 'status'>) => {
+        // โหมดแก้ไขคำขอเดิม (จากเจ้าของรายการหรือแอดมิน) — อัปเดตข้อมูลในตำแหน่งเดิม ไม่สร้างรายการใหม่
+        if (editingRequest) {
+            const updatedRepairs = repairs.map(r => r.id === editingRequest.id ? { ...r, ...formValues } : r);
+            try {
+                await saveData('repairs', updatedRepairs);
+                setRepairs(updatedRepairs);
+                setLastUpdated(new Date());
+                setCurrentPage('list');
+                setEditingRequest(null);
+                showToast('บันทึกการแก้ไขเรียบร้อย', 'success');
+                fetchRepairs(true);
+            } catch (error: any) {
+                showToast(`บันทึกข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
+            }
+            return;
+        }
+
         const createdRequest: RepairRequest = {
-            ...newRequestData,
+            ...formValues,
             id: uuidv4(),
             createdAt: new Date().toISOString(),
             status: RepairStatus.Pending,
@@ -139,6 +169,10 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
             setRepairs(updatedRepairs);
             setLastUpdated(new Date());
 
+            // จำไว้ว่ารายการนี้เป็นของผู้ใช้เครื่องนี้ (เบราว์เซอร์นี้) เพื่อให้กลับมาแก้ไขเองได้ทีหลัง
+            addMyRepairId(createdRequest.id);
+            setMyRepairIds(prev => [...prev, createdRequest.id]);
+
             const priorityTag = createdRequest.priority === 'ด่วนที่สุด' ? '🔥 ด่วนที่สุด! ' : '';
             const notifyMessage = `🛠️ แจ้งซ่อมอุปกรณ์ไอที\n${priorityTag}ความเร่งด่วน: ${createdRequest.priority}\n\n👤 ผู้แจ้ง: ${createdRequest.requesterName} (${createdRequest.department})\n📍 ห้อง/สถานที่: ${createdRequest.roomName}\n🔧 ประเภทปัญหา: ${createdRequest.problemType}\n📝 ${createdRequest.description}`;
 
@@ -149,7 +183,7 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
         } catch (error: any) {
             showToast(`บันทึกข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
         }
-    }, [repairs, showToast, fetchRepairs]);
+    }, [repairs, showToast, fetchRepairs, editingRequest]);
 
     const renderCurrentPage = () => {
         if (isLoading) {
@@ -180,7 +214,7 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
 
         switch (currentPage) {
             case 'form':
-                return <RepairFormPage onSubmit={handleFormSubmit} onCancel={() => setCurrentPage('list')} />;
+                return <RepairFormPage onSubmit={handleFormSubmit} onCancel={handleFormCancel} editingRequest={editingRequest} />;
             case 'statistics':
                 return <RepairStatisticsPage repairs={repairs} onBack={() => setCurrentPage('list')} />;
             case 'list':
@@ -191,6 +225,8 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
                         onChangeStatus={handleChangeStatus}
                         onDeleteRequest={handleDeleteRequest}
                         onNotifyAgain={handleNotifyAgain}
+                        onEditRequest={handleEditRequest}
+                        myRepairIds={myRepairIds}
                         lastUpdated={lastUpdated}
                         isAdmin={isAdmin}
                     />
@@ -229,7 +265,7 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
                         </span>
                     </div>
 
-                    <Button onClick={() => setCurrentPage('form')} variant="primary" className="shadow-lg" size="sm">
+                    <Button onClick={() => { setEditingRequest(null); setCurrentPage('form'); }} variant="primary" className="shadow-lg" size="sm">
                         + แจ้งซ่อมอุปกรณ์
                     </Button>
                 </div>

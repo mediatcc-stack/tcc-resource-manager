@@ -7,6 +7,7 @@ import BorrowingFormPage from './BorrowingFormPage';
 import BorrowingStatisticsPage from './BorrowingStatisticsPage';
 import { sendLineNotification } from '../../services/notificationService';
 import { fetchData, saveData } from '../../services/apiService';
+import { addMyBorrowingId, getMyBorrowingIds } from '../../services/myBorrowingsStorage';
 import { v4 as uuidv4 } from 'uuid';
 import LoadingSpinner from '../shared/LoadingSpinner';
 import Button from '../shared/Button';
@@ -25,7 +26,9 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [connectionStatus, setConnectionStatus] = useState<'connected' | 'error' | 'syncing'>('connected');
-    
+    const [editingRequest, setEditingRequest] = useState<BorrowingRequest | null>(null);
+    const [myBorrowingIds, setMyBorrowingIds] = useState<string[]>(() => getMyBorrowingIds());
+
     const pollTimer = useRef<number | null>(null);
 
     const fetchBorrowings = useCallback(async (isBackground = false) => {
@@ -125,19 +128,50 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
         }
     }, [showToast]);
 
-    const handleFormSubmit = useCallback(async (newRequestData: Omit<BorrowingRequest, 'id' | 'createdAt' | 'status'>) => {
+    const handleEditRequest = useCallback((req: BorrowingRequest) => {
+        setEditingRequest(req);
+        setCurrentPage('form');
+    }, []);
+
+    const handleFormCancel = useCallback(() => {
+        setEditingRequest(null);
+        setCurrentPage('list');
+    }, []);
+
+    const handleFormSubmit = useCallback(async (formValues: Omit<BorrowingRequest, 'id' | 'createdAt' | 'status'>) => {
+        // โหมดแก้ไขคำขอเดิม (จากเจ้าของรายการหรือแอดมิน) — อัปเดตข้อมูลในตำแหน่งเดิม ไม่สร้างรายการใหม่
+        if (editingRequest) {
+            const updatedBorrowings = borrowings.map(b => b.id === editingRequest.id ? { ...b, ...formValues } : b);
+            try {
+                await saveData('equipment', updatedBorrowings);
+                setBorrowings(updatedBorrowings);
+                setLastUpdated(new Date());
+                setCurrentPage('list');
+                setEditingRequest(null);
+                showToast('บันทึกการแก้ไขเรียบร้อย', 'success');
+                fetchBorrowings(true);
+            } catch (error: any) {
+                showToast(`บันทึกข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
+            }
+            return;
+        }
+
         const createdRequest: BorrowingRequest = {
-            ...newRequestData,
+            ...formValues,
             id: uuidv4(),
             createdAt: new Date().toISOString(),
             status: BorrowStatus.Pending,
         };
         const updatedBorrowings = [createdRequest, ...borrowings];
-        
+
         try {
             await saveData('equipment', updatedBorrowings);
             setBorrowings(updatedBorrowings);
             setLastUpdated(new Date());
+
+            // จำไว้ว่ารายการนี้เป็นของผู้ใช้เครื่องนี้ (เบราว์เซอร์นี้) เพื่อให้กลับมาแก้ไขเองได้ทีหลัง
+            addMyBorrowingId(createdRequest.id);
+            setMyBorrowingIds(prev => [...prev, createdRequest.id]);
 
             const borrowDate = new Date(createdRequest.borrowDate);
             const returnDate = new Date(createdRequest.returnDate);
@@ -157,7 +191,7 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
         } catch (error: any) {
             showToast(`บันทึกข้อมูลไม่สำเร็จ: ${error.message}`, 'error');
         }
-    }, [borrowings, showToast, fetchBorrowings]);
+    }, [borrowings, showToast, fetchBorrowings, editingRequest]);
     
     const renderCurrentPage = () => {
         if (isLoading) {
@@ -188,17 +222,19 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
 
         switch(currentPage) {
             case 'form':
-                return <BorrowingFormPage onSubmit={handleFormSubmit} onCancel={() => setCurrentPage('list')} />;
+                return <BorrowingFormPage onSubmit={handleFormSubmit} onCancel={handleFormCancel} editingRequest={editingRequest} />;
             case 'statistics':
                 return <BorrowingStatisticsPage borrowings={borrowings} onBack={() => setCurrentPage('list')} />;
             case 'list':
             default:
                 return (
-                    <BorrowingListPage 
+                    <BorrowingListPage
                         borrowings={borrowings}
                         onChangeStatus={handleChangeStatus}
                         onDeleteRequest={handleDeleteRequest}
                         onNotifyOverdue={handleNotifyOverdue}
+                        onEditRequest={handleEditRequest}
+                        myBorrowingIds={myBorrowingIds}
                         showToast={showToast}
                         lastUpdated={lastUpdated}
                         isAdmin={isAdmin}
@@ -239,7 +275,7 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
                         </span>
                     </div>
 
-                    <Button onClick={() => setCurrentPage('form')} variant="primary" className="shadow-lg" size="sm">
+                    <Button onClick={() => { setEditingRequest(null); setCurrentPage('form'); }} variant="primary" className="shadow-lg" size="sm">
                         + ขอยืมอุปกรณ์
                     </Button>
                 </div>
