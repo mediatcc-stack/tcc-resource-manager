@@ -83,7 +83,7 @@ const RepairListPage: React.FC<RepairListPageProps> = ({ repairs, onChangeStatus
                         onClick={() => setActiveTab('current')}
                         className={`flex-1 px-5 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'current' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                     >
-                        รายการค้างซ่อม
+                        รายการที่ยังไม่เสร็จ
                     </button>
                     <button
                         onClick={() => setActiveTab('history')}

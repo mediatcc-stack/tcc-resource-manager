@@ -111,7 +111,7 @@ const RepairStatisticsPage: React.FC<RepairStatisticsPageProps> = ({ repairs, on
                         </button>
                         <div>
                             <h2 className="text-2xl font-bold text-gray-800 tracking-tight">สถิติการแจ้งซ่อมอุปกรณ์</h2>
-                            <p className="text-sm text-gray-400 font-medium">IT Repair System Statistics</p>
+                            <p className="text-sm text-gray-400 font-medium">สรุปข้อมูลการแจ้งซ่อมอุปกรณ์ไอที</p>
                         </div>
                     </div>
 

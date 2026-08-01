@@ -58,7 +58,7 @@ const ActionMenu: React.FC<{
                 {req.status === RepairStatus.Pending && onNotifyAgain && (
                     <button onClick={onNotifyAgain} className="w-full text-left text-xs font-semibold text-gray-700 hover:bg-gray-100 rounded-md p-2 flex items-center gap-2 cursor-pointer">
                         <Bell className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        แจ้งเตือน LINE ซ้ำ
+                        ส่งแจ้งเตือนซ้ำ
                     </button>
                 )}
                 <button onClick={onDeleteRequest} className="w-full text-left text-xs font-semibold text-red-600 hover:bg-red-50 rounded-md p-2 flex items-center gap-2 cursor-pointer">
@@ -148,9 +148,9 @@ const RepairCard: React.FC<RepairCardProps> = ({ req, onChangeStatus, onDeleteRe
 
                 {isExpanded && (
                     <div className="mt-3 pt-3 border-t border-gray-100 animate-fade-in space-y-2 text-sm">
-                        <p><strong className="font-semibold text-gray-500">ประเภทปัญหา:</strong> {req.problemType}</p>
+                        <p><strong className="font-semibold text-gray-500">ปัญหาที่พบ:</strong> {req.problemType}</p>
                         <div>
-                            <p className="font-semibold text-gray-500 mb-1">รายละเอียดอาการเสีย:</p>
+                            <p className="font-semibold text-gray-500 mb-1">รายละเอียดปัญหาที่พบ:</p>
                             <p className="text-sm bg-gray-50 p-3 rounded-lg whitespace-pre-wrap font-sans text-gray-800 border border-gray-200">{req.description}</p>
                         </div>
                     </div>

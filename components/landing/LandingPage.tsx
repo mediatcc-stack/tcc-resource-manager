@@ -136,7 +136,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onAdminLogin, isAdmin }) => {
               {APP_CONFIG.repairTitle}
             </h2>
             <p className="text-neutral-muted text-sm leading-[1.6]">
-              แจ้งซ่อมคอมพิวเตอร์ ซอฟต์แวร์ และระบบเครือข่าย พร้อมแจ้งเตือนเจ้าหน้าที่ทันที
+              แจ้งเครื่องคอมพิวเตอร์เสีย โปรแกรมมีปัญหา หรือเน็ตใช้ไม่ได้ พร้อมแจ้งเตือนเจ้าหน้าที่ทันที
             </p>
             <div className="mt-5 inline-flex items-center gap-1.5 text-sm font-bold text-accent">
               แจ้งซ่อม
