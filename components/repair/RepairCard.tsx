@@ -4,14 +4,16 @@ import React, { useState, useRef, useEffect } from 'react';
 import { RepairRequest, RepairStatus } from '../../types';
 import Button from '../shared/Button';
 import Modal from '../shared/Modal';
-import { Clock, Wrench, CheckCircle2, Trash2, Bell, HelpCircle, MapPin } from 'lucide-react';
+import { Clock, Wrench, CheckCircle2, Trash2, Bell, HelpCircle, MapPin, Pencil } from 'lucide-react';
 
 interface RepairCardProps {
     req: RepairRequest;
     onChangeStatus: (id: string, newStatus: RepairStatus) => void;
     onDeleteRequest: (id: string) => void;
     onNotifyAgain?: (req: RepairRequest) => void;
+    onEdit: (req: RepairRequest) => void;
     isAdmin: boolean;
+    isMine: boolean;
 }
 
 const getStatusIcon = (status: RepairStatus, className = "w-3.5 h-3.5") => {
@@ -40,9 +42,16 @@ const ActionMenu: React.FC<{
     onChangeStatus: (newStatus: RepairStatus) => void;
     onDeleteRequest: () => void;
     onNotifyAgain?: () => void;
-}> = ({ req, onChangeStatus, onDeleteRequest, onNotifyAgain }) => {
+    onEdit: () => void;
+}> = ({ req, onChangeStatus, onDeleteRequest, onNotifyAgain, onEdit }) => {
     return (
         <div className="absolute top-12 right-0 z-20 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 animate-fade-in">
+            <div className="p-2 border-b border-gray-100">
+                <button onClick={onEdit} className="w-full text-left text-xs font-semibold text-gray-700 hover:bg-gray-100 rounded-md p-2 flex items-center gap-2 cursor-pointer">
+                    <Pencil className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    แก้ไขข้อมูล
+                </button>
+            </div>
             <div className="p-2">
                 <p className="text-xs font-bold text-gray-400 px-2 pt-1 pb-2">เปลี่ยนสถานะเป็น</p>
                 <div className="grid grid-cols-1 gap-1">
@@ -70,13 +79,14 @@ const ActionMenu: React.FC<{
     );
 };
 
-const RepairCard: React.FC<RepairCardProps> = ({ req, onChangeStatus, onDeleteRequest, onNotifyAgain, isAdmin }) => {
+const RepairCard: React.FC<RepairCardProps> = ({ req, onChangeStatus, onDeleteRequest, onNotifyAgain, onEdit, isAdmin, isMine }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const actionMenuRef = useRef<HTMLDivElement>(null);
 
     const colorClasses = statusColors[req.status] || statusColors[RepairStatus.Pending];
+    const canSelfEdit = isMine && !isAdmin && req.status === RepairStatus.Pending;
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -104,6 +114,11 @@ const RepairCard: React.FC<RepairCardProps> = ({ req, onChangeStatus, onDeleteRe
         if (onNotifyAgain) onNotifyAgain(req);
     };
 
+    const handleEditClick = () => {
+        setIsActionMenuOpen(false);
+        onEdit(req);
+    };
+
     return (
         <div className={`bg-white rounded-2xl shadow-sm border ${isExpanded ? 'border-blue-400' : 'border-gray-200'} transition-all`}>
             <div className="p-3">
@@ -116,6 +131,11 @@ const RepairCard: React.FC<RepairCardProps> = ({ req, onChangeStatus, onDeleteRe
                             <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold tracking-wide inline-block ${priorityColors[req.priority] || priorityColors['ปกติ']}`}>
                                 {req.priority === 'ด่วนที่สุด' ? '🔥 ' : ''}{req.priority}
                             </span>
+                            {isMine && !isAdmin && (
+                                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold tracking-wide inline-block bg-primary-light text-primary border border-blue-200">
+                                    รายการของฉัน
+                                </span>
+                            )}
                         </div>
                         <h3 className="text-md font-bold text-gray-800 mt-2">{req.requesterName}</h3>
                         <p className="text-xs text-slate-500 font-medium flex items-center gap-1 mt-1">
@@ -125,6 +145,11 @@ const RepairCard: React.FC<RepairCardProps> = ({ req, onChangeStatus, onDeleteRe
                         <p className="text-xs text-slate-400 font-medium mt-1">
                             {new Date(req.createdAt).toLocaleString('th-TH')}
                         </p>
+                        {isMine && !isAdmin && !canSelfEdit && (
+                            <p className="text-[11px] text-slate-400 font-medium mt-1.5 italic">
+                                เจ้าหน้าที่เริ่มดำเนินการแล้ว จึงแก้ไขคำขอนี้เองไม่ได้แล้ว
+                            </p>
+                        )}
                     </div>
 
                     {isAdmin && (
@@ -140,9 +165,20 @@ const RepairCard: React.FC<RepairCardProps> = ({ req, onChangeStatus, onDeleteRe
                                     onChangeStatus={handleStatusChangeAttempt}
                                     onDeleteRequest={handleDeleteClick}
                                     onNotifyAgain={handleNotifyClick}
+                                    onEdit={handleEditClick}
                                 />
                             )}
                         </div>
+                    )}
+
+                    {canSelfEdit && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onEdit(req); }}
+                            className="shrink-0 px-3 py-1.5 text-xs font-bold rounded-lg bg-primary-light text-primary hover:bg-blue-100 transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                            <Pencil className="w-3.5 h-3.5" />
+                            แก้ไขคำขอ
+                        </button>
                     )}
                 </div>
 

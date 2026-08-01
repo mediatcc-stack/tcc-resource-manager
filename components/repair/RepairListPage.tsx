@@ -10,13 +10,15 @@ interface RepairListPageProps {
     onChangeStatus: (id: string, newStatus: RepairStatus) => void;
     onDeleteRequest: (id: string) => void;
     onNotifyAgain: (req: RepairRequest) => void;
+    onEditRequest: (req: RepairRequest) => void;
+    myRepairIds: string[];
     lastUpdated: Date | null;
     isAdmin: boolean;
 }
 
 const thaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
-const RepairListPage: React.FC<RepairListPageProps> = ({ repairs, onChangeStatus, onDeleteRequest, onNotifyAgain, lastUpdated, isAdmin }) => {
+const RepairListPage: React.FC<RepairListPageProps> = ({ repairs, onChangeStatus, onDeleteRequest, onNotifyAgain, onEditRequest, myRepairIds, lastUpdated, isAdmin }) => {
     const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
     const [nameFilter, setNameFilter] = useState('');
     const [monthFilter, setMonthFilter] = useState<string>('all');
@@ -119,7 +121,9 @@ const RepairListPage: React.FC<RepairListPageProps> = ({ repairs, onChangeStatus
                             onChangeStatus={onChangeStatus}
                             onDeleteRequest={onDeleteRequest}
                             onNotifyAgain={onNotifyAgain}
+                            onEdit={onEditRequest}
                             isAdmin={isAdmin}
+                            isMine={myRepairIds.includes(req.id)}
                         />
                     )
                 ) : (
