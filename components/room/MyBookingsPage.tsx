@@ -14,6 +14,7 @@ interface MyBookingsPageProps {
   onEditBooking: (booking: Booking) => void;
   onBack: () => void;
   isAdmin: boolean;
+  myBookingIds: string[];
 }
 
 const thaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
@@ -68,11 +69,12 @@ const BookingCard: React.FC<{
   isExpanded: boolean;
   onToggle: () => void;
   isAdmin: boolean;
+  isMine: boolean;
   onEditBooking: (booking: Booking) => void;
   groupDetails?: { roomCount: number; roomNames: string[] };
   isToday: boolean;
   onTriggerConfirm: (actionType: 'cancel' | 'delete', booking: Booking) => void;
-}> = ({ booking, isExpanded, onToggle, isAdmin, onEditBooking, groupDetails, isToday, onTriggerConfirm }) => {
+}> = ({ booking, isExpanded, onToggle, isAdmin, isMine, onEditBooking, groupDetails, isToday, onTriggerConfirm }) => {
   const statusInfo = getStatusInfo(booking.status, isToday);
   
   const formattedDate = booking.isMultiDay && booking.dateRange 
@@ -92,9 +94,16 @@ const BookingCard: React.FC<{
           <div className="p-4 cursor-pointer hover:bg-slate-50/40 transition-all" onClick={onToggle}>
             <div className="flex justify-between items-start gap-3">
                 <div className="flex-1 space-y-2">
-                    <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full inline-block ${statusInfo.color}`}>
-                      {statusInfo.text}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full inline-block ${statusInfo.color}`}>
+                        {statusInfo.text}
+                      </span>
+                      {isMine && !isAdmin && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-block bg-primary-light text-primary border border-blue-200">
+                          รายการของฉัน
+                        </span>
+                      )}
+                    </div>
                     <h4 className="font-bold text-base text-primary tracking-tight">{roomTitle}</h4>
                     <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
                       <CalendarIcon />
@@ -136,8 +145,8 @@ const BookingCard: React.FC<{
                   )}
               </div>
               
-              {/* ซ่อนปุ่มทั้งหมดสำหรับผู้ใช้ทั่วไป (Affordance) */}
-              {isAdmin && (
+              {/* แอดมินจัดการได้ทุกรายการ / เจ้าของการจองแก้ไข-ยกเลิกรายการของตัวเองได้เอง (ตราบใดที่ยังไม่ถึงเวลา/ยังไม่ยกเลิก) */}
+              {(isAdmin || (isMine && booking.status === 'จองแล้ว')) && (
                 <div className="flex justify-end gap-2 pt-3 mt-3 border-t border-slate-100">
                     {booking.status === 'จองแล้ว' && (
                         <>
@@ -145,7 +154,9 @@ const BookingCard: React.FC<{
                           <Button size="sm" variant="secondary" onClick={() => onTriggerConfirm('cancel', booking)}>ยกเลิกการจอง</Button>
                         </>
                     )}
-                    <Button size="sm" variant="danger" onClick={() => onTriggerConfirm('delete', booking)}>ลบถาวร</Button>
+                    {isAdmin && (
+                        <Button size="sm" variant="danger" onClick={() => onTriggerConfirm('delete', booking)}>ลบถาวร</Button>
+                    )}
                 </div>
               )}
             </div>
@@ -155,15 +166,16 @@ const BookingCard: React.FC<{
 };
 
 
-const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ 
-  bookings, 
-  onCancelBooking, 
-  onCancelBookingGroup, 
-  onDeleteBooking, 
-  onDeleteBookingGroup, 
-  onEditBooking, 
-  onBack, 
-  isAdmin 
+const MyBookingsPage: React.FC<MyBookingsPageProps> = ({
+  bookings,
+  onCancelBooking,
+  onCancelBookingGroup,
+  onDeleteBooking,
+  onDeleteBookingGroup,
+  onEditBooking,
+  onBack,
+  isAdmin,
+  myBookingIds,
 }) => {
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
   const [purposeFilter, setPurposeFilter] = useState('');
@@ -286,10 +298,11 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({
       return (
           <div className="space-y-4">
               {list.map(b => (
-                  <BookingCard 
-                      key={b.groupId || b.id} 
-                      booking={b} 
-                      isAdmin={isAdmin} 
+                  <BookingCard
+                      key={b.groupId || b.id}
+                      booking={b}
+                      isAdmin={isAdmin}
+                      isMine={myBookingIds.includes(b.groupId || b.id)}
                       isToday={isToday}
                       isExpanded={expandedId === (b.groupId || b.id)}
                       onToggle={() => setExpandedId(expandedId === (b.groupId || b.id) ? null : (b.groupId || b.id))}

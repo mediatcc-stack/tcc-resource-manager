@@ -9,6 +9,7 @@ import MyBookingsPage from './MyBookingsPage';
 import StatisticsPage from './StatisticsPage';
 import { fetchData, saveData } from '../../services/apiService';
 import { sendLineNotification } from '../../services/notificationService';
+import { addMyBookingId, getMyBookingIds } from '../../services/myBookingsStorage';
 import { v4 as uuidv4 } from 'uuid';
 import NavButton from './NavButton';
 import LoadingSpinner from '../shared/LoadingSpinner';
@@ -37,7 +38,8 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'error' | 'syncing'>('connected');
-  
+  const [myBookingIds, setMyBookingIds] = useState<string[]>(() => getMyBookingIds());
+
   const pollTimer = useRef<number | null>(null);
 
   const fetchBookings = useCallback(async (isBackground = false) => {
@@ -243,6 +245,19 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
       showToast('การจองห้องสำเร็จ!', 'success');
       fetchBookings(true);
 
+      // จำไว้ว่าการจองนี้เป็นของผู้ใช้เครื่องนี้ (เบราว์เซอร์นี้) เพื่อให้กลับมาแก้ไข/ยกเลิกเองได้ทีหลัง
+      // ถ้าเป็นการจองกลุ่ม (หลายห้อง/หลายวัน) เก็บแค่ groupId ก็ครอบคลุมทุกรายการในกลุ่มแล้ว
+      if (createdBookings.length > 0) {
+          const ownershipKey = createdBookings[0].groupId;
+          if (ownershipKey) {
+              addMyBookingId(ownershipKey);
+              setMyBookingIds(prev => [...prev, ownershipKey]);
+          } else {
+              createdBookings.forEach(b => addMyBookingId(b.id));
+              setMyBookingIds(prev => [...prev, ...createdBookings.map(b => b.id)]);
+          }
+      }
+
       // --- Send LINE Notification ---
       try {
           if (createdBookings.length === 0) return;
@@ -353,8 +368,8 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
           />
         );
       case 'mybookings':
-        return <MyBookingsPage 
-                  bookings={bookings} 
+        return <MyBookingsPage
+                  bookings={bookings}
                   onCancelBooking={handleCancelBooking}
                   onCancelBookingGroup={handleCancelBookingGroup}
                   onDeleteBooking={handleDeleteBooking}
@@ -362,6 +377,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
                   onEditBooking={(b) => { setEditingBooking(b); setCurrentPage('booking'); }}
                   onBack={() => setCurrentPage('home')}
                   isAdmin={isAdmin}
+                  myBookingIds={myBookingIds}
                 />;
       case 'statistics':
         return <StatisticsPage bookings={bookings} onBack={() => setCurrentPage('home')} />;
