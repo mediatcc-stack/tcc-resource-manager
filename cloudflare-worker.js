@@ -137,7 +137,10 @@
  *  PUBLIC (ไม่ต้องใช้ API Key):
  *    GET  /status          → ตรวจสอบว่า Worker พร้อมทำงานหรือไม่
  *    POST /auth/login      → Body: { password } → ตรวจสอบรหัส Admin
- *    POST /webhook         → รับ event จาก LINE (เพิ่ม recipient_ids อัตโนมัติ)
+ *    POST /webhook         → รับ event จาก LINE (เพิ่ม recipient อัตโนมัติ +
+ *                            @Mention Handler: ตอบรายงานผ่าน Reply Token ไม่กิน Push
+ *                            quota — พิมพ์ "@Bot ยืม" (อุปกรณ์ค้างคืน), "@Bot ซ่อม"
+ *                            (แจ้งซ่อมค้าง), "@Bot รายงาน/จอง..." (จองห้อง) ในกลุ่ม)
  *
  *  PROTECTED (ต้องใส่ Header: X-API-Key):
  *    GET  /data?type=rooms      → ดึงข้อมูลการจองห้องทั้งหมด
@@ -154,6 +157,9 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  *  🛠️  แก้ไขล่าสุด
  * ═══════════════════════════════════════════════════════════════════════════════
+ *  v2.6 (2026-08-03) — เพิ่มคำสั่ง @Mention "ยืม" และ "ซ่อม" ให้เรียกรายงานอุปกรณ์
+ *                       ค้างคืน / แจ้งซ่อมค้างผ่าน Reply ได้เหมือนระบบจองห้อง
+ *                       (เผื่อ Push token ของบอทหมดโควต้า ยังเรียกดูรายงานเองได้)
  *  v2.5 (2026-08-03) — Webhook เก็บเฉพาะ Group ID (event "join") เป็นผู้รับแจ้งเตือน
  *                       ทั่วไปเท่านั้น ตัด event "follow"/"unfollow" ออก (ไม่เก็บ User ID
  *                       ส่วนตัวที่แอดเพื่อนบอทเดี่ยวๆ อีกต่อไป)
@@ -392,8 +398,105 @@ export default {
             if (isBotMentioned) {
               const text = event.message.text.toLowerCase();
 
+              // คำสั่ง: @Bot ยืม / รายงานยืม → รายงานอุปกรณ์ที่ยังไม่คืน (เผื่อ Push token หมด เรียกดูเองได้)
+              if (text.includes('ยืม')) {
+                const borrowings = await env.EQUIPMENT_BORROWINGS_KV.get('equipment_data', 'json') || [];
+                const activeBorrowStatuses = ['รออนุมัติ', 'อยู่ระหว่างการยืม', 'เกินกำหนด'];
+                const borrowPriority = { 'เกินกำหนด': 1, 'อยู่ระหว่างการยืม': 2, 'รออนุมัติ': 3 };
+                const allActiveBorrowings = borrowings
+                  .filter(b => activeBorrowStatuses.includes(b.status))
+                  .sort((a, b) => {
+                    const orderA = borrowPriority[a.status] || 99;
+                    const orderB = borrowPriority[b.status] || 99;
+                    if (orderA !== orderB) return orderA - orderB;
+                    return new Date(a.returnDate).getTime() - new Date(b.returnDate).getTime();
+                  });
+                const activeBorrowings = allActiveBorrowings.slice(0, 20);
+                const remainingBorrowings = allActiveBorrowings.length - activeBorrowings.length;
+
+                let replyText;
+                if (activeBorrowings.length === 0) {
+                  replyText = `📷 รายการยืมอุปกรณ์ค้างอยู่\n──────────────\nไม่มีรายการค้างครับ`;
+                } else {
+                  replyText = `📷 รายการยืมอุปกรณ์ค้างอยู่ (${activeBorrowings.length}${remainingBorrowings > 0 ? ' จาก ' + allActiveBorrowings.length : ''} รายการ)\n`;
+                  activeBorrowings.forEach((b, i) => {
+                    const statusTag = b.status === 'เกินกำหนด' ? '⚠️ เกินกำหนด' : b.status;
+                    replyText += `\n${statusTag}\n`;
+                    replyText += `👤 ${b.borrowerName}\n`;
+                    replyText += `📦 ${b.equipmentList}\n`;
+                    replyText += `🗓️ คืน: ${new Date(b.returnDate).toLocaleDateString('th-TH')}\n`;
+                    if (i < activeBorrowings.length - 1) replyText += '\n━━━━━━\n';
+                  });
+                  if (remainingBorrowings > 0) {
+                    replyText += `\n\n...และอีก ${remainingBorrowings} รายการ (แสดงแค่ 20 รายการแรกเท่านั้น)`;
+                  }
+                }
+
+                await fetch('https://api.line.me/v2/bot/message/reply', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
+                  },
+                  body: JSON.stringify({
+                    replyToken: event.replyToken,
+                    messages: [{ type: 'text', text: replyText }],
+                  }),
+                });
+
+                console.log(`[Mention] Equipment report sent (${activeBorrowings.length}/${allActiveBorrowings.length} borrowings)`);
+
+              // คำสั่ง: @Bot ซ่อม / แจ้งซ่อม / รายงานซ่อม → รายงานแจ้งซ่อมที่ยังไม่เสร็จ (เผื่อ Push token หมด เรียกดูเองได้)
+              } else if (text.includes('ซ่อม')) {
+                const repairs = await env.REPAIR_REQUESTS_KV.get('repairs_data', 'json') || [];
+                const activeRepairStatuses = ['รอดำเนินการ', 'กำลังซ่อม'];
+                const repairPriority = { 'ด่วนที่สุด': 1, 'ด่วน': 2, 'ปกติ': 3 };
+                const allActiveRepairs = repairs
+                  .filter(r => activeRepairStatuses.includes(r.status))
+                  .sort((a, b) => {
+                    const orderA = repairPriority[a.priority] || 99;
+                    const orderB = repairPriority[b.priority] || 99;
+                    if (orderA !== orderB) return orderA - orderB;
+                    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+                  });
+                const activeRepairs = allActiveRepairs.slice(0, 20);
+                const remainingRepairs = allActiveRepairs.length - activeRepairs.length;
+
+                let replyText;
+                if (activeRepairs.length === 0) {
+                  replyText = `🛠️ รายการแจ้งซ่อมค้างอยู่\n──────────────\nไม่มีรายการค้างครับ`;
+                } else {
+                  replyText = `🛠️ รายการแจ้งซ่อมค้างอยู่ (${activeRepairs.length}${remainingRepairs > 0 ? ' จาก ' + allActiveRepairs.length : ''} รายการ)\n`;
+                  activeRepairs.forEach((r, i) => {
+                    const priorityTag = r.priority === 'ด่วนที่สุด' ? '🔥 ด่วนที่สุด' : r.priority;
+                    replyText += `\n${priorityTag} · ${r.status}\n`;
+                    replyText += `👤 ${r.requesterName} (${r.department})\n`;
+                    replyText += `📍 ${r.roomName}\n`;
+                    replyText += `🔧 ${r.problemType}\n`;
+                    replyText += `📝 ${r.description}\n`;
+                    if (i < activeRepairs.length - 1) replyText += '\n━━━━━━\n';
+                  });
+                  if (remainingRepairs > 0) {
+                    replyText += `\n\n...และอีก ${remainingRepairs} รายการ (แสดงแค่ 20 รายการแรกเท่านั้น)`;
+                  }
+                }
+
+                await fetch('https://api.line.me/v2/bot/message/reply', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
+                  },
+                  body: JSON.stringify({
+                    replyToken: event.replyToken,
+                    messages: [{ type: 'text', text: replyText }],
+                  }),
+                });
+
+                console.log(`[Mention] Repair report sent (${activeRepairs.length}/${allActiveRepairs.length} repairs)`);
+
               // คำสั่ง: @Bot รายงาน / จอง / จองพรุ่งนี้ / จอง 16-6-69 / จอง 20 ก.ค. 69
-              if (text.includes('รายงาน') || text.includes('จอง')) {
+              } else if (text.includes('รายงาน') || text.includes('จอง')) {
 
                 const nowTH = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
 
