@@ -105,6 +105,9 @@
  *  │  CHANNEL_ACCESS_TOKEN    │  LINE Bot Long-lived Token (ส่ง Push message) │
  *  │  CHANNEL_SECRET          │  LINE Channel Secret (verify Webhook)         │
  *  │  RECIPIENT_ID            │  LINE User ID สำรอง (ถ้า KV ว่าง)            │
+ *  │  REPAIR_GROUP_ID         │  LINE Group ID เฉพาะสำหรับแจ้งซ่อม           │
+ *  │                          │  (แจ้งเตือน /notify?target=repair จะส่ง      │
+ *  │                          │  เข้ากลุ่มนี้เท่านั้น ไม่ส่งเข้า recipient ทั่วไป)│
  *  └──────────────────────────┴────────────────────────────────────────────────┘
  *
  *  ถ้าต้องการเปลี่ยนรหัสผ่าน Admin:
@@ -142,12 +145,18 @@
  *    POST /data?type=equipment  → บันทึกข้อมูลการยืมอุปกรณ์ทั้งหมด (overwrite)
  *    GET  /data?type=repairs    → ดึงข้อมูลการแจ้งซ่อมอุปกรณ์ไอทีทั้งหมด
  *    POST /data?type=repairs    → บันทึกข้อมูลการแจ้งซ่อมอุปกรณ์ไอทีทั้งหมด (overwrite)
- *    POST /notify               → Body: { message } → ส่ง LINE แจ้งเตือน
+ *    POST /notify               → Body: { message, target? } → ส่ง LINE แจ้งเตือน
+ *                                  target: "repair" → ส่งเข้าเฉพาะกลุ่ม REPAIR_GROUP_ID
+ *                                  ไม่ระบุ → ส่งเข้า recipient ทั่วไปทุกคน (จองห้อง)
  *    GET  /recipients           → ดูรายชื่อ LINE User ID ที่รับแจ้งเตือน
  *
  * ═══════════════════════════════════════════════════════════════════════════════
  *  🛠️  แก้ไขล่าสุด
  * ═══════════════════════════════════════════════════════════════════════════════
+ *  v2.4 (2026-08-03) — ตัดการแจ้งเตือน LINE ออกจากระบบยืมอุปกรณ์ (ใช้เป็นแค่สมุด
+ *                       บันทึกในระบบ ไม่ต้องแจ้งเตือนแล้ว), เพิ่ม target: "repair"
+ *                       ใน /notify ให้แจ้งซ่อมส่งเข้าเฉพาะกลุ่ม REPAIR_GROUP_ID
+ *                       แยกจาก recipient ทั่วไปที่ใช้กับระบบจองห้อง
  *  v2.3 (2026-08-01) — แก้บั๊ก race condition ที่ recipient_ids (array ก้อนเดียว)
  *                       ถูกเขียนทับกันเวลามีหลาย webhook event (join/leave/follow/
  *                       unfollow) เข้ามาพร้อมกัน ทำให้ผู้รับแจ้งเตือนบางคนหายไป
@@ -224,24 +233,29 @@ async function removeRecipient(env, id) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  sendNotification(message, env)
+//  sendNotification(message, env, recipientIdsOverride?)
 //  ส่งข้อความ Push ไปหา LINE ของเจ้าหน้าที่ทุกคนใน recipient_ids
 //  ถ้า recipient_ids ใน KV ว่าง จะใช้ RECIPIENT_ID จาก env เป็น fallback
+//  ถ้าใส่ recipientIdsOverride มา จะส่งเฉพาะรายชื่อนั้น ไม่ไปดึงจาก KV/env เลย
+//  (ใช้กับ /notify?target=repair เพื่อส่งแจ้งซ่อมเข้าเฉพาะกลุ่มที่กำหนด)
 // ─────────────────────────────────────────────────────────────────────────────
-async function sendNotification(message, env) {
-  let recipientIds = [];
-  try {
-    recipientIds = await getRecipientIds(env);
-  } catch (e) {
-    recipientIds = [];
-  }
+async function sendNotification(message, env, recipientIdsOverride) {
+  let recipientIds = recipientIdsOverride;
 
-  if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
-    if (env.RECIPIENT_ID) {
-      recipientIds = [env.RECIPIENT_ID];
-    } else {
-      console.error("[LINE Push Error] No recipients found.");
-      return;
+  if (!recipientIds) {
+    try {
+      recipientIds = await getRecipientIds(env);
+    } catch (e) {
+      recipientIds = [];
+    }
+
+    if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
+      if (env.RECIPIENT_ID) {
+        recipientIds = [env.RECIPIENT_ID];
+      } else {
+        console.error("[LINE Push Error] No recipients found.");
+        return;
+      }
     }
   }
 
@@ -310,6 +324,7 @@ export default {
         equipmentKvBinding: !!env.EQUIPMENT_BORROWINGS_KV,
         repairKvBinding: !!env.REPAIR_REQUESTS_KV,
         recipientIdSet: !!env.RECIPIENT_ID,
+        repairGroupIdSet: !!env.REPAIR_GROUP_ID,
       };
       return new Response(JSON.stringify(status), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -697,11 +712,23 @@ export default {
       }
 
       // ── /notify — ส่ง LINE Push Message ──────────────────────────────────
-      // Frontend ส่ง { message: "ข้อความ" } มา แล้ว Worker ส่งต่อให้ LINE
+      // Frontend ส่ง { message: "ข้อความ", target?: "repair" } มา แล้ว Worker ส่งต่อให้ LINE
+      // target: "repair" → ส่งเข้าเฉพาะกลุ่ม REPAIR_GROUP_ID เท่านั้น (ไม่ส่งเข้า recipient ทั่วไป)
+      // ไม่ระบุ target → ส่งเข้าทุก recipient ตามปกติ (ใช้กับระบบจองห้อง)
       // ใช้ ctx.waitUntil เพื่อไม่ให้ response รอ LINE ตอบกลับ (non-blocking)
       if (path === '/notify' && request.method === 'POST') {
-        const { message } = await request.json();
-        ctx.waitUntil(sendNotification(message, env));
+        const { message, target } = await request.json();
+
+        if (target === 'repair') {
+          if (!env.REPAIR_GROUP_ID) {
+            console.error('[LINE Push Error] REPAIR_GROUP_ID not configured — skipped repair notification.');
+          } else {
+            ctx.waitUntil(sendNotification(message, env, [env.REPAIR_GROUP_ID]));
+          }
+        } else {
+          ctx.waitUntil(sendNotification(message, env));
+        }
+
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });

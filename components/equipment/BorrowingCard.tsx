@@ -4,13 +4,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { BorrowingRequest, BorrowStatus } from '../../types';
 import Button from '../shared/Button';
 import Modal from '../shared/Modal';
-import { Clock, ArrowRightLeft, CheckCircle2, AlertCircle, XCircle, Calendar, Trash2, Bell, HelpCircle, Pencil } from 'lucide-react';
+import { Clock, ArrowRightLeft, CheckCircle2, AlertCircle, XCircle, Calendar, Trash2, HelpCircle, Pencil } from 'lucide-react';
 
 interface BorrowingCardProps {
     req: BorrowingRequest;
     onChangeStatus: (id: string, newStatus: BorrowStatus) => void;
     onDeleteRequest: (id: string) => void;
-    onNotifyOverdue?: (req: BorrowingRequest) => void;
     onEdit: (req: BorrowingRequest) => void;
     isAdmin: boolean;
     isMine: boolean;
@@ -50,10 +49,9 @@ const ActionMenu: React.FC<{
     req: BorrowingRequest;
     onChangeStatus: (newStatus: BorrowStatus) => void;
     onDeleteRequest: () => void;
-    onNotifyOverdue?: () => void;
     onClose: () => void;
     onEdit: () => void;
-}> = ({ req, onChangeStatus, onDeleteRequest, onNotifyOverdue, onClose, onEdit }) => {
+}> = ({ req, onChangeStatus, onDeleteRequest, onClose, onEdit }) => {
     return (
         <div className="absolute top-12 right-0 z-20 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 animate-fade-in">
             <div className="p-2 border-b border-gray-100">
@@ -74,12 +72,6 @@ const ActionMenu: React.FC<{
                 </div>
             </div>
             <div className="border-t border-gray-100 p-2 space-y-1">
-                {req.status === BorrowStatus.Overdue && onNotifyOverdue && (
-                    <button onClick={onNotifyOverdue} className="w-full text-left text-xs font-semibold text-gray-700 hover:bg-gray-100 rounded-md p-2 flex items-center gap-2 cursor-pointer">
-                        <Bell className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        แจ้งเตือน LINE
-                    </button>
-                )}
                 <button onClick={onDeleteRequest} className="w-full text-left text-xs font-semibold text-red-600 hover:bg-red-50 rounded-md p-2 flex items-center gap-2 cursor-pointer">
                     <Trash2 className="w-3.5 h-3.5 text-red-500 shrink-0" />
                     ลบรายการถาวร
@@ -90,7 +82,7 @@ const ActionMenu: React.FC<{
 };
 
 
-const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDeleteRequest, onNotifyOverdue, onEdit, isAdmin, isMine }) => {
+const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDeleteRequest, onEdit, isAdmin, isMine }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -119,11 +111,6 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
     const handleDeleteClick = () => {
         setIsActionMenuOpen(false);
         setIsDeleteConfirmOpen(true);
-    };
-
-    const handleNotifyClick = () => {
-        setIsActionMenuOpen(false);
-        if (onNotifyOverdue) onNotifyOverdue(req);
     };
 
     const handleEditClick = () => {
@@ -171,7 +158,6 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
                                     req={req}
                                     onChangeStatus={handleStatusChangeAttempt}
                                     onDeleteRequest={handleDeleteClick}
-                                    onNotifyOverdue={handleNotifyClick}
                                     onClose={() => setIsActionMenuOpen(false)}
                                     onEdit={handleEditClick}
                                 />

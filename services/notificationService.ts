@@ -1,9 +1,9 @@
 
 import { NOTIFICATION_URL } from '../constants';
 
-export const sendLineNotification = async (message: string): Promise<void> => {
+export const sendLineNotification = async (message: string, target?: 'repair'): Promise<void> => {
   console.log(`กำลังส่งข้อความแจ้งเตือนไปยัง Cloudflare Worker...`);
-  
+
   try {
     const response = await fetch(NOTIFICATION_URL, {
       method: 'POST',
@@ -11,7 +11,7 @@ export const sendLineNotification = async (message: string): Promise<void> => {
                 'Content-Type': 'application/json',
         'X-API-Key': import.meta.env.VITE_API_SECRET_KEY,
       },
-      body: JSON.stringify({ message }), 
+      body: JSON.stringify({ message, target }),
     });
 
     if (!response.ok) {
