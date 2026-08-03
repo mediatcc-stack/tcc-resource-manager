@@ -152,11 +152,15 @@
  *    POST /notify               → Body: { message, target? } → ส่ง LINE แจ้งเตือน
  *                                  target: "repair" → ส่งเข้าเฉพาะกลุ่ม REPAIR_GROUP_ID
  *                                  ไม่ระบุ → ส่งเข้า recipient ทั่วไปทุกคน (จองห้อง)
- *    GET  /recipients           → ดูรายชื่อ LINE User ID ที่รับแจ้งเตือน
+ *    GET  /recipients           → ดูรายชื่อผู้รับแจ้งเตือน [{ id, name, type }]
+ *                                  name ดึงสดจาก LINE API ทุกครั้ง (ไม่แคช)
  *
  * ═══════════════════════════════════════════════════════════════════════════════
  *  🛠️  แก้ไขล่าสุด
  * ═══════════════════════════════════════════════════════════════════════════════
+ *  v2.7 (2026-08-03) — /recipients คืนชื่อกลุ่ม/ชื่อผู้ใช้จริงคู่กับ ID (ดึงสดจาก
+ *                       LINE Group Summary / Profile API ทุกครั้งที่เรียก ไม่แคช
+ *                       ไว้ที่ไหน จึงเห็นชื่อล่าสุดเสมอแม้มีคนเปลี่ยนชื่อกลุ่มทีหลัง)
  *  v2.6 (2026-08-03) — เพิ่มคำสั่ง @Mention "ยืม" และ "ซ่อม" ให้เรียกรายงานอุปกรณ์
  *                       ค้างคืน / แจ้งซ่อมค้างผ่าน Reply ได้เหมือนระบบจองห้อง
  *                       (เผื่อ Push token ของบอทหมดโควต้า ยังเรียกดูรายงานเองได้)
@@ -827,10 +831,30 @@ export default {
         });
       }
 
-      // ── /recipients — ดูรายชื่อ LINE User ID ที่รับแจ้งเตือน ────────────
+      // ── /recipients — ดูรายชื่อผู้รับแจ้งเตือน พร้อมชื่อกลุ่มจริงจาก LINE ──
+      // ดึงชื่อสดจาก LINE API ทุกครั้งที่เรียก (ไม่ได้แคช/เก็บชื่อไว้ที่ไหน)
+      // ถ้ามีคนเปลี่ยนชื่อกลุ่มใน LINE ภายหลัง เรียก endpoint นี้ใหม่จะเห็นชื่อล่าสุดทันที
       if (path === '/recipients' && request.method === 'GET') {
         const recipientIds = await getRecipientIds(env);
-        return new Response(JSON.stringify(recipientIds), {
+        const recipients = await Promise.all(recipientIds.map(async (id) => {
+          const isGroup = id.startsWith('C');
+          const summaryUrl = isGroup
+            ? `https://api.line.me/v2/bot/group/${id}/summary`
+            : `https://api.line.me/v2/bot/profile/${id}`;
+          try {
+            const res = await fetch(summaryUrl, {
+              headers: { 'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}` },
+            });
+            if (!res.ok) {
+              return { id, name: null, type: isGroup ? 'group' : 'user' };
+            }
+            const data = await res.json();
+            return { id, name: isGroup ? data.groupName : data.displayName, type: isGroup ? 'group' : 'user' };
+          } catch (e) {
+            return { id, name: null, type: isGroup ? 'group' : 'user' };
+          }
+        }));
+        return new Response(JSON.stringify(recipients), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
