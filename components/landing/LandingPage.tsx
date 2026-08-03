@@ -60,7 +60,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onAdminLogin, isAdmin }) => {
             letterSpacing: '-0.02em',
           }}
         >
-          ระบบจองห้องและยืมอุปกรณ์
+          ระบบงานสื่อดิจิทัลและสื่อสารองค์กร
         </h1>
         <p
           className="relative z-10 font-medium mb-10 text-blue-200"
