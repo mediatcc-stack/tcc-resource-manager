@@ -53,6 +53,7 @@ export interface WorkerStatus {
     equipmentKvBinding: boolean;
     repairKvBinding: boolean;
     recipientIdSet: boolean;
+    repairGroupIdSet: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -10,7 +10,6 @@ interface BorrowingListPageProps {
     borrowings: BorrowingRequest[];
     onChangeStatus: (id: string, newStatus: BorrowStatus) => void;
     onDeleteRequest: (id: string) => void;
-    onNotifyOverdue: (req: BorrowingRequest) => void;
     onEditRequest: (req: BorrowingRequest) => void;
     myBorrowingIds: string[];
     showToast: (message: string, type: 'success' | 'error') => void;
@@ -20,7 +19,7 @@ interface BorrowingListPageProps {
 
 const thaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
-const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onChangeStatus, onDeleteRequest, onNotifyOverdue, onEditRequest, myBorrowingIds, showToast, lastUpdated, isAdmin }) => {
+const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onChangeStatus, onDeleteRequest, onEditRequest, myBorrowingIds, showToast, lastUpdated, isAdmin }) => {
     const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
     const [nameFilter, setNameFilter] = useState('');
     const [monthFilter, setMonthFilter] = useState<string>('all');
@@ -131,7 +130,6 @@ const BorrowingListPage: React.FC<BorrowingListPageProps> = ({ borrowings, onCha
                             req={req}
                             onChangeStatus={onChangeStatus}
                             onDeleteRequest={onDeleteRequest}
-                            onNotifyOverdue={onNotifyOverdue}
                             onEdit={onEditRequest}
                             isAdmin={isAdmin}
                             isMine={myBorrowingIds.includes(req.id)}

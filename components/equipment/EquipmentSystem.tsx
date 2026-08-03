@@ -5,7 +5,6 @@ import { EquipmentPage, BorrowingRequest, BorrowStatus } from '../../types';
 import BorrowingListPage from './BorrowingListPage';
 import BorrowingFormPage from './BorrowingFormPage';
 import BorrowingStatisticsPage from './BorrowingStatisticsPage';
-import { sendLineNotification } from '../../services/notificationService';
 import { fetchData, saveData } from '../../services/apiService';
 import { addMyBorrowingId, getMyBorrowingIds } from '../../services/myBorrowingsStorage';
 import { v4 as uuidv4 } from 'uuid';
@@ -118,16 +117,6 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
         if (await updateBorrowingList(updated)) showToast('ลบรายการถาวรแล้ว', 'success');
     }, [borrowings]);
 
-    const handleNotifyOverdue = useCallback(async (req: BorrowingRequest) => {
-        const msg = `⚠️ แจ้งเตือน: เลยกำหนดคืนอุปกรณ์\n\n👤 ผู้ยืม: ${req.borrowerName}\n📦 อุปกรณ์: ${req.equipmentList}\n🗓️ กำหนดคืน: ${new Date(req.returnDate).toLocaleDateString('th-TH')}\n\n🚩 กรุณาติดต่อคืนอุปกรณ์ที่งานสื่อฯ โดยด่วนครับ`;
-        try {
-            await sendLineNotification(msg);
-            showToast('ส่งแจ้งเตือน LINE สำเร็จ', 'success');
-        } catch (e) {
-            showToast('ส่งแจ้งเตือนไม่สำเร็จ', 'error');
-        }
-    }, [showToast]);
-
     const handleEditRequest = useCallback((req: BorrowingRequest) => {
         setEditingRequest(req);
         setCurrentPage('form');
@@ -173,18 +162,6 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
             addMyBorrowingId(createdRequest.id);
             setMyBorrowingIds(prev => [...prev, createdRequest.id]);
 
-            const borrowDate = new Date(createdRequest.borrowDate);
-            const returnDate = new Date(createdRequest.returnDate);
-            
-            const formatDate = (d: Date) => d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
-
-            const dateRange = borrowDate.getTime() === returnDate.getTime()
-                ? borrowDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
-                : `${formatDate(borrowDate)} - ${returnDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}`;
-
-            const notifyMessage = `📷 ยืมอุปกรณ์\n🕒 ${dateRange}\n- ${createdRequest.purpose}\n\n👤 ผู้ยืม: ${createdRequest.borrowerName}\n📦 รายการ:\n${createdRequest.equipmentList}`;
-
-            await sendLineNotification(notifyMessage);
             setCurrentPage('list');
             showToast('ส่งคำขอยืมอุปกรณ์สำเร็จ', 'success');
             fetchBorrowings(true);
@@ -232,7 +209,6 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
                         borrowings={borrowings}
                         onChangeStatus={handleChangeStatus}
                         onDeleteRequest={handleDeleteRequest}
-                        onNotifyOverdue={handleNotifyOverdue}
                         onEditRequest={handleEditRequest}
                         myBorrowingIds={myBorrowingIds}
                         showToast={showToast}

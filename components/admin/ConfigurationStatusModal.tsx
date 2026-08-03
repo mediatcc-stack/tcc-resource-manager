@@ -58,13 +58,18 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({ isO
                 isOk={status.lineApiToken} 
                 failText="ไม่ได้ตั้งค่าใน Worker" 
               />
-              <StatusItem 
-                label="LINE Recipient ID" 
-                isOk={status.recipientIdSet} 
-                failText="ไม่ได้ตั้งค่า ID ผู้รับใน Worker" 
+              <StatusItem
+                label="LINE Recipient ID"
+                isOk={status.recipientIdSet}
+                failText="ไม่ได้ตั้งค่า ID ผู้รับใน Worker"
               />
-              <StatusItem 
-                label="ฐานข้อมูลห้องประชุม" 
+              <StatusItem
+                label="LINE กลุ่มแจ้งซ่อม"
+                isOk={status.repairGroupIdSet}
+                failText="ไม่ได้ตั้งค่า REPAIR_GROUP_ID ใน Worker"
+              />
+              <StatusItem
+                label="ฐานข้อมูลห้องประชุม"
                 isOk={status.roomKvBinding}
                 failText="ไม่ได้ผูก KV Namespace"
               />

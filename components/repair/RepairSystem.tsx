@@ -121,7 +121,7 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
         const priorityTag = req.priority === 'ด่วนที่สุด' ? '🔥 ด่วนที่สุด! ' : '';
         const msg = `🔔 แจ้งเตือนซ้ำ: งานแจ้งซ่อมค้างดำเนินการ\n\n${priorityTag}👤 ผู้แจ้ง: ${req.requesterName} (${req.department})\n📍 ห้อง/สถานที่: ${req.roomName}\n🔧 ประเภทปัญหา: ${req.problemType}\n📝 ${req.description}\n\n🚩 กรุณาดำเนินการโดยด่วนครับ`;
         try {
-            await sendLineNotification(msg);
+            await sendLineNotification(msg, 'repair');
             showToast('ส่งแจ้งเตือน LINE สำเร็จ', 'success');
         } catch (e) {
             showToast('ส่งแจ้งเตือนไม่สำเร็จ', 'error');
@@ -176,7 +176,7 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
             const priorityTag = createdRequest.priority === 'ด่วนที่สุด' ? '🔥 ด่วนที่สุด! ' : '';
             const notifyMessage = `🛠️ แจ้งซ่อมอุปกรณ์ไอที\n${priorityTag}ความเร่งด่วน: ${createdRequest.priority}\n\n👤 ผู้แจ้ง: ${createdRequest.requesterName} (${createdRequest.department})\n📍 ห้อง/สถานที่: ${createdRequest.roomName}\n🔧 ประเภทปัญหา: ${createdRequest.problemType}\n📝 ${createdRequest.description}`;
 
-            await sendLineNotification(notifyMessage);
+            await sendLineNotification(notifyMessage, 'repair');
             setCurrentPage('list');
             showToast('ส่งแจ้งซ่อมสำเร็จ', 'success');
             fetchRepairs(true);
