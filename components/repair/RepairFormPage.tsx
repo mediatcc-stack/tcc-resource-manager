@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { RepairRequest, RepairPriority } from '../../types';
 import Button from '../shared/Button';
-import { PROBLEM_TYPES, PRIORITY_LEVELS, ROOMS } from '../../constants';
+import { PROBLEM_TYPES, PRIORITY_LEVELS } from '../../constants';
 
 interface RepairFormPageProps {
     onSubmit: (newRequest: Omit<RepairRequest, 'id' | 'createdAt' | 'status'>) => void;
@@ -86,10 +86,7 @@ const RepairFormPage: React.FC<RepairFormPageProps> = ({ onSubmit, onCancel, edi
                             </FormField>
                         </div>
                         <FormField icon="📍" label="ห้อง / สถานที่" required>
-                            <input type="text" name="roomName" list="repair-room-suggestions" placeholder="เช่น ห้องปฏิบัติการคอมพิวเตอร์ 1, ตึก 4 ชั้น 2" value={formData.roomName} onChange={handleInputChange} className={inputClasses} required />
-                            <datalist id="repair-room-suggestions">
-                                {ROOMS.map(r => <option key={r.id} value={r.name} />)}
-                            </datalist>
+                            <input type="text" name="roomName" placeholder="เช่น ห้องปฏิบัติการคอมพิวเตอร์ 1, ตึก 4 ชั้น 2" value={formData.roomName} onChange={handleInputChange} className={inputClasses} required />
                         </FormField>
                     </fieldset>
 
