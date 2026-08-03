@@ -89,7 +89,7 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({ isO
           <div className="pt-4 border-t border-gray-100 mt-4">
             <h4 className="text-sm font-bold text-gray-600 mb-3">คำแนะนำเพิ่มเติม</h4>
             <div className="text-xs text-gray-600 bg-gray-50 p-4 rounded-lg space-y-2 border border-gray-200">
-                <p>• หากการตั้งค่าทั้งหมดถูกต้อง (✅) แต่ยังไม่ได้รับการแจ้งเตือน กรุณาตรวจสอบว่าคุณได้ <strong className="text-red-600">"เพิ่มเพื่อน"</strong> และ <strong className="text-red-600">"ไม่ได้บล็อค"</strong> บัญชี LINE Official Account ที่ชื่อว่า <strong>TCC Notify</strong></p>
+                <p>• หากการตั้งค่าทั้งหมดถูกต้อง (✅) แต่ยังไม่ได้รับการแจ้งเตือน กรุณาตรวจสอบว่ากลุ่มไลน์ของคุณได้ <strong className="text-red-600">"เชิญ"</strong> บัญชี LINE Official Account ที่ชื่อว่า <strong>TCC Notify</strong> เข้ากลุ่ม และ <strong className="text-red-600">"ยังไม่ได้เตะบอทออก"</strong> (ระบบเก็บเฉพาะกลุ่มเป็นผู้รับแจ้งเตือน ไม่รองรับการแอดเพื่อนแบบส่วนตัวแล้ว)</p>
                 <p>• ตรวจสอบให้แน่ใจว่า `WORKER_BASE_URL` ในโค้ด (<code className="bg-gray-200 p-1 rounded text-red-700 text-[10px]">{WORKER_BASE_URL}</code>) ตรงกับ URL ที่แสดงในหน้า Cloudflare Worker ทุกตัวอักษร</p>
             </div>
           </div>

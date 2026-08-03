@@ -67,14 +67,15 @@
  *         │                                     │
  *         │                                     ▼
  *         │                          [LINE ของเจ้าหน้าที่]
- *         ▼                          (ทุก User ID ใน recipient_ids)
+ *         ▼                          (ทุกกลุ่มใน recipient:<groupId>)
  *    [แสดง Toast สำเร็จ]
  *
- *  วิธีเพิ่ม LINE Admin คนใหม่ให้รับแจ้งเตือน:
- *    1. เพิ่มเพื่อน LINE Official Account ของระบบ (หรือเชิญเข้ากลุ่ม)
- *    2. Bot จะรับ Webhook event "follow"/"join" อัตโนมัติ
- *    3. Worker จะบันทึกเป็น KV key "recipient:<id>" ให้เอง (v2.3 ขึ้นไป)
- *    หรือเพิ่มด้วยตัวเองได้ที่ KV → สร้าง key ใหม่ชื่อ "recipient:<LINE ID>" ค่าอะไรก็ได้ เช่น "1"
+ *  วิธีเพิ่มกลุ่มใหม่ให้รับแจ้งเตือน (เก็บเฉพาะกลุ่มเท่านั้น ไม่เก็บ User ส่วนตัว):
+ *    1. เชิญ LINE Official Account ของระบบเข้ากลุ่มที่ต้องการ
+ *    2. Bot จะรับ Webhook event "join" อัตโนมัติ
+ *    3. Worker จะบันทึกเป็น KV key "recipient:<groupId>" ให้เอง (v2.3 ขึ้นไป)
+ *    หรือเพิ่มด้วยตัวเองได้ที่ KV → สร้าง key ใหม่ชื่อ "recipient:<Group ID>" ค่าอะไรก็ได้ เช่น "1"
+ *    (การแอดเพื่อนบอทแบบคนเดียว "follow" จะไม่ถูกบันทึกเป็นผู้รับแจ้งเตือนอีกต่อไป)
  *
  *  ⚠️  ตั้งแต่ v2.3 เปลี่ยนจากเก็บเป็น array ก้อนเดียวใน "recipient_ids" มาเป็น
  *      1 key ต่อ 1 ผู้รับ (ดูเหตุผลที่ getRecipientIds() ในโค้ด) — ข้อมูลเก่าจะถูก
@@ -153,6 +154,9 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  *  🛠️  แก้ไขล่าสุด
  * ═══════════════════════════════════════════════════════════════════════════════
+ *  v2.5 (2026-08-03) — Webhook เก็บเฉพาะ Group ID (event "join") เป็นผู้รับแจ้งเตือน
+ *                       ทั่วไปเท่านั้น ตัด event "follow"/"unfollow" ออก (ไม่เก็บ User ID
+ *                       ส่วนตัวที่แอดเพื่อนบอทเดี่ยวๆ อีกต่อไป)
  *  v2.4 (2026-08-03) — ตัดการแจ้งเตือน LINE ออกจากระบบยืมอุปกรณ์ (ใช้เป็นแค่สมุด
  *                       บันทึกในระบบ ไม่ต้องแจ้งเตือนแล้ว), เพิ่ม target: "repair"
  *                       ใน /notify ให้แจ้งซ่อมส่งเข้าเฉพาะกลุ่ม REPAIR_GROUP_ID
@@ -353,7 +357,8 @@ export default {
       }
     }
 
-    // Webhook จาก LINE — เพิ่ม userId ลง recipient_ids อัตโนมัติเมื่อมีคน Follow Bot
+    // Webhook จาก LINE — เพิ่ม groupId ลง recipient อัตโนมัติเมื่อบอทถูกเชิญเข้ากลุ่ม
+    // (เก็บเฉพาะกลุ่มเท่านั้น ไม่เก็บ User ID ส่วนตัวที่แอดเพื่อนบอทเดี่ยวๆ)
     // LINE เรียก endpoint นี้เอง ไม่ต้องมี API Key
     // ต้องตั้งค่า Webhook URL ที่ LINE Console:
     //   https://tcc-line-notifier.media-tcc.workers.dev/webhook
@@ -362,12 +367,6 @@ export default {
         const body = await request.json();
         const events = body.events || [];
         for (const event of events) {
-
-          if (event.type === 'follow') {
-            // คนแอดเพื่อน Bot → เก็บ userId (เขียนเฉพาะ key ของตัวเอง ไม่ชนกับ ID อื่น)
-            await addRecipient(env, event.source.userId);
-            console.log(`[Webhook] Saved new recipient: ${event.source.userId} (type: follow)`);
-          }
 
           if (event.type === 'join') {
             // Bot ถูกเชิญเข้ากลุ่ม → เก็บ groupId
@@ -381,15 +380,6 @@ export default {
             if (removeId) {
               await removeRecipient(env, removeId);
               console.log(`[Webhook] Removed recipient: ${removeId} (bot left group)`);
-            }
-          }
-
-          if (event.type === 'unfollow') {
-            // คน unfollow Bot → ลบ userId ออกจาก KV อัตโนมัติ
-            const removeId = event.source.userId;
-            if (removeId) {
-              await removeRecipient(env, removeId);
-              console.log(`[Webhook] Removed recipient: ${removeId} (user unfollowed)`);
             }
           }
 
