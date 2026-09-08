@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { BorrowingRequest, BorrowStatus } from '../../types';
 import Button from '../shared/Button';
 import Modal from '../shared/Modal';
-import { Clock, ArrowRightLeft, CheckCircle2, AlertCircle, XCircle, Calendar, Trash2, HelpCircle, Pencil } from 'lucide-react';
+import { Clock, ArrowRightLeft, CheckCircle2, AlertCircle, XCircle, Calendar, Trash2, HelpCircle, Pencil, Package, Building2, Eye, EyeOff } from 'lucide-react';
 
 interface BorrowingCardProps {
     req: BorrowingRequest;
@@ -37,12 +37,13 @@ const getStatusInfo = (status: BorrowStatus) => {
     }
 };
 
+// สีป้ายสถานะ อ้างอิงโทเคนของดีไซน์ระบบ
 const colors = {
-    yellow: { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-400', ring: 'ring-yellow-300' },
-    sky: { bg: 'bg-sky-100', text: 'text-sky-800', border: 'border-sky-400', ring: 'ring-sky-300' },
-    green: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-400', ring: 'ring-green-300' },
-    red: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-400', ring: 'ring-red-300' },
-    gray: { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-400', ring: 'ring-gray-300' },
+    yellow: { bg: 'bg-warning-container', text: 'text-on-warning-container' },
+    sky: { bg: 'bg-secondary-fixed', text: 'text-on-secondary-fixed' },
+    green: { bg: 'bg-success-container', text: 'text-on-success-container' },
+    red: { bg: 'bg-error-container', text: 'text-on-error-container' },
+    gray: { bg: 'bg-surface-container-high', text: 'text-on-surface-variant' },
 };
 
 const ActionMenu: React.FC<{
@@ -53,27 +54,27 @@ const ActionMenu: React.FC<{
     onEdit: () => void;
 }> = ({ req, onChangeStatus, onDeleteRequest, onClose, onEdit }) => {
     return (
-        <div className="absolute top-12 right-0 z-20 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 animate-fade-in">
-            <div className="p-2 border-b border-gray-100">
-                <button onClick={onEdit} className="w-full text-left text-xs font-semibold text-gray-700 hover:bg-gray-100 rounded-md p-2 flex items-center gap-2 cursor-pointer">
-                    <Pencil className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+        <div className="absolute top-12 right-0 z-20 w-56 bg-surface-container-lowest rounded-xl shadow-2xl animate-fade-in">
+            <div className="p-2 border-b border-outline-variant/40">
+                <button onClick={onEdit} className="w-full text-left font-label text-label-md text-on-surface hover:bg-surface-container-low rounded-md p-2 flex items-center gap-2 cursor-pointer">
+                    <Pencil className="w-3.5 h-3.5 text-outline shrink-0" />
                     แก้ไขข้อมูล
                 </button>
             </div>
             <div className="p-2">
-                <p className="text-xs font-bold text-gray-400 px-2 pt-1 pb-2">เปลี่ยนสถานะเป็น</p>
+                <p className="font-label text-label-sm text-outline px-2 pt-1 pb-2">เปลี่ยนสถานะเป็น</p>
                 <div className="grid grid-cols-2 gap-1">
                     {Object.values(BorrowStatus).map(status => (
                         <button key={status} onClick={() => onChangeStatus(status)} disabled={req.status === status}
-                            className={`px-2 py-1.5 text-xs font-semibold rounded-md flex items-center gap-1.5 cursor-pointer ${req.status === status ? 'bg-blue-100 text-blue-800' : 'hover:bg-gray-100'}`}>
+                            className={`px-2 py-1.5 font-label text-label-md rounded-md flex items-center gap-1.5 cursor-pointer ${req.status === status ? 'bg-surface-container-high text-primary' : 'hover:bg-surface-container-low'}`}>
                             {getStatusIcon(status, "w-3 h-3")} {status}
                         </button>
                     ))}
                 </div>
             </div>
-            <div className="border-t border-gray-100 p-2 space-y-1">
-                <button onClick={onDeleteRequest} className="w-full text-left text-xs font-semibold text-red-600 hover:bg-red-50 rounded-md p-2 flex items-center gap-2 cursor-pointer">
-                    <Trash2 className="w-3.5 h-3.5 text-red-500 shrink-0" />
+            <div className="border-t border-outline-variant/40 p-2 space-y-1">
+                <button onClick={onDeleteRequest} className="w-full text-left font-label text-label-md text-error hover:bg-error-container/40 rounded-md p-2 flex items-center gap-2 cursor-pointer">
+                    <Trash2 className="w-3.5 h-3.5 text-error shrink-0" />
                     ลบรายการถาวร
                 </button>
             </div>
@@ -119,36 +120,62 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
     };
 
     return (
-        <div className={`bg-white rounded-2xl shadow-sm border ${isExpanded ? 'border-blue-400' : 'border-gray-200'} transition-all`}>
-            <div className="p-3">
+        <div className={`bg-surface-container-lowest rounded-xl shadow-card hover:shadow-md transition-all ${isExpanded ? 'ring-1 ring-secondary' : ''}`}>
+            <div className="p-space-md">
                 <div className="flex justify-between items-start gap-4">
                     <div className="flex-1 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
                         <div className="flex items-center gap-1.5 flex-wrap">
-                            <div className={`px-2.5 py-1 text-xs font-bold rounded-full inline-flex items-center gap-1.5 ${colorClasses.bg} ${colorClasses.text}`}>
+                            <div className={`px-3 py-1 font-label text-label-sm rounded-full inline-flex items-center gap-1.5 ${colorClasses.bg} ${colorClasses.text}`}>
                                 {getStatusIcon(req.status, "w-3 h-3")} {statusInfo.text}
                             </div>
                             {isMine && !isAdmin && (
-                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-block bg-primary-light text-primary border border-blue-200">
+                                <span className="px-2.5 py-0.5 rounded-full font-label text-label-sm inline-block bg-surface-container-high text-primary">
                                     รายการของฉัน
                                 </span>
                             )}
                         </div>
-                        <h3 className="text-md font-bold text-gray-800 mt-2">{req.borrowerName}</h3>
-                        <p className="text-xs text-slate-500 font-medium flex items-center gap-1 mt-1">
-                             <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                             {new Date(req.borrowDate).toLocaleDateString('th-TH')} - {new Date(req.returnDate).toLocaleDateString('th-TH')}
-                        </p>
+                        <h3 className="font-heading text-headline-sm text-on-surface mt-2">{req.borrowerName}</h3>
+                        <div className="flex flex-wrap items-center gap-y-1 gap-x-space-md mt-1 font-body text-body-sm">
+                            <span className="inline-flex items-center gap-1 text-secondary font-medium">
+                                <Calendar className="w-3.5 h-3.5 shrink-0" />
+                                {new Date(req.borrowDate).toLocaleDateString('th-TH')} - {new Date(req.returnDate).toLocaleDateString('th-TH')}
+                            </span>
+                            <span className="text-outline">•</span>
+                            <span className="inline-flex items-center gap-1 text-on-surface-variant">
+                                <Package className="w-3.5 h-3.5 shrink-0" />
+                                {req.equipmentList.split('\n')[0]}
+                                {req.equipmentList.split('\n').length > 1 && ` (+${req.equipmentList.split('\n').length - 1} รายการ)`}
+                            </span>
+                            {req.department && (
+                                <>
+                                    <span className="text-outline">•</span>
+                                    <span className="inline-flex items-center gap-1 text-on-surface-variant">
+                                        <Building2 className="w-3.5 h-3.5 shrink-0" />
+                                        {req.department}
+                                    </span>
+                                </>
+                            )}
+                        </div>
                         {isMine && !isAdmin && !canSelfEdit && (
-                            <p className="text-[11px] text-slate-400 font-medium mt-1.5 italic">
+                            <p className="font-body text-body-sm text-outline mt-1.5 italic">
                                 เจ้าหน้าที่ดำเนินการแล้ว จึงแก้ไขคำขอนี้เองไม่ได้แล้ว
                             </p>
                         )}
                     </div>
 
+                    <div className="flex items-start gap-space-xs shrink-0">
+                    <button
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="px-space-sm py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-primary font-label text-label-sm transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                        {isExpanded ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        <span>{isExpanded ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียด'}</span>
+                    </button>
+
                     {/* แอดมินจัดการได้ทุกอย่าง / เจ้าของคำขอแก้ไขเองได้ตราบใดที่ยังไม่ได้รับการอนุมัติ */}
                     {isAdmin && (
                         <div className="relative flex flex-col items-end" ref={actionMenuRef}>
-                           <button onClick={() => setIsActionMenuOpen(prev => !prev)} className="p-2 rounded-full hover:bg-gray-100 text-gray-500" aria-label="เมนูจัดการ">
+                           <button onClick={() => setIsActionMenuOpen(prev => !prev)} className="p-2 rounded-full hover:bg-surface-container text-on-surface-variant cursor-pointer" aria-label="เมนูจัดการ">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                     <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
                                 </svg>
@@ -168,26 +195,27 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
                     {canSelfEdit && (
                         <button
                             onClick={(e) => { e.stopPropagation(); onEdit(req); }}
-                            className="shrink-0 px-3 py-1.5 text-xs font-bold rounded-lg bg-primary-light text-primary hover:bg-blue-100 transition-all cursor-pointer flex items-center gap-1.5"
+                            className="shrink-0 px-space-sm py-1.5 font-label text-label-sm rounded-lg bg-surface-container-low text-primary hover:bg-surface-container transition-all cursor-pointer flex items-center gap-1.5"
                         >
                             <Pencil className="w-3.5 h-3.5" />
                             แก้ไขคำขอ
                         </button>
                     )}
+                    </div>
                 </div>
 
                 {isExpanded && (
-                     <div className="mt-3 pt-3 border-t border-gray-100 animate-fade-in space-y-2 text-sm">
-                        <p><strong className="font-semibold text-gray-500">วัตถุประสงค์:</strong> {req.purpose}</p>
-                        <p><strong className="font-semibold text-gray-500">เบอร์โทร:</strong> {req.phone || 'ไม่ได้ระบุ'}</p>
+                     <div className="mt-space-sm pt-space-sm border-t border-outline-variant/50 animate-fade-in space-y-2 font-body text-body-md">
+                        <p><strong className="font-label text-label-md text-on-surface-variant">วัตถุประสงค์:</strong> {req.purpose}</p>
+                        <p><strong className="font-label text-label-md text-on-surface-variant">เบอร์โทร:</strong> {req.phone || 'ไม่ได้ระบุ'}</p>
                         <div>
-                           <p className="font-semibold text-gray-500 mb-1">รายการอุปกรณ์:</p>
-                           <pre className="text-sm bg-gray-50 p-3 rounded-lg whitespace-pre-wrap font-sans text-gray-800 border border-gray-200">{req.equipmentList}</pre>
+                           <p className="font-label text-label-md text-on-surface-variant mb-1">รายการอุปกรณ์:</p>
+                           <pre className="bg-surface-container-low p-3 rounded-lg whitespace-pre-wrap font-body text-body-md text-on-surface">{req.equipmentList}</pre>
                         </div>
                           {req.notes && (
                              <div>
-                                <p className="font-semibold text-gray-500 mb-1">หมายเหตุ:</p>
-                                <p className="text-sm bg-yellow-50 p-3 rounded-lg border border-yellow-200 text-yellow-800">{req.notes}</p>
+                                <p className="font-label text-label-md text-on-surface-variant mb-1">หมายเหตุ:</p>
+                                <p className="bg-warning-container p-3 rounded-lg font-body text-body-md text-on-warning-container">{req.notes}</p>
                              </div>
                          )}
                     </div>
@@ -202,7 +230,7 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
               size="sm"
             >
               <div className="space-y-4">
-                <p className="text-slate-600 font-medium">
+                <p className="font-body text-body-md text-on-surface-variant">
                   คุณต้องการลบคำขอยืมอุปกรณ์ของ <strong className="text-primary">"{req.borrowerName}"</strong> ออกจากระบบอย่างถาวรใช่หรือไม่?
                 </p>
                 <div className="flex items-center justify-end gap-3 pt-2">

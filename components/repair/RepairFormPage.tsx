@@ -13,8 +13,8 @@ interface RepairFormPageProps {
 
 const FormField: React.FC<{label: string, icon: string, required?: boolean, children: React.ReactNode}> = ({ label, icon, required, children }) => (
     <div>
-        <label className="flex items-center text-sm font-semibold text-gray-700 mb-2">
-            <span className="mr-3 text-xl text-gray-500">{icon}</span>
+        <label className="flex items-center text-sm font-semibold text-on-surface mb-2">
+            <span className="mr-3 text-xl text-on-surface-variant">{icon}</span>
             {label} {required && <span className="text-red-500 ml-1">*</span>}
         </label>
         {children}
@@ -55,18 +55,18 @@ const RepairFormPage: React.FC<RepairFormPageProps> = ({ onSubmit, onCancel, edi
         }, 500);
     };
 
-    const inputClasses = "block w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-gray-800 transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
+    const inputClasses = "block w-full rounded-lg border border-outline-variant bg-surface-container-low p-3 text-on-surface transition-colors duration-200 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
 
     return (
         <div className="max-w-4xl mx-auto animate-fade-in">
-            <div className="bg-white p-6 md:p-10 rounded-2xl shadow-xl">
-                <div className="mb-8 pb-5 border-b border-gray-100">
+            <div className="bg-surface-container-lowest p-6 md:p-10 rounded-2xl shadow-xl">
+                <div className="mb-8 pb-5 border-b border-outline-variant">
                     <h2 className="text-2xl font-bold text-primary flex items-center gap-3">
                         <span className="text-3xl">🛠️</span>
                         {isEditing ? 'แก้ไขคำขอแจ้งซ่อม' : 'แบบฟอร์มแจ้งซ่อมอุปกรณ์ไอที'}
                     </h2>
                     {!isEditing && (
-                        <p className="text-xs text-slate-400 mt-2">
+                        <p className="text-xs text-outline mt-2">
                             💡 หลังส่งแล้ว ถ้ากรอกผิดสามารถกลับมาแก้ไขได้เอง (จากอุปกรณ์เครื่องเดิม) ตราบใดที่เจ้าหน้าที่ยังไม่เริ่มดำเนินการ
                         </p>
                     )}
@@ -75,7 +75,7 @@ const RepairFormPage: React.FC<RepairFormPageProps> = ({ onSubmit, onCancel, edi
                 <form onSubmit={handleSubmit} className="space-y-8">
                     {error && <p className="text-red-600 bg-red-50 p-4 rounded-lg font-semibold border border-red-200">⚠️ {error}</p>}
 
-                    <fieldset className="space-y-6 p-6 border-2 border-gray-100 rounded-3xl bg-gray-50/50">
+                    <fieldset className="space-y-6 p-6 border-2 border-outline-variant rounded-3xl bg-gray-50/50">
                         <legend className="px-4 text-lg font-black text-primary">1. ข้อมูลผู้แจ้งซ่อม</legend>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <FormField icon="👤" label="ชื่อ-นามสกุลผู้แจ้ง" required>
@@ -90,7 +90,7 @@ const RepairFormPage: React.FC<RepairFormPageProps> = ({ onSubmit, onCancel, edi
                         </FormField>
                     </fieldset>
 
-                    <fieldset className="space-y-6 p-6 border-2 border-gray-100 rounded-3xl">
+                    <fieldset className="space-y-6 p-6 border-2 border-outline-variant rounded-3xl">
                         <legend className="px-4 text-lg font-black text-primary">2. รายละเอียดปัญหา</legend>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <FormField icon="🔧" label="ปัญหาที่พบเป็นเรื่องอะไร" required>
@@ -117,7 +117,7 @@ const RepairFormPage: React.FC<RepairFormPageProps> = ({ onSubmit, onCancel, edi
                         </FormField>
                     </fieldset>
 
-                    <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
+                    <div className="flex justify-end gap-4 pt-6 border-t border-outline-variant">
                         <Button type="button" variant="secondary" onClick={onCancel} disabled={loading}>ยกเลิก</Button>
                         <Button type="submit" variant="primary" loading={loading}>{isEditing ? 'บันทึกการแก้ไข' : 'ส่งแจ้งซ่อม'}</Button>
                     </div>

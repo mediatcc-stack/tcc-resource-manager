@@ -83,7 +83,10 @@
  *    notificationService.ts               ← ส่ง LINE แจ้งเตือน
  *  components/
  *    landing/LandingPage.tsx              ← หน้าแรก
- *    layout/Navbar.tsx                    ← แถบ navigation บนสุด
+ *    layout/
+ *      Navbar.tsx                         ← แถบหัวเรื่อง 2 ชั้น (แบรนด์ + เมนูระบบ)
+ *      Breadcrumb.tsx                     ← แถบเส้นทางการใช้งาน
+ *      Footer.tsx                         ← ส่วนท้ายของทุกหน้า
  *    room/
  *      RoomBookingSystem.tsx              ← controller ระบบจองห้อง
  *      HomePage.tsx                       ← ปฏิทิน + รายชื่อห้อง
@@ -105,6 +108,8 @@
  *      RepairCard.tsx                     ← การ์ดแสดงรายการแจ้งซ่อม
  *    shared/
  *      Button.tsx                         ← ปุ่มมาตรฐาน
+ *      SystemToolbar.tsx                  ← แถบคำสั่งด้านบนของแต่ละระบบ
+ *      SubTabs.tsx                        ← กลุ่มแท็บย่อยพร้อมตัวเลขจำนวนรายการ
  *      LoadingSpinner.tsx                 ← Loading indicator
  *      Modal.tsx                          ← (ว่างอยู่ — TODO)
  *      Toast.tsx / ToastContainer.tsx     ← ระบบ notification
@@ -125,6 +130,8 @@ import RoomBookingSystem from './components/room/RoomBookingSystem';
 import EquipmentSystem from './components/equipment/EquipmentSystem';
 import RepairSystem from './components/repair/RepairSystem';
 import Navbar from './components/layout/Navbar';
+import Breadcrumb from './components/layout/Breadcrumb';
+import Footer from './components/layout/Footer';
 import { SystemType, ToastMessage } from './types';
 import ToastContainer from './components/shared/ToastContainer';
 import Modal from './components/shared/Modal';
@@ -204,17 +211,23 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="app-container flex flex-col min-h-screen">
-      <Navbar />
-      <main className="main-content flex-1 p-4 md:p-8 w-full">
-        <Routes>
-          <Route path="/"          element={<LandingPage onAdminLogin={handleAdminToggle} isAdmin={isAdmin} />} />
-          <Route path="/room"      element={<RoomBookingSystem showToast={showToast} isAdmin={isAdmin} />} />
-          <Route path="/equipment" element={<EquipmentSystem showToast={showToast} isAdmin={isAdmin} />} />
-          <Route path="/repair"    element={<RepairSystem showToast={showToast} isAdmin={isAdmin} />} />
-          <Route path="*"          element={<Navigate to="/" replace />} />
-        </Routes>
+    <div className="app-container flex flex-col min-h-screen bg-surface">
+      <Navbar isAdmin={isAdmin} onAdminToggle={handleAdminToggle} />
+
+      {/* pt-28 = ความสูงของ header แบบ 2 ชั้น (64px + 48px) */}
+      <main className="main-content flex-1 w-full pt-28">
+        <div className="max-w-content mx-auto px-gutter-mobile md:px-gutter-tablet lg:px-gutter-desktop py-space-md">
+          <Breadcrumb />
+          <Routes>
+            <Route path="/"          element={<LandingPage onAdminLogin={handleAdminToggle} isAdmin={isAdmin} />} />
+            <Route path="/room"      element={<RoomBookingSystem showToast={showToast} isAdmin={isAdmin} />} />
+            <Route path="/equipment" element={<EquipmentSystem showToast={showToast} isAdmin={isAdmin} />} />
+            <Route path="/repair"    element={<RepairSystem showToast={showToast} isAdmin={isAdmin} />} />
+            <Route path="*"          element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
       </main>
+      <Footer />
       <ToastContainer messages={toastMessages} onRemove={removeToast} />
 
       {/* ── Modal ล็อกอินเจ้าหน้าที่ ── */}
@@ -226,7 +239,7 @@ const App: React.FC = () => {
       >
         <form onSubmit={handleLoginSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+            <label className="block font-label text-label-md text-on-surface-variant mb-1.5">
               รหัสผ่านเจ้าหน้าที่
             </label>
             <input
@@ -235,7 +248,7 @@ const App: React.FC = () => {
               value={password}
               onChange={e => setPassword(e.target.value)}
               disabled={isSubmitting}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-slate-800 placeholder-slate-400 font-medium"
+              className="w-full px-4 py-3 rounded-lg bg-surface-container-low font-body text-body-md text-on-surface placeholder-outline focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary transition-all shadow-inner"
               autoFocus
             />
           </div>

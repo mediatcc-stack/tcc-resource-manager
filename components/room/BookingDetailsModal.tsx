@@ -29,40 +29,40 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
             onClick={onClose}
         >
             <div 
-                className="bg-white rounded-2xl shadow-xl w-full max-w-lg animate-zoom-in"
+                className="bg-surface-container-lowest rounded-2xl shadow-xl w-full max-w-lg animate-zoom-in"
                 onClick={e => e.stopPropagation()}
             >
-                <div className="p-6 bg-gray-50/50 border-b border-gray-200 rounded-t-2xl">
+                <div className="p-6 bg-gray-50/50 border-b border-outline-variant rounded-t-2xl">
                     <h3 className="text-xl font-bold text-primary flex items-center gap-3">
                         <Calendar className="w-5 h-5 text-primary shrink-0" />
                         <span>
                             {room.name}
-                            <p className="text-sm font-normal text-gray-500">วันที่ {formattedDate}</p>
+                            <p className="text-sm font-normal text-on-surface-variant">วันที่ {formattedDate}</p>
                         </span>
                     </h3>
                 </div>
                 
                 <div className="p-6 space-y-6">
                     <div>
-                        <h4 className="text-sm font-bold text-gray-600 mb-3">ภาพรวมเวลา</h4>
+                        <h4 className="text-sm font-bold text-on-surface mb-3">ภาพรวมเวลา</h4>
                         <RoomAvailabilityTimeline bookings={bookings} simplified={false}/>
                     </div>
 
                     <div className="max-h-[30vh] overflow-y-auto pr-2">
-                        <h4 className="text-sm font-bold text-gray-600 mb-3">รายการจอง</h4>
+                        <h4 className="text-sm font-bold text-on-surface mb-3">รายการจอง</h4>
                         {bookings.length > 0 ? (
                             <div className="space-y-3">
                                 {bookings.map(booking => (
-                                    <div key={booking.id} className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                                        <p className="font-bold text-gray-800 text-sm flex items-center gap-1.5">
+                                    <div key={booking.id} className="bg-surface-container-low p-3 rounded-xl border border-outline-variant">
+                                        <p className="font-bold text-on-surface text-sm flex items-center gap-1.5">
                                             <Clock className="w-3.5 h-3.5 text-blue-500 shrink-0" /> {booking.startTime} - {booking.endTime} น.
                                         </p>
                                         <div className="pl-4 mt-1 border-l-2 border-blue-100 ml-1 space-y-1">
-                                           <p className="text-xs text-gray-700"><strong className="font-semibold text-gray-500">เรื่อง:</strong> {booking.purpose}</p>
-                                           <p className="text-xs text-gray-600"><strong className="font-semibold text-gray-500">ผู้จอง:</strong> {booking.bookerName}</p>
+                                           <p className="text-xs text-on-surface"><strong className="font-semibold text-on-surface-variant">เรื่อง:</strong> {booking.purpose}</p>
+                                           <p className="text-xs text-on-surface"><strong className="font-semibold text-on-surface-variant">ผู้จอง:</strong> {booking.bookerName}</p>
                                            {booking.roomArrangement && (
-                                             <p className="text-xs text-gray-600">
-                                               <strong className="font-semibold text-gray-500">จัดห้อง:</strong>{' '}
+                                             <p className="text-xs text-on-surface">
+                                               <strong className="font-semibold text-on-surface-variant">จัดห้อง:</strong>{' '}
                                                {booking.roomArrangement === 'classroom' && 'แบบห้องเรียนปกติ'}
                                                {booking.roomArrangement === 'u-shape' && 'แบบตัว U'}
                                                {booking.roomArrangement?.startsWith('other:') && `อื่นๆ — ${booking.roomArrangement.slice(6)}`}
@@ -82,7 +82,7 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({ isOpen, onClo
                     </div>
                 </div>
 
-                <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-end items-center rounded-b-2xl gap-3">
+                <div className="p-4 bg-surface-container-low border-t border-outline-variant flex justify-end items-center rounded-b-2xl gap-3">
                     <Button variant="secondary" size="sm" onClick={onClose}>
                         ปิด
                     </Button>
