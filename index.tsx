@@ -26,6 +26,16 @@ if (!rootElement) {
       </React.StrictMode>
     );
     console.log("TCC Resource Manager successfully initialized.");
+
+    // ลงทะเบียน Service Worker เพื่อให้เพิ่มเว็บลงหน้าจอหลักของโทรศัพท์ได้
+    // (ตัว SW ไม่แคชอะไรเลย — ดูคำอธิบายใน public/sw.js)
+    if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err => {
+          console.warn('Service Worker registration failed:', err);
+        });
+      });
+    }
   } catch (error) {
     console.error("Application Render Error:", error);
     rootElement.innerHTML = `

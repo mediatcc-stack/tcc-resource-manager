@@ -1,0 +1,38 @@
+{
+  "name": "ระบบบริหารจัดการทรัพยากรส่วนกลาง — วิทยาลัยพณิชยการธนบุรี",
+  "short_name": "ระบบทรัพยากร",
+  "description": "จองห้องประชุม ยืมอุปกรณ์งานสื่อฯ และแจ้งซ่อมอุปกรณ์ไอที วิทยาลัยพณิชยการธนบุรี",
+  "lang": "th",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#00236f",
+  "background_color": "#f8f9ff",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "ระบบจองห้องประชุม",
+      "short_name": "จองห้อง",
+      "url": "/room",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "ระบบขอยืมอุปกรณ์งานสื่อฯ",
+      "short_name": "ยืมอุปกรณ์",
+      "url": "/equipment",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "ระบบแจ้งซ่อมอุปกรณ์ไอที",
+      "short_name": "แจ้งซ่อม",
+      "url": "/repair",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}
