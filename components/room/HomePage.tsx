@@ -2,21 +2,21 @@ import React, { useState, useMemo } from 'react';
 import { Room, Booking } from '../../types';
 import BookingDetailsModal from './BookingDetailsModal';
 import {
-  Calendar, Building2, Wrench, Users, ChevronLeft, ChevronRight,
+  Calendar, Building2, Wrench, ChevronLeft, ChevronRight,
   BookOpen, CalendarPlus, CheckCircle2, Clock, DoorOpen,
 } from 'lucide-react';
 
-// ── ข้อมูลเสริมเกี่ยวกับแต่ละห้อง (capacity, equipment, type) ──────────────
-const ROOM_METADATA: Record<string, { capacity: number; equipment: string[]; type: string }> = {
-  'ห้องประชุมธีรธรรมานันท์':            { capacity: 30,  equipment: ['โปรเจกเตอร์', 'ไมโครโฟน', 'Video Call'], type: 'ห้องประชุม' },
-  'ห้องประชุมเฉลิมพระเกียรติ':          { capacity: 50,  equipment: ['โปรเจกเตอร์', 'ไมโครโฟน', 'ลำโพง'],      type: 'ห้องประชุม' },
-  'ห้องประชุมมูลนิธิสมเด็จพระธีรญาณมุนี': { capacity: 20,  equipment: ['โปรเจกเตอร์', 'ไมโครโฟน'],              type: 'ห้องประชุม' },
-  'ห้องประชุมสำเภาทอง':                 { capacity: 25,  equipment: ['TV Screen', 'ไมโครโฟน'],                 type: 'ห้องประชุม' },
-  'ห้องประชุมไพโรจน์ปวะบุตร':           { capacity: 40,  equipment: ['โปรเจกเตอร์', 'ไมโครโฟน', 'ลำโพง'],      type: 'ห้องประชุม' },
-  'ห้องงานสื่อการเรียนการสอน 421':       { capacity: 15,  equipment: ['โน้ตบุ๊ค', 'อุปกรณ์สื่อ'],              type: 'ห้องปฏิบัติการ' },
-  'ห้อง CVM (ศูนย์บริหารเครือข่าย)':    { capacity: 20,  equipment: ['เซิร์ฟเวอร์', 'เครือข่าย'],             type: 'ห้องปฏิบัติการ' },
-  'ลานโดมอเนกประสงค์':                  { capacity: 200, equipment: ['ระบบเสียง', 'แสงไฟ', 'พื้นที่โล่ง'],    type: 'อาคาร/โดม' },
-  'หอประชุมประทีป ปฐมกสิกุล':           { capacity: 500, equipment: ['เวที', 'ระบบเสียง', 'แสงไฟ'],           type: 'อาคาร/โดม' },
+// ── ประเภทของแต่ละห้อง (ใช้กับตัวกรองหมวดหมู่) ────────────────────────────
+const ROOM_TYPES_BY_NAME: Record<string, string> = {
+  'ห้องประชุมธีรธรรมานันท์':            'ห้องประชุม',
+  'ห้องประชุมเฉลิมพระเกียรติ':          'ห้องประชุม',
+  'ห้องประชุมมูลนิธิสมเด็จพระธีรญาณมุนี': 'ห้องประชุม',
+  'ห้องประชุมสำเภาทอง':                 'ห้องประชุม',
+  'ห้องประชุมไพโรจน์ปวะบุตร':           'ห้องประชุม',
+  'ห้องงานสื่อการเรียนการสอน 421':       'ห้องปฏิบัติการ',
+  'ห้อง CVM (ศูนย์บริหารเครือข่าย)':    'ห้องปฏิบัติการ',
+  'ลานโดมอเนกประสงค์':                  'อาคาร/โดม',
+  'หอประชุมประทีป ปฐมกสิกุล':           'อาคาร/โดม',
 };
 
 const ROOM_TYPES = ['ทั้งหมด', 'ห้องประชุม', 'ห้องปฏิบัติการ', 'อาคาร/โดม'];
@@ -93,7 +93,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onQu
 
   const filteredRooms = activeFilter === 'ทั้งหมด'
     ? rooms
-    : rooms.filter(r => ROOM_METADATA[r.name]?.type === activeFilter);
+    : rooms.filter(r => ROOM_TYPES_BY_NAME[r.name] === activeFilter);
 
   const selectedDateLabel = new Date(selectedDate).toLocaleDateString('th-TH', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -278,7 +278,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onQu
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-space-md">
               {filteredRooms.map(room => {
-                const meta = ROOM_METADATA[room.name];
+                const roomType = ROOM_TYPES_BY_NAME[room.name];
                 const isAvailable = room.status === 'available';
                 const roomBookings = bookings
                   .filter(b => b.roomName === room.name && b.date === selectedDate && b.status === 'จองแล้ว')
@@ -304,13 +304,8 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onQu
                             <h3 className={`font-heading text-headline-sm ${isAvailable ? 'text-on-surface' : 'text-outline'}`}>
                               {room.name}
                             </h3>
-                            {meta && (
-                              <div className="flex items-center gap-1.5 font-body text-body-sm text-on-surface-variant mt-0.5 flex-wrap">
-                                <Users className="w-3.5 h-3.5 text-outline" />
-                                <span>รองรับ {meta.capacity} ที่นั่ง</span>
-                                <span className="text-outline">•</span>
-                                <span className="text-outline">{meta.type}</span>
-                              </div>
+                            {roomType && (
+                              <p className="font-body text-body-sm text-outline mt-0.5">{roomType}</p>
                             )}
                           </div>
                         </div>
@@ -359,12 +354,6 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onQu
                               </span>
                             ))}
                           </div>
-                        )}
-
-                        {meta && (
-                          <p className="font-body text-body-sm text-on-surface-variant">
-                            อุปกรณ์: {meta.equipment.join(', ')}
-                          </p>
                         )}
                       </div>
                     </div>
