@@ -48,16 +48,16 @@ const FormField: React.FC<{label: string, icon: React.ReactNode, required?: bool
   </div>
 );
 
-const ROOM_METADATA: Record<string, { capacity: number; equipment: string[]; type: string }> = {
-  'ห้องประชุมธีรธรรมานันท์':            { capacity: 30,  equipment: ['โปรเจกเตอร์', 'ไมโครโฟน', 'Video Call'], type: 'ห้องประชุม' },
-  'ห้องประชุมเฉลิมพระเกียรติ':          { capacity: 50,  equipment: ['โปรเจกเตอร์', 'ไมโครโฟน', 'ลำโพง'],      type: 'ห้องประชุม' },
-  'ห้องประชุมมูลนิธิสมเด็จพระธีรญาณมุนี': { capacity: 20,  equipment: ['โปรเจกเตอร์', 'ไมโครโฟน'],              type: 'ห้องประชุม' },
-  'ห้องประชุมสำเภาทอง':                 { capacity: 25,  equipment: ['TV Screen', 'ไมโครโฟน'],                 type: 'ห้องประชุม' },
-  'ห้องประชุมไพโรจน์ปวะบุตร':           { capacity: 40,  equipment: ['โปรเจกเตอร์', 'ไมโครโฟน', 'ลำโพง'],      type: 'ห้องประชุม' },
-  'ห้องงานสื่อการเรียนการสอน 421':       { capacity: 15,  equipment: ['โน้ตบุ๊ค', 'อุปกรณ์สื่อ'],              type: 'ห้องปฏิบัติการ' },
-  'ห้อง CVM (ศูนย์บริหารเครือข่าย)':    { capacity: 20,  equipment: ['เซิร์ฟเวอร์', 'เครือข่าย'],             type: 'ห้องปฏิบัติการ' },
-  'ลานโดมอเนกประสงค์':                  { capacity: 200, equipment: ['ระบบเสียง', 'แสงไฟ', 'พื้นที่โล่ง'],    type: 'อาคาร/โดม' },
-  'หอประชุมประทีป ปฐมกสิกุล':           { capacity: 500, equipment: ['เวที', 'ระบบเสียง', 'แสงไฟ'],           type: 'อาคาร/โดม' },
+const ROOM_TYPES_BY_NAME: Record<string, string> = {
+  'ห้องประชุมธีรธรรมานันท์':            'ห้องประชุม',
+  'ห้องประชุมเฉลิมพระเกียรติ':          'ห้องประชุม',
+  'ห้องประชุมมูลนิธิสมเด็จพระธีรญาณมุนี': 'ห้องประชุม',
+  'ห้องประชุมสำเภาทอง':                 'ห้องประชุม',
+  'ห้องประชุมไพโรจน์ปวะบุตร':           'ห้องประชุม',
+  'ห้องงานสื่อการเรียนการสอน 421':       'ห้องปฏิบัติการ',
+  'ห้อง CVM (ศูนย์บริหารเครือข่าย)':    'ห้องปฏิบัติการ',
+  'ลานโดมอเนกประสงค์':                  'อาคาร/โดม',
+  'หอประชุมประทีป ปฐมกสิกุล':           'อาคาร/โดม',
 };
 
 const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBookings, onSubmit, onUpdate, bookingToEdit, onCancel, showToast }) => {
@@ -593,7 +593,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
                 <FormField label="เลือกห้องประชุม (ระบบจะแสดงสถานะว่างตามวันเวลาที่คุณระบุ)" icon={<Building2 className="w-4 h-4" />} required>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {rooms.map(r => {
-                      const meta = ROOM_METADATA[r.name] || { capacity: 0, equipment: [], type: '' };
+                      const roomType = ROOM_TYPES_BY_NAME[r.name] || '';
                       const conflict = getRoomConflictStatus(r.name);
                       const isSelected = selectedRoomIds.includes(r.id);
                       const isClosed = r.status === 'closed';
@@ -629,16 +629,11 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
                             )}
                           </div>
 
-                          <div className="mt-2.5 pl-7 space-y-1">
-                            <p className="text-[11px] text-on-surface-variant font-semibold flex items-center gap-1">
-                              <Users className="w-3 h-3 text-outline" /> ความจุ: {meta.capacity} คน ({meta.type})
-                            </p>
-                            {meta.equipment.length > 0 && (
-                              <p className="text-[10px] text-outline font-medium truncate">
-                                📦 อุปกรณ์: {meta.equipment.join(', ')}
-                              </p>
-                            )}
-                          </div>
+                          {roomType && (
+                            <div className="mt-2.5 pl-7">
+                              <p className="text-[11px] text-outline font-medium">{roomType}</p>
+                            </div>
+                          )}
 
                           <div className="mt-3 pl-7">
                             <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg inline-block ${
