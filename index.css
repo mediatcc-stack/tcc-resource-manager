@@ -2,26 +2,84 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   Design Tokens — TCC Resource Manager
+   ระบบสีอ้างอิงจากดีไซน์ใหม่ (Material 3 style token set) โทนน้ำเงินสถาบัน
+   ชื่อโทเคนเดิม (primary / accent / neutral-*) ยังคงอยู่เพื่อให้โค้ดเดิมใช้ต่อได้
+   ═══════════════════════════════════════════════════════════════════════════ */
 :root {
-  --primary: #0D448D;
-  --primary-hover: #0b356f;
-  --primary-light: #eff6ff;
-  --accent: #f97316;
-  --neutral-bg: #f8fafc;
-  --neutral-ink: #1e293b;
-  --neutral-muted: #64748b;
-  --border: #cbd5e1;
-  --danger: #dc2626;
-  --success: #10b981;
+  /* ── Legacy aliases (ชี้ไปยังค่าสีชุดใหม่) ── */
+  --primary: #00236f;
+  --primary-hover: #1e3a8a;
+  --primary-light: #eff4ff;
+  --accent: #ea580c;
+  --neutral-bg: #f8f9ff;
+  --neutral-ink: #0b1c30;
+  --neutral-muted: #444651;
+  --border: #c5c5d3;
+  --danger: #ba1a1a;
+  --success: #15803d;
+
+  /* ── Core roles ── */
+  --on-primary: #ffffff;
+  --primary-container: #1e3a8a;
+  --on-primary-container: #90a8ff;
+  --secondary: #0051d5;
+  --on-secondary: #ffffff;
+  --secondary-container: #316bf3;
+  --secondary-fixed: #dbe1ff;
+  --on-secondary-fixed: #00174b;
+  --tertiary: #00312c;
+  --tertiary-container: #004942;
+  --on-tertiary-container: #4ebdb0;
+
+  /* ── Surfaces ── */
+  --surface: #f8f9ff;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #eff4ff;
+  --surface-container: #e5eeff;
+  --surface-container-high: #dce9ff;
+  --surface-container-highest: #d3e4fe;
+  --on-surface: #0b1c30;
+  --on-surface-variant: #444651;
+  --inverse-surface: #213145;
+
+  /* ── Outlines / status ── */
+  --outline: #757682;
+  --outline-variant: #c5c5d3;
+  --error: #ba1a1a;
+  --error-container: #ffdad6;
+  --on-error-container: #93000a;
+  --success-container: #dcfce7;
+  --on-success-container: #15803d;
+  --warning-container: #fef3c7;
+  --on-warning-container: #b45309;
+  --live: #22c55e;
+
+  /* ── Layout ── */
+  --max-width-content: 1360px;
+  --header-height: 112px;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   Typography
+   ฟอนต์ Latin ใช้ Plus Jakarta Sans (หัวเรื่อง/ป้าย) และ Be Vietnam Pro (เนื้อความ)
+   ตัวอักษรไทยไม่มีในสองฟอนต์นี้ เบราว์เซอร์จึงถอยไปใช้ Prompt ให้อัตโนมัติ
+   ═══════════════════════════════════════════════════════════════════════════ */
 body {
-  font-family: 'Prompt', sans-serif;
-  background-color: var(--neutral-bg);
+  font-family: 'Be Vietnam Pro', 'Prompt', sans-serif;
+  background-color: var(--surface);
   margin: 0;
-  color: var(--neutral-ink);
+  color: var(--on-surface);
+  font-size: 14px;
+  line-height: 22px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Plus Jakarta Sans', 'Prompt', sans-serif;
+  text-wrap: balance;
 }
 
 .text-shadow-md {
@@ -60,16 +118,22 @@ body {
 
 /* Custom scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #f1f5f9; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-track { background: var(--surface-container-low); }
+::-webkit-scrollbar-thumb { background: var(--outline-variant); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--outline); }
 
 /* Smooth card transitions */
 .card-hover {
   transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
 }
 .card-hover:hover {
-  box-shadow: 0 12px 28px rgba(13, 68, 141, 0.14);
+  box-shadow: 0 16px 36px rgba(30, 58, 138, 0.12);
   transform: translateY(-4px);
-  border-color: var(--primary) !important;
+}
+
+/* พื้นผิวการ์ดมาตรฐานของระบบ */
+.surface-card {
+  background-color: var(--surface-container-lowest);
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
 }

@@ -49,7 +49,7 @@ const RoomAvailabilityTimeline: React.FC<RoomAvailabilityTimelineProps> = ({ boo
                     );
                 })}
             </div>
-            <div className="flex justify-between mt-1.5 text-[10px] font-semibold text-gray-400 px-1">
+            <div className="flex justify-between mt-1.5 text-[10px] font-semibold text-outline px-1">
                 <span>07:00</span>
                 <span>13:00</span>
                 <span>19:00</span>

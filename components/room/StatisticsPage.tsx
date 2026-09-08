@@ -10,17 +10,17 @@ interface StatisticsPageProps {
 }
 
 const StatCard: React.FC<{icon: string, title: string, value: string | number, description: string, color: string}> = ({icon, title, value, description, color}) => (
-    <div className={`p-6 rounded-2xl border bg-white shadow-sm transition-transform hover:-translate-y-1`}>
+    <div className={`p-6 rounded-2xl border bg-surface-container-lowest shadow-sm transition-transform hover:-translate-y-1`}>
         <div className="flex items-center gap-4">
             <div className={`p-3 rounded-xl bg-opacity-10 ${color.replace('text', 'bg').replace('-600', '-100')}`}>
                 <span className={`text-2xl ${color}`}>{icon}</span>
             </div>
             <div>
-                <p className="text-sm font-semibold text-gray-500">{title}</p>
+                <p className="text-sm font-semibold text-on-surface-variant">{title}</p>
                 <p className={`text-3xl font-bold ${color}`}>{value}</p>
             </div>
         </div>
-        <p className="text-xs text-gray-400 mt-3">{description}</p>
+        <p className="text-xs text-outline mt-3">{description}</p>
     </div>
 );
 
@@ -109,27 +109,27 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => 
 
   return (
     <div className="max-w-6xl mx-auto animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-xl p-6 md:p-10">
-        <div className="flex flex-wrap justify-between items-center gap-4 mb-8 pb-6 border-b border-gray-100">
+      <div className="bg-surface-container-lowest rounded-2xl shadow-xl p-6 md:p-10">
+        <div className="flex flex-wrap justify-between items-center gap-4 mb-8 pb-6 border-b border-outline-variant">
           <div className="flex items-center gap-4">
             <button 
               onClick={onBack}
-              className="p-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-all active:scale-90"
+              className="p-2 bg-surface-container text-on-surface rounded-full hover:bg-surface-container-high transition-all active:scale-90"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             </button>
             <div>
-                <h2 className="text-2xl font-bold text-gray-800 tracking-tight">สรุปสถิติและรายงาน</h2>
-                <p className="text-sm text-gray-500 font-medium">ภาพรวมการใช้งานห้องประชุมของวิทยาลัย</p>
+                <h2 className="text-2xl font-bold text-on-surface tracking-tight">สรุปสถิติและรายงาน</h2>
+                <p className="text-sm text-on-surface-variant font-medium">ภาพรวมการใช้งานห้องประชุมของวิทยาลัย</p>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-3">
-             <div className="flex gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100">
+             <div className="flex gap-2 bg-surface-container-low p-1.5 rounded-xl border border-outline-variant">
                 <select 
                     value={selectedMonth} 
                     onChange={e => setSelectedMonth(e.target.value)}
-                    className="bg-white border border-gray-200 rounded-lg text-sm font-bold p-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="bg-surface-container-lowest border border-outline-variant rounded-lg text-sm font-bold p-2 focus:ring-2 focus:ring-blue-500 outline-none"
                 >
                     <option value="all">ทุกเดือน</option>
                     {thaiMonths.map((m, i) => <option key={i} value={(i+1).toString()}>{m}</option>)}
@@ -137,7 +137,7 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => 
                 <select 
                     value={selectedYear} 
                     onChange={e => setSelectedYear(e.target.value)}
-                    className="bg-white border border-gray-200 rounded-lg text-sm font-bold p-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="bg-surface-container-lowest border border-outline-variant rounded-lg text-sm font-bold p-2 focus:ring-2 focus:ring-blue-500 outline-none"
                 >
                     {years.map(y => <option key={y} value={y}>พ.ศ. {parseInt(y) + 543}</option>)}
                 </select>
@@ -181,8 +181,8 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => 
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
-                <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
+            <div className="bg-surface-container-low p-6 rounded-2xl border border-outline-variant">
+                <h3 className="font-bold text-on-surface mb-6 flex items-center gap-2">
                     <span>📅</span> สถิติการใช้งานรายเดือน (ปี พ.ศ. {parseInt(selectedYear) + 543})
                 </h3>
                 <div className="flex items-end justify-between h-48 gap-1 pt-4">
@@ -198,7 +198,7 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => 
                                     </span>
                                 )}
                             </div>
-                            <span className={`text-[10px] mt-2 font-bold ${selectedMonth === (i+1).toString() ? 'text-blue-700' : 'text-gray-400'}`}>
+                            <span className={`text-[10px] mt-2 font-bold ${selectedMonth === (i+1).toString() ? 'text-blue-700' : 'text-outline'}`}>
                                 {thaiMonths[i]}
                             </span>
                         </div>
@@ -206,22 +206,22 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => 
                 </div>
             </div>
 
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
+            <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant shadow-sm">
+                <h3 className="font-bold text-on-surface mb-6 flex items-center gap-2">
                     <span>🏢</span> อันดับห้องที่ถูกจองมากที่สุด
                 </h3>
                 <div className="space-y-4">
                     {stats.bookingsByRoom.map((room, index) => (
                         <div key={room.name} className="flex items-center gap-4">
-                            <div className={`font-bold w-8 text-center ${index < 3 ? 'text-primary' : 'text-gray-300'}`}>
+                            <div className={`font-bold w-8 text-center ${index < 3 ? 'text-primary' : 'text-outline'}`}>
                                 {index + 1}
                             </div>
                             <div className="flex-1">
                                 <div className="flex justify-between items-center mb-1">
-                                    <p className="font-bold text-gray-700 text-xs truncate max-w-[200px]">{room.name}</p>
+                                    <p className="font-bold text-on-surface text-xs truncate max-w-[200px]">{room.name}</p>
                                     <p className="font-black text-primary text-xs">{room.count} ครั้ง</p>
                                 </div>
-                                <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                <div className="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
                                     <div 
                                         className="bg-primary h-full rounded-full transition-all duration-700 ease-out" 
                                         style={{ width: `${(room.count / stats.maxRoomCount) * 100}%` }}
@@ -231,7 +231,7 @@ const StatisticsPage: React.FC<StatisticsPageProps> = ({ bookings, onBack }) => 
                         </div>
                     ))}
                     {stats.total === 0 && (
-                         <div className="text-center py-10 text-gray-400 italic text-sm">
+                         <div className="text-center py-10 text-outline italic text-sm">
                             ไม่มีข้อมูลในเดือนที่เลือก
                          </div>
                     )}

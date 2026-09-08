@@ -2,8 +2,9 @@
 
 import React, { useState, useMemo } from 'react';
 import { RepairRequest, RepairStatus } from '../../types';
-import Button from '../shared/Button';
 import RepairCard from './RepairCard';
+import SubTabs from '../shared/SubTabs';
+import { Search, RotateCcw, RefreshCw, Inbox, ShieldCheck, ChevronDown } from 'lucide-react';
 
 interface RepairListPageProps {
     repairs: RepairRequest[];
@@ -31,6 +32,11 @@ const RepairListPage: React.FC<RepairListPageProps> = ({ repairs, onChangeStatus
         yearsSet.add(new Date().getFullYear().toString());
         return Array.from(yearsSet).sort((a, b) => b.localeCompare(a));
     }, [repairs]);
+
+    const tabCounts = useMemo(() => ({
+        current: repairs.filter(r => r.status === RepairStatus.Pending || r.status === RepairStatus.InProgress).length,
+        history: repairs.filter(r => r.status === RepairStatus.Completed).length,
+    }), [repairs]);
 
     const clearFilters = () => {
         setNameFilter('');
@@ -75,44 +81,94 @@ const RepairListPage: React.FC<RepairListPageProps> = ({ repairs, onChangeStatus
         });
     }, [repairs, activeTab, nameFilter, monthFilter, yearFilter, statusFilter]);
 
-    const inputClasses = "w-full rounded-lg border border-gray-200 bg-white p-2.5 text-gray-800 transition-all placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm";
+    const inputClasses = "w-full px-3 py-2 bg-surface-container-low rounded-lg font-body text-body-md text-on-surface placeholder-outline focus:outline-none focus:bg-surface-container-lowest transition-colors";
+    const labelClasses = "font-label text-label-sm text-on-surface-variant";
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div className="flex p-1 bg-slate-100 rounded-xl">
-                    <button
-                        onClick={() => setActiveTab('current')}
-                        className={`flex-1 px-5 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'current' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                    >
-                        รายการที่ยังไม่เสร็จ
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('history')}
-                        className={`flex-1 px-5 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'history' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                    >
-                        ประวัติการซ่อม
-                    </button>
-                </div>
-                {isAdmin && <span className="px-3 py-1 text-xs font-bold text-white bg-green-600 rounded-full shadow-sm animate-fade-in">✅ โหมดผู้ดูแลระบบ</span>}
+        <div className="space-y-space-md">
+            {/* ── แท็บย่อย: งานที่ยังไม่เสร็จ / ประวัติ ── */}
+            <div className="flex flex-wrap items-center justify-between gap-space-sm">
+                <SubTabs
+                    tabs={[
+                        { key: 'current', label: 'รายการที่ยังไม่เสร็จ', count: tabCounts.current, emphasis: true },
+                        { key: 'history', label: 'ประวัติการซ่อม',       count: tabCounts.history },
+                    ]}
+                    activeKey={activeTab}
+                    onSelect={setActiveTab}
+                />
+                {isAdmin && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-success-container text-on-success-container font-label text-label-sm animate-fade-in">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        โหมดผู้ดูแลระบบ
+                    </span>
+                )}
             </div>
 
-            <div className="pb-4 mb-4 border-b border-gray-200">
-                <div className="flex flex-wrap items-end gap-3">
-                    <div className="flex-grow min-w-[150px]"><label className="text-[10px] font-bold text-gray-400 px-1">ค้นหาชื่อ</label><input type="text" placeholder="ชื่อผู้แจ้ง..." value={nameFilter} onChange={e => setNameFilter(e.target.value)} className={inputClasses}/></div>
-                    <div className="flex-grow"><label className="text-[10px] font-bold text-gray-400 px-1">เดือน</label><select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className={inputClasses}><option value="all">ทุกเดือน</option>{thaiMonths.map((m, i) => <option key={i} value={(i+1).toString()}>{m}</option>)}</select></div>
-                    <div className="flex-grow"><label className="text-[10px] font-bold text-gray-400 px-1">ปี</label><select value={yearFilter} onChange={e => setYearFilter(e.target.value)} className={inputClasses}><option value="all">ทุกปี</option>{years.map(y => <option key={y} value={y}>{parseInt(y) + 543}</option>)}</select></div>
-                    <div className="flex-grow"><label className="text-[10px] font-bold text-gray-400 px-1">สถานะ</label>
-                        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={inputClasses}>
-                            <option value="ทั้งหมด">ทั้งหมด</option>
-                            {Object.values(RepairStatus).filter(s => (activeTab === 'current' ? s !== RepairStatus.Completed : s === RepairStatus.Completed)).map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+            {/* ── ค้นหาและตัวกรอง ── */}
+            <div className="bg-surface-container-lowest rounded-xl shadow-card p-space-md">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-space-sm items-end">
+                    <div className="lg:col-span-4 flex flex-col gap-1.5">
+                        <label className={labelClasses} htmlFor="repair-search">ค้นหาชื่อ</label>
+                        <div className="relative flex items-center">
+                            <Search className="w-4 h-4 absolute left-3 text-outline pointer-events-none" />
+                            <input
+                                id="repair-search"
+                                type="text"
+                                placeholder="ชื่อผู้แจ้ง..."
+                                value={nameFilter}
+                                onChange={e => setNameFilter(e.target.value)}
+                                className={`${inputClasses} pl-9`}
+                            />
+                        </div>
                     </div>
-                    <Button onClick={clearFilters} variant="secondary" size="sm" className="h-[42px] px-4">ล้าง</Button>
+
+                    <div className="lg:col-span-2 flex flex-col gap-1.5">
+                        <label className={labelClasses} htmlFor="repair-month">เดือน</label>
+                        <div className="relative">
+                            <select id="repair-month" value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className={`${inputClasses} appearance-none pr-8`}>
+                                <option value="all">ทุกเดือน</option>
+                                {thaiMonths.map((m, i) => <option key={i} value={(i + 1).toString()}>{m}</option>)}
+                            </select>
+                            <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-outline pointer-events-none" />
+                        </div>
+                    </div>
+
+                    <div className="lg:col-span-2 flex flex-col gap-1.5">
+                        <label className={labelClasses} htmlFor="repair-year">ปี</label>
+                        <div className="relative">
+                            <select id="repair-year" value={yearFilter} onChange={e => setYearFilter(e.target.value)} className={`${inputClasses} appearance-none pr-8`}>
+                                <option value="all">ทุกปี</option>
+                                {years.map(y => <option key={y} value={y}>{parseInt(y) + 543}</option>)}
+                            </select>
+                            <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-outline pointer-events-none" />
+                        </div>
+                    </div>
+
+                    <div className="lg:col-span-3 flex flex-col gap-1.5">
+                        <label className={labelClasses} htmlFor="repair-status">สถานะ</label>
+                        <div className="relative">
+                            <select id="repair-status" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={`${inputClasses} appearance-none pr-8`}>
+                                <option value="ทั้งหมด">ทั้งหมด</option>
+                                {Object.values(RepairStatus).filter(s => (activeTab === 'current' ? s !== RepairStatus.Completed : s === RepairStatus.Completed)).map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-outline pointer-events-none" />
+                        </div>
+                    </div>
+
+                    <div className="lg:col-span-1">
+                        <button
+                            type="button"
+                            onClick={clearFilters}
+                            className="w-full py-2 px-3 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant hover:text-on-surface font-label text-label-md transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                            <RotateCcw className="w-4 h-4" />
+                            <span>ล้าง</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div className="space-y-4 min-h-[400px]">
+            <div className="flex flex-col gap-space-sm min-h-[400px]">
                 {filteredRepairs.length > 0 ? (
                     filteredRepairs.map(req =>
                         <RepairCard
@@ -127,15 +183,17 @@ const RepairListPage: React.FC<RepairListPageProps> = ({ repairs, onChangeStatus
                         />
                     )
                 ) : (
-                    <div className="text-center text-gray-500 py-24 bg-white rounded-2xl border-2 border-dashed border-gray-200">
-                        <p className="text-xl font-semibold">ไม่พบรายการ</p>
-                        <p className="text-sm mt-2">ยังไม่มีรายการแจ้งซ่อมในช่วงเวลาที่เลือก</p>
+                    <div className="text-center py-24 bg-surface-container-lowest rounded-xl shadow-card">
+                        <Inbox className="w-12 h-12 mx-auto text-outline-variant mb-3" />
+                        <p className="font-heading text-headline-sm text-on-surface">ไม่พบรายการ</p>
+                        <p className="font-body text-body-sm text-on-surface-variant mt-1">ยังไม่มีรายการแจ้งซ่อมในช่วงเวลาที่เลือก</p>
                     </div>
                 )}
             </div>
             {lastUpdated && (
-                <div className="text-center text-xs text-gray-400 font-medium mt-4">
-                    อัปเดตข้อมูลล่าสุด: {lastUpdated.toLocaleTimeString('th-TH')} น.
+                <div className="flex items-center justify-center gap-2 text-outline font-label text-label-sm py-space-sm">
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>อัปเดตข้อมูลล่าสุด: {lastUpdated.toLocaleTimeString('th-TH')} น.</span>
                 </div>
             )}
         </div>

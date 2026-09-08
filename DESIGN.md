@@ -1,57 +1,86 @@
 ---
 name: TCC Resource Manager
-description: ระบบจองห้องประชุมและยืมอุปกรณ์โสตทัศนูปกรณ์ - วิทยาลัยพณิชยการธนบุรี
+description: ระบบบริหารจัดการทรัพยากรส่วนกลาง (จองห้องประชุม / ยืมอุปกรณ์สื่อฯ / แจ้งซ่อมไอที) - วิทยาลัยพณิชยการธนบุรี
 colors:
-  primary: "#0D448D"
-  primary-hover: "#0b356f"
-  primary-light: "#eff6ff"
-  accent: "#f97316"
-  neutral-bg: "#f8fafc"
-  neutral-ink: "#1e293b"
-  neutral-muted: "#64748b"
-  border: "#cbd5e1"
-  danger: "#dc2626"
-  success: "#10b981"
+  primary: "#00236f"
+  primary-container: "#1e3a8a"
+  on-primary: "#ffffff"
+  on-primary-container: "#90a8ff"
+  secondary: "#0051d5"
+  secondary-container: "#316bf3"
+  secondary-fixed: "#dbe1ff"
+  accent: "#ea580c"
+  surface: "#f8f9ff"
+  surface-container-lowest: "#ffffff"
+  surface-container-low: "#eff4ff"
+  surface-container: "#e5eeff"
+  surface-container-high: "#dce9ff"
+  surface-container-highest: "#d3e4fe"
+  on-surface: "#0b1c30"
+  on-surface-variant: "#444651"
+  outline: "#757682"
+  outline-variant: "#c5c5d3"
+  error: "#ba1a1a"
+  error-container: "#ffdad6"
+  success: "#15803d"
+  live: "#22c55e"
 typography:
   display:
-    fontFamily: "Prompt, sans-serif"
-    fontSize: "clamp(2rem, 5vw, 3rem)"
+    fontFamily: "Plus Jakarta Sans, Prompt, sans-serif"
+    fontSize: "36px"
+    lineHeight: "44px"
     fontWeight: 700
-    lineHeight: 1.2
-    letterSpacing: "normal"
+  headline:
+    fontFamily: "Plus Jakarta Sans, Prompt, sans-serif"
+    fontSize: "24px"
+    lineHeight: "32px"
+    fontWeight: 700
   body:
-    fontFamily: "Prompt, sans-serif"
-    fontSize: "0.875rem"
+    fontFamily: "Be Vietnam Pro, Prompt, sans-serif"
+    fontSize: "14px"
+    lineHeight: "22px"
     fontWeight: 400
-    lineHeight: 1.5
-    letterSpacing: "normal"
+  label:
+    fontFamily: "Plus Jakarta Sans, Prompt, sans-serif"
+    fontSize: "12px"
+    lineHeight: "16px"
+    fontWeight: 600
 rounded:
   sm: "4px"
-  md: "8px"
+  lg: "8px"
   xl: "12px"
-  card: "24px"
+  card: "12px"
+  hero: "16px"
   badge: "9999px"
 spacing:
-  xs: "4px"
-  sm: "8px"
+  2xs: "4px"
+  xs: "8px"
+  sm: "12px"
   md: "16px"
   lg: "24px"
   xl: "32px"
+  2xl: "48px"
+layout:
+  maxWidthContent: "1360px"
+  gutterMobile: "16px"
+  gutterTablet: "24px"
+  gutterDesktop: "32px"
+  headerHeight: "112px"
 components:
   button-primary:
     backgroundColor: "{colors.primary}"
-    textColor: "#ffffff"
-    rounded: "{rounded.xl}"
-    padding: "12px 24px"
+    textColor: "{colors.on-primary}"
+    rounded: "{rounded.lg}"
+    padding: "8px 16px"
   button-primary-hover:
-    backgroundColor: "{colors.primary-hover}"
+    backgroundColor: "{colors.primary-container}"
   button-secondary:
-    backgroundColor: "#ffffff"
+    backgroundColor: "{colors.surface-container-low}"
     textColor: "{colors.primary}"
-    rounded: "{rounded.xl}"
-    padding: "12px 24px"
+    rounded: "{rounded.lg}"
+    padding: "8px 16px"
   button-secondary-hover:
-    backgroundColor: "{colors.primary-light}"
+    backgroundColor: "{colors.surface-container}"
 ---
 
 # Design System: TCC Resource Manager
@@ -60,97 +89,115 @@ components:
 
 **Creative North Star: "Blue Haven Service" (บริการรวดเร็วใต้เงาสถาบัน)**
 
-ระบบนำเสนออัตลักษณ์และความภาคภูมิใจของสถาบันวิทยาลัยพณิชยการธนบุรีผ่านโครงสีฟ้าและสีขาว สะท้อนความมั่นคง เป็นระเบียบเรียบร้อย และประดับด้วยสีส้มโมเดิร์นเป็นสีเน้น (Accent) เพื่อดึงดูดความสนใจไปยังการกระทำที่สำคัญและระบบแจ้งเตือนที่ฉับไว เพื่ออำนวยความสะดวกให้แก่อาจารย์และแอดมินระบบโสตทัศนูปกรณ์
+ระบบนำเสนออัตลักษณ์ของวิทยาลัยพณิชยการธนบุรีผ่านโครงสีน้ำเงินเข้ม-ขาว บนพื้นผิวโทนฟ้าอ่อนหลายระดับ (Tonal Surfaces) สะท้อนความมั่นคงและเป็นระเบียบ พร้อมสีส้มเป็นสีเน้น (Accent) สำหรับจุดที่ต้องการดึงสายตา
 
-ระบบนี้มุ่งเน้นการออกแบบที่ใช้งานง่าย ลดขั้นตอนการจองและยืมที่มีความซับซ้อน ปรับขนาดตัวอักษรและปุ่มต่างๆ ให้มีพื้นที่สัมผัสที่ใหญ่ เหมาะสำหรับการใช้งานบนอุปกรณ์พกพาเป็นหลัก (Mobile-First) 
+โครงหน้าเว็บทุกหน้าอยู่ภายใต้โครงร่างเดียวกัน คือ แถบหัวเรื่องแบบ 2 ชั้น (Brand bar + เมนูระบบ) → Breadcrumb → เนื้อหาในคอนเทนเนอร์กว้างสูงสุด 1360px → ส่วนท้ายเว็บ
 
 **ค่านิยมหลักของดีไซน์ (Key Characteristics):**
-*   **Trustworthy Structure:** โครงสร้างเว็บที่จัดสรรข้อมูลเป็นระบบและใช้สีโทนหลักที่น่าเชื่อถือ
-*   **Vibrant Signals:** การใช้สีส้มเพื่อขับเน้นจุดที่มีการอัปเดต สถานะการจอง หรือปุ่มบันทึก
-*   **Tactile Comfort:** ปุ่มที่มีขอบมนเด่นชัด ขนาดพอดีสำหรับการกดบนจอมือถือโดยไม่เกิดการคลิกพลาด
+*   **Trustworthy Structure:** โครงหน้าเดียวกันทุกระบบ ผู้ใช้รู้เสมอว่าตัวเองอยู่ตรงไหน
+*   **Tonal Layering:** แยกชั้นข้อมูลด้วยระดับพื้นผิว (surface-container-*) แทนการตีเส้นขอบถี่ๆ
+*   **Vibrant Signals:** สีส้มและป้ายสถานะสีเฉพาะ ใช้เฉพาะจุดที่ต้องการการตัดสินใจ
 
 ## 2. Colors
 
-สีประจำวิทยาลัยพณิชยการธนบุรีคือสีฟ้าและสีขาว โดยระบบได้จัดสรรจานสีหลัก (Primary) ผสานเข้ากับสีส้มเป็นตัวนำทางสายตาผู้ใช้
+ระบบสีใช้ชุดโทเคนแบบ Material 3 (role-based) เก็บเป็น CSS Variables ใน `index.css` และ map เข้า Tailwind ใน `tailwind.config.js`
 
 ### Primary
-*   **TCC Dark Blue** (#0D448D): สีน้ำเงินหลักของสถาบัน ใช้กับหัวเรื่อง (Headings), แถบนำทาง (Navbar), และปุ่มหลัก (Primary Buttons) แสดงถึงความเป็นมืออาชีพและความเป็นสถาบัน
-*   **TCC Light Blue** (#eff6ff / bg-blue-50): สีพื้นหลังเน้นความสำคัญ โซนข้อมูล หรือการเลือกสถานะที่กำลังถูกใช้งาน
+*   **TCC Navy** (#00236f): สีหลักของสถาบัน ใช้กับแถบหัวเรื่อง ปุ่มหลัก และแท็บที่ถูกเลือก
+*   **Primary Container** (#1e3a8a): น้ำเงินอ่อนกว่าหนึ่งขั้น ใช้เป็นสถานะ hover ของปุ่มหลัก และปลายไล่เฉดของ Hero
 
 ### Secondary
-*   **Accent Orange** (#f97316): สีส้มประจำระบบใช้เป็นสีเน้นเพื่อแสดงจุดดึงสายตา ไอคอนแจ้งเตือน หรือปุ่มตกลง/อนุมัติ (CTA) ในระบบ
+*   **Secondary** (#0051d5) / **Secondary Container** (#316bf3): ใช้กับลิงก์ ไอคอนเน้น และข้อมูลเวลา/วันที่ในการ์ด
+*   **Secondary Fixed** (#dbe1ff): พื้นป้ายสถานะ "กำลังดำเนินการ / มีการจอง"
 
-### Neutral
-*   **Slate Ink** (#1e293b): สีข้อความหลักที่คมชัดและสบายตา
-*   **Slate Muted** (#64748b): สีข้อความรอง รายละเอียดตัวอักษรขนาดเล็ก
-*   **Soft BG** (#f8fafc): สีพื้นหลังหน้าเว็บโดยรวม เน้นโทนสว่าง สะอาดตา
-*   **Slate Border** (#cbd5e1): สีของเส้นขอบ ขอบกล่องอินพุต และสเปซเซอร์
+### Accent
+*   **Accent Orange** (#ea580c): CTA ในการ์ดเลือกระบบ และจุดเน้นในหน้าแรกเท่านั้น
+
+### Surfaces
+*   **surface** (#f8f9ff): พื้นหลังของทั้งหน้า
+*   **surface-container-lowest** (#ffffff): พื้นการ์ดทุกใบ
+*   **surface-container-low / container / high / highest**: ไล่ระดับสำหรับกล่องซ้อนใน เช่น กลุ่มแท็บ ช่องกรอกข้อมูล และป้ายกำกับ
+
+### Status
+*   **error / error-container** (#ba1a1a / #ffdad6): เกินกำหนด ปิดปรับปรุง และการลบถาวร
+*   **success-container** (#dcfce7): ว่าง / คืนแล้ว / ซ่อมเสร็จสิ้น
+*   **warning-container** (#fef3c7): รออนุมัติ / รอดำเนินการ
+*   **live** (#22c55e): จุดแสดงสถานะการเชื่อมต่อเรียลไทม์
 
 ### Named Rules
-**The 10% Accent Rule.** สีส้ม (Accent Orange) จะถูกใช้ไม่เกิน 10% ของพื้นผิวหน้าจอแต่ละหน้า ใช้เฉพาะสำหรับจุดสำคัญ เช่น ไอคอนแจ้งเตือนที่ต้องการให้อ่าน, ป้ายสถานะรอแอดมินอนุมัติ หรือสถานะการกดสลับโหมด เพื่อให้เกิดความโดดเด่นสูงสุดเมื่อปรากฏตัว
+**The 10% Accent Rule.** สีส้มใช้ไม่เกิน 10% ของพื้นผิวแต่ละหน้า เฉพาะ CTA และจุดแจ้งเตือนสำคัญ
 
-**The Ink-Only Rule.** ห้ามเขียนข้อความเนื้อหาทั่วไปด้วยสีเทาอ่อนเป็นอันขาด สีตัวหนังสือทั่วไปต้องใช้สี Slate Ink (#1e293b) เพื่อการอ่านง่ายผ่านอุปกรณ์พกพากลางแจ้ง (Contrast ratio สูงกว่า 4.5:1)
+**The Ink-Only Rule.** ข้อความเนื้อหาต้องใช้ `on-surface` (#0b1c30) หรือ `on-surface-variant` (#444651) เท่านั้น ห้ามใช้สีเทาอ่อนกว่านี้กับข้อความที่ต้องอ่านจริง (`outline` ใช้ได้เฉพาะข้อความประกอบ เช่น timestamp)
 
 ## 3. Typography
 
-**Display Font:** Prompt (sans-serif)
-**Body Font:** Prompt (sans-serif)
-**Label/Mono Font:** Prompt (sans-serif)
+**Display / Headline / Label Font:** Plus Jakarta Sans → fallback Prompt
+**Body Font:** Be Vietnam Pro → fallback Prompt
 
-ฟอนต์ตระกูล **Prompt** มอบความรู้สึกเป็นสากล ทันสมัย และอ่านง่าย เหมาะกับรูปแบบภาษาไทยที่มีโครงสร้างโปร่งใสบนสมาร์ทโฟน
+ฟอนต์ Latin ทั้งสองตัวไม่มีชุดอักขระไทย เบราว์เซอร์จึงถอยไปใช้ **Prompt** สำหรับตัวอักษรไทยโดยอัตโนมัติ (per-glyph fallback) — ผลคือหัวเรื่องภาษาอังกฤษ/ตัวเลขได้บุคลิกตามดีไซน์ ส่วนภาษาไทยยังคงอ่านง่ายด้วย Prompt
 
 ### Hierarchy
-*   **Display** (Bold 700, clamp(2rem, 5vw, 3rem), Line Height 1.2): หัวเรื่องหลักของแอป เช่น ชื่องานในหน้าแรก
-*   **Headline** (Semibold 600, 1.5rem, Line Height 1.3): หัวข้อฟิลด์เซ็ต ฟอร์ม หรือปฏิทินรายวัน
-*   **Title** (Semibold 600, 1.25rem, Line Height 1.4): ชื่อห้องประชุม, ชนิดอุปกรณ์, รายชื่อผู้จองในการ์ด
-*   **Body** (Regular 400, 0.875rem, Line Height 1.5): รายละเอียดการจอง, ข้อมูลวันที่, และหมายเหตุทั่วไป (ความกว้างของข้อความจำกัดที่ 65-75ch เพื่อไม่ให้บรรทัดยาวเกินไป)
-*   **Label** (Medium 500, 0.75rem, Line Height 1.6): ป้ายชื่อช่องข้อมูล หรือป้ายสถานะปุ่ม
+*   **display-hero** (700, 36/44): หัวเรื่องหลักของ Hero หน้าแรก (มือถือใช้ 26/34)
+*   **headline-lg** (700, 24/32): ชื่อระบบในการ์ดหน้าแรก
+*   **headline-md** (600, 18/26): หัวเรื่องของหน้าในแต่ละระบบ
+*   **headline-sm** (600, 16/24): ชื่อการ์ด ชื่อห้อง ชื่อผู้ยืม/ผู้แจ้ง
+*   **body-lg / body-md / body-sm** (400, 16/26 · 14/22 · 12/18): เนื้อความและข้อมูลประกอบ
+*   **label-lg / label-md / label-sm** (600, 14/20 · 12/16 · 11/14): ปุ่ม แท็บ ป้ายสถานะ และ label ของช่องกรอก
 
 ### Named Rules
-**The Auto-Balance Rule.** หัวเรื่องประเภท Display และ Headline ทั้งหมดต้องกำหนดสไตล์ `text-wrap: balance` เพื่อป้องกันปัญหาวรรณยุกต์ไทยล้นแถวหรือคำตัดกลางคำไม่สมดุล
+**The Auto-Balance Rule.** หัวเรื่องทุกระดับใช้ `text-wrap: balance` (ตั้งไว้ที่ `h1–h6` ใน `index.css`) เพื่อไม่ให้วรรณยุกต์ไทยตกบรรทัดแปลกๆ
 
 ## 4. Elevation
 
-ระบบใช้แนวคิดการซ้อนเลเยอร์ข้อมูลแบบแบนราบทั่วไป (Flat Layout) และเน้นสร้างความลึกด้วยเฉดสีพื้นหลังที่ตัดกัน (Tonal Layering) แทนการใช้เงาเป็นหลัก และจะเรียกใช้เงาเฉพาะเมื่อมีจุดมุ่งหมายพิเศษเท่านั้น
+แยกชั้นด้วยเฉดพื้นผิวเป็นหลัก และใช้เงาแบบนุ่มกับการ์ดที่กดได้เท่านั้น
 
 ### Shadow Vocabulary
-*   **Active Hover** (`box-shadow: 0 10px 15px -3px rgba(13, 68, 141, 0.1), 0 4px 6px -4px rgba(13, 68, 141, 0.1)`): แสดงเงาสีน้ำเงินเข้มฟุ้งอ่อนๆ เมื่อเอาเมาส์ไปชี้ที่ปุ่มหลักหรือการ์ดเลือกห้อง เพื่อตอบสนองต่อสัมผัส
-*   **Modal overlay** (`box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)`): ใช้สำหรับหน้าต่างแจ้งเตือนและฟอร์มจองห้องเพื่อยกหน้าต่างขึ้นมาจากพื้นหลัง
+*   **card** (`0 4px 24px rgba(15, 23, 42, 0.06)`): เงาพักของการ์ดทุกใบ
+*   **card-hover** (`0 16px 36px rgba(30, 58, 138, 0.12)`): เงาเมื่อโฮเวอร์การ์ดที่กดได้ พร้อมยกขึ้น 4px
+*   **header** (`0 1px 8px rgba(0, 0, 0, 0.04)`): เส้นแบ่งแถบหัวเรื่องแบบนุ่ม แทนการตีเส้น 1px
 
 ### Named Rules
-**The Resting Flat Rule.** คอมโพเนนต์ทั่วไปและการ์ดทั้งหมดไม่มีเงาในสถานะพัก (Resting State) ดีไซน์จะแยกชั้นด้วยการใช้ขอบเส้นและสีพื้นหลังสีเทาหรือฟ้าอ่อนเท่านั้น เงาจะทำงานเมื่อมีการโฮเวอร์หรือเป็นหน้าต่างประเภท Modal เท่านั้น
+**The Soft-Card Rule.** ห้ามใช้เส้นขอบ 1px รอบการ์ด ให้แยกการ์ดออกจากพื้นหลังด้วยสีพื้น (`surface-container-lowest` บน `surface`) และเงา `card` เท่านั้น
 
 ## 5. Components
 
+### Layout Shell
+*   **Header:** fixed สูงรวม 112px — ชั้นบน 64px ไล่เฉด `primary → primary-container` (แบรนด์ + ปุ่มโหมดเจ้าหน้าที่), ชั้นล่าง 48px พื้น `surface/90` + backdrop-blur (ปุ่มกลับหน้าแรก + แท็บเลือกระบบ)
+*   **Content:** `max-width 1360px` จัดกึ่งกลาง gutter 16/24/32px ตามขนาดจอ และเว้นบน `pt-28` ให้พ้น header
+*   **Footer:** พื้น `surface-container-low` แสดงชื่อสถาบันและงานสื่อดิจิทัลฯ
+
 ### Buttons
-*   **Shape:** ขอบโค้งมนเด่นชัด ขนาดสัมผัส 12px (rounded-xl)
-*   **Primary Button:** สีพื้นน้ำเงิน TCC Dark Blue (#0D448D) ตัวหนังสือสีขาว ความกว้างช่องไฟภายในสมดุล
-*   **Hover / Focus:** จะเลื่อนระดับยกขึ้นเบาๆ และสีเข้มขึ้นเป็น TCC Hover (#0b356f) เมื่อโฟกัสจะแสดงวงแหวนรอบสีฟ้าอ่อน 4px
-*   **Secondary Button:** พื้นสีขาว ขอบเส้นสี Slate Border (#cbd5e1) ตัวหนังสือสีน้ำเงิน TCC Dark Blue
-*   **Danger Button:** พื้นสีแดง (#dc2626) ตัวอักษรสีขาว ใช้สำหรับยกเลิกหรือลบรายการ
+*   **Shape:** ขอบมน 8px (rounded-lg) ปุ่มทรงกลม/pill ใช้กับ chip และปุ่มไอคอนเท่านั้น
+*   **Primary:** พื้น `primary` ตัวอักษร `on-primary` hover เป็น `primary-container`
+*   **Secondary:** พื้น `surface-container-low` ตัวอักษร `primary` hover เป็น `surface-container`
+*   **Danger:** พื้น `error` ตัวอักษรขาว ใช้กับการลบถาวรเท่านั้น
 
 ### Cards / Containers
-*   **Corner Style:** ขอบมนขนาดใหญ่เป็นพิเศษ 24px (rounded-3xl)
-*   **Background:** สีขาวสะอาดตาบนพื้นหลัง Soft BG หรือใช้การสลับพื้นที่ด้วยสี TCC Light Blue
-*   **Border:** ขอบบางเป็นมิตร 1px สี Slate Border (#cbd5e1) หรือขอบใสขึ้นกับตำแหน่ง
-*   **Internal Padding:** เว้นระยะห่างด้านในไม่ต่ำกว่า 24px (p-6) เพื่อสร้างจังหวะสายตาที่ดี
+*   **Corner Style:** 12px (rounded-xl) — ยกเว้น Hero หน้าแรกที่ใช้ 16-24px
+*   **Background:** `surface-container-lowest` บนพื้น `surface`
+*   **Internal Padding:** 16px (p-space-md) ขึ้นไป และ 24-32px สำหรับการ์ดหน้าแรก
 
 ### Inputs / Fields
-*   **Style:** พื้นสีขาว, เส้นขอบรอบสีสลレートอ่อน (#cbd5e1), ขอบโค้งมน 12px (rounded-xl)
-*   **Focus:** เปลี่ยนขอบเส้นเป็นสีน้ำเงิน (#0D448D) และแสดงเงาล้อมรอบสีฟ้าโปร่งใส (focus:ring-blue-100)
+*   **Style:** พื้น `surface-container-low` ไม่มีเส้นขอบ ขอบมน 8px และ label เป็น `label-sm` สี `on-surface-variant`
+*   **Focus:** เปลี่ยนพื้นเป็น `surface-container-lowest` (ยกขึ้นมาหนึ่งชั้น) ไม่ใช้เส้นขอบสี
+*   **Select:** ใช้ `appearance-none` และวางไอคอน chevron เองทางขวา เพื่อให้เหมือนกันทุกเบราว์เซอร์
 
-### Navigation
-*   **Navbar:** ความสูงคงที่ 64px (h-16) พื้นหลังสีขาวกึ่งโปร่งใส (backdrop-blur-md) มีขอบเส้นล่างแยกส่วน มีปุ่มโฮมขอบมนเด่นชัดเพื่อนำสายตาในการกลับหน้าแรก
+### Navigation & Tabs
+*   **แท็บระบบ (header):** แท็บที่เลือกพื้น `primary-container` ตัวอักษรขาว มุมมน 8px
+*   **แท็บภายในระบบ (SystemToolbar):** กลุ่มปุ่มในกล่อง `surface-container-low` แท็บที่เลือกพื้น `primary`
+*   **แท็บย่อย (SubTabs):** แท็บที่เลือกพื้น `surface-container-lowest` ตัวอักษร `primary` พร้อมตัวเลขจำนวนรายการกำกับ
+*   **สถานะเชื่อมต่อ:** pill ในกล่อง `surface-container-low` พร้อมจุดสี `live` / `secondary` / `error` ตามสถานะจริงของการ sync
 
 ## 6. Do's and Don'ts
 
 ### Do:
-*   **Do** ใช้ขนาดความกว้างและส่วนสูงของปุ่มบนมือถือให้ใหญ่เป็นพิเศษสำหรับการกดด้วยนิ้วหัวแม่มือ (Touch Target >= 44x44px)
-*   **Do** ตรวจสอบความถูกต้องของสัดส่วนความต่างสี (Contrast) ของข้อความทุกจุดกับพื้นหลังเสมอ โดยเฉพาะกล่องสถานะต่างๆ
-*   **Do** ใช้การ์ดที่มีการจัดสัดส่วนสีพื้นหลังแยกกลุ่มข้อมูลแทนการสร้างกล่องข้อความที่มีเส้นขอบล้อมรอบอย่างเดียวซ้ำๆ
+*   **Do** ใช้พื้นที่กดบนมือถืออย่างน้อย 44x44px
+*   **Do** ใช้ระดับพื้นผิว (surface-container-*) แยกกลุ่มข้อมูล แทนการตีเส้นขอบซ้อนกันหลายชั้น
+*   **Do** ให้ป้ายสถานะทุกใบมีทั้งสีและข้อความกำกับเสมอ (ไม่สื่อสารด้วยสีอย่างเดียว)
+*   **Do** ใช้ตัวเลขจากข้อมูลจริงในป้ายกำกับแท็บและป้ายสถานะเท่านั้น
 
 ### Don't:
-*   **Don't** ใช้สัญลักษณ์ขอบแถบสีหนาๆ (Side-stripe border) ด้านข้างของการ์ด (เช่น การตีกรอบสีเขียวหนาๆ ด้านซ้ายของการ์ดที่ผ่านการอนุมัติ) ให้ใช้สีพื้นหลังหรือไอคอนสถานะแทน
-*   **Don't** ทำปุ่มไล่เฉดสีหรือทำตัวหนังสือไล่เฉดสี (Gradient text) ที่ดูฉูดฉาด ขัดต่อภาพลักษณ์ความน่าเชื่อถือของสถาบัน
-*   **Don't** ใช้ปุ่มหรือการ์ดที่มีขอบมนสี่เหลี่ยมตัดมุมฉากหรือโค้งน้อยกว่า 8px บนอินเตอร์เฟซหลัก เพราะจะดูเชยและโบราณ
-*   **Don't** ใส่เอฟเฟกต์เบลอแบบกระจก (Glassmorphism) ในจุดที่ต้องกรอกข้อมูลเพราะจะทำให้การอ่านข้อมูลมีความยากลำบากขึ้น
+*   **Don't** ตีขอบแถบสีหนาด้านข้างการ์ด (side-stripe) ให้ใช้ป้ายสถานะแทน
+*   **Don't** ใช้ไล่เฉดสีกับตัวหนังสือ หรือใส่ไล่เฉดในปุ่มขนาดเล็ก
+*   **Don't** ใช้มุมโค้งน้อยกว่า 8px กับปุ่มหรือการ์ด
+*   **Don't** ใส่เอฟเฟกต์กระจกเบลอ (glassmorphism) ทับบริเวณที่ต้องกรอกข้อมูล

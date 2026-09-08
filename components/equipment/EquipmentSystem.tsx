@@ -10,6 +10,8 @@ import { addMyBorrowingId, getMyBorrowingIds } from '../../services/myBorrowings
 import { v4 as uuidv4 } from 'uuid';
 import LoadingSpinner from '../shared/LoadingSpinner';
 import Button from '../shared/Button';
+import SystemToolbar from '../shared/SystemToolbar';
+import { ClipboardList, BarChart3, Plus } from 'lucide-react';
 import { APP_URL } from '../../constants';
 
 interface EquipmentSystemProps {
@@ -173,22 +175,22 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
     const renderCurrentPage = () => {
         if (isLoading) {
              return (
-                <div className="flex flex-col items-center justify-center h-64 bg-white rounded-2xl shadow-xl border border-slate-100">
+                <div className="flex flex-col items-center justify-center h-64 bg-surface-container-lowest rounded-xl shadow-card">
                     <LoadingSpinner />
-                    <p className="mt-4 text-lg font-semibold text-gray-600">กำลังดึงข้อมูลการยืมล่าสุด...</p>
+                    <p className="mt-4 font-heading text-headline-sm text-on-surface-variant">กำลังดึงข้อมูลการยืมล่าสุด...</p>
                 </div>
             );
         }
         
         if (error && borrowings.length === 0) {
             return (
-                <div className="flex flex-col items-center justify-center min-h-[400px] bg-white rounded-3xl shadow-xl text-center p-10 border-2 border-red-50">
-                    <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6">
+                <div className="flex flex-col items-center justify-center min-h-[400px] bg-surface-container-lowest rounded-xl shadow-card text-center p-10">
+                    <div className="w-20 h-20 bg-error-container rounded-full flex items-center justify-center mb-6">
                         <span className="text-4xl">🔌</span>
                     </div>
-                    <p className="text-2xl font-black text-red-600 mb-4">โหลดข้อมูลไม่สำเร็จ</p>
-                    <div className="bg-red-50 p-4 rounded-xl mb-8 max-w-md mx-auto">
-                        <p className="text-sm text-red-700 font-medium break-words leading-relaxed">
+                    <p className="font-heading text-headline-lg text-error mb-4">โหลดข้อมูลไม่สำเร็จ</p>
+                    <div className="bg-error-container/40 p-4 rounded-lg mb-8 max-w-md mx-auto">
+                        <p className="font-body text-body-md text-on-error-container break-words leading-relaxed">
                            {error}
                         </p>
                     </div>
@@ -220,45 +222,24 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
     };
     
     return (
-        <div className="max-w-7xl mx-auto space-y-8 animate-fade-in mb-20">
-             <div className="bg-white rounded-2xl shadow-lg p-4 flex items-center justify-between gap-6 flex-wrap border border-gray-100">
-                <div className="flex items-center gap-2">
-                    <button 
-                        onClick={() => setCurrentPage('list')}
-                        className={`font-bold px-5 py-2.5 rounded-xl transition-all text-xs cursor-pointer ${currentPage === 'list' ? 'bg-primary text-white shadow' : 'bg-transparent text-slate-500 hover:bg-slate-100'}`}
-                    >
-                       📋 รายการยืมทั้งหมด
-                    </button>
-                     <button 
-                        onClick={() => setCurrentPage('statistics')}
-                        className={`font-bold px-5 py-2.5 rounded-xl transition-all text-xs cursor-pointer ${currentPage === 'statistics' ? 'bg-primary text-white shadow' : 'bg-transparent text-slate-500 hover:bg-slate-100'}`}
-                    >
-                       📊 สถิติการยืม
-                    </button>
-                </div>
-                <div className="flex items-center gap-4">
-                    {/* Connection Status Badge สม่ำเสมอเหมือนระบบจองห้อง */}
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-100 shadow-sm">
-                        <span className={`w-2.5 h-2.5 rounded-full ${
-                            connectionStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 
-                            connectionStatus === 'syncing' ? 'bg-blue-500 animate-pulse' : 
-                            'bg-red-500'
-                        }`}></span>
-                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-tighter">
-                            {connectionStatus === 'connected' ? 'เชื่อมต่อแล้ว' : 
-                             connectionStatus === 'syncing' ? 'กำลังซิงค์...' : 
-                             'ไม่ได้เชื่อมต่อ'}
-                        </span>
-                    </div>
-
-                    <Button onClick={() => { setEditingRequest(null); setCurrentPage('form'); }} variant="primary" className="shadow-lg" size="sm">
-                        + ขอยืมอุปกรณ์
-                    </Button>
-                </div>
-             </div>
-             <div>
+        <div className="animate-fade-in mb-20">
+            <SystemToolbar
+                tabs={[
+                    { key: 'list',       label: 'รายการยืมทั้งหมด', icon: <ClipboardList className="w-4 h-4" /> },
+                    { key: 'statistics', label: 'สถิติการยืม',      icon: <BarChart3 className="w-4 h-4" /> },
+                ]}
+                activeKey={currentPage === 'form' ? 'list' : currentPage}
+                onSelect={(key) => { setEditingRequest(null); setCurrentPage(key); }}
+                connectionStatus={connectionStatus}
+                action={{
+                    label: 'ขอยืมอุปกรณ์',
+                    icon: <Plus className="w-4 h-4" />,
+                    onClick: () => { setEditingRequest(null); setCurrentPage('form'); },
+                }}
+            />
+            <div>
                 {renderCurrentPage()}
-             </div>
+            </div>
         </div>
     );
 };

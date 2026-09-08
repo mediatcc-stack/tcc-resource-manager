@@ -11,10 +11,10 @@ import { fetchData, saveData } from '../../services/apiService';
 import { sendLineNotification } from '../../services/notificationService';
 import { addMyBookingId, getMyBookingIds } from '../../services/myBookingsStorage';
 import { v4 as uuidv4 } from 'uuid';
-import NavButton from './NavButton';
 import LoadingSpinner from '../shared/LoadingSpinner';
 import Button from '../shared/Button';
-import { Home, ClipboardList, BarChart3 } from 'lucide-react';
+import SystemToolbar from '../shared/SystemToolbar';
+import { Home, ClipboardList, BarChart3, CalendarPlus } from 'lucide-react';
 
 const timeToMinutes = (timeStr: string): number => {
     if (!timeStr || !timeStr.includes(':')) return 0;
@@ -323,22 +323,22 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
   const renderCurrentPage = () => {
     if (isLoading) {
       return (
-        <div className="flex flex-col items-center justify-center h-64 bg-white rounded-2xl shadow-xl">
+        <div className="flex flex-col items-center justify-center h-64 bg-surface-container-lowest rounded-xl shadow-card">
           <LoadingSpinner />
-          <p className="mt-4 text-lg font-semibold text-gray-600">กำลังดึงข้อมูลล่าสุดจากเซิร์ฟเวอร์...</p>
+          <p className="mt-4 font-heading text-headline-sm text-on-surface-variant">กำลังดึงข้อมูลล่าสุดจากเซิร์ฟเวอร์...</p>
         </div>
       );
     }
 
     if (error && bookings.length === 0) {
       return (
-        <div className="flex flex-col items-center justify-center min-h-[400px] bg-white rounded-3xl shadow-xl text-center p-10 border-2 border-red-50">
-          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6">
+        <div className="flex flex-col items-center justify-center min-h-[400px] bg-surface-container-lowest rounded-xl shadow-card text-center p-10">
+          <div className="w-20 h-20 bg-error-container rounded-full flex items-center justify-center mb-6">
             <span className="text-4xl">🔌</span>
           </div>
-          <p className="text-2xl font-black text-red-600 mb-4">โหลดข้อมูลไม่สำเร็จ</p>
-          <div className="bg-red-50 p-4 rounded-xl mb-8 max-w-md mx-auto">
-            <p className="text-sm text-red-700 font-medium break-words leading-relaxed">
+          <p className="font-heading text-headline-lg text-error mb-4">โหลดข้อมูลไม่สำเร็จ</p>
+          <div className="bg-error-container/40 p-4 rounded-lg mb-8 max-w-md mx-auto">
+            <p className="font-body text-body-md text-on-error-container break-words leading-relaxed">
                {error}
             </p>
           </div>
@@ -397,28 +397,22 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
   };
   
   return (
-    <div className="animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-lg p-4 mb-8 flex items-center justify-between gap-6 flex-wrap border border-gray-100">
-        <div className="flex items-center justify-center gap-3 md:gap-6 flex-wrap">
-          <NavButton page="home" label="หน้าแรก" icon={<Home className="w-4 h-4" />} currentPage={currentPage} setCurrentPage={setCurrentPage} />
-          <NavButton page="mybookings" label="จัดการจอง" icon={<ClipboardList className="w-4 h-4" />} currentPage={currentPage} setCurrentPage={setCurrentPage} />
-          <NavButton page="statistics" label="สรุปรายงาน" icon={<BarChart3 className="w-4 h-4" />} currentPage={currentPage} setCurrentPage={setCurrentPage} />
-        </div>
-        <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-100 shadow-sm">
-                <span className={`w-2.5 h-2.5 rounded-full ${
-                    connectionStatus === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 
-                    connectionStatus === 'syncing' ? 'bg-blue-500 animate-pulse' : 
-                    'bg-red-500'
-                }`}></span>
-                <span className="text-[10px] font-black text-gray-500 uppercase tracking-tighter">
-                    {connectionStatus === 'connected' ? 'เชื่อมต่อแล้ว' : 
-                     connectionStatus === 'syncing' ? 'กำลังซิงค์...' : 
-                     'ไม่ได้เชื่อมต่อ'}
-                </span>
-            </div>
-        </div>
-      </div>
+    <div className="animate-fade-in mb-20">
+      <SystemToolbar
+        tabs={[
+          { key: 'home',       label: 'หน้าแรก',    icon: <Home className="w-4 h-4" /> },
+          { key: 'mybookings', label: 'จัดการจอง',  icon: <ClipboardList className="w-4 h-4" /> },
+          { key: 'statistics', label: 'สรุปรายงาน', icon: <BarChart3 className="w-4 h-4" /> },
+        ]}
+        activeKey={currentPage === 'booking' ? 'home' : currentPage}
+        onSelect={(key) => { setEditingBooking(null); setCurrentPage(key); }}
+        connectionStatus={connectionStatus}
+        action={{
+          label: 'จองห้อง',
+          icon: <CalendarPlus className="w-4 h-4" />,
+          onClick: handleQuickBook,
+        }}
+      />
       {renderCurrentPage()}
     </div>
   );

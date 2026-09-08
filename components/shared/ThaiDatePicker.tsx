@@ -74,12 +74,12 @@ const ThaiDatePicker: React.FC<ThaiDatePickerProps> = ({ value, onChange, label,
     }
   };
 
-  const selectClasses = "block w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-gray-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all appearance-none";
+  const selectClasses = "block w-full rounded-xl border border-outline-variant bg-surface-container-lowest p-3 text-sm text-on-surface focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all appearance-none";
 
   return (
     <div className="group">
-      <label className="flex items-center text-sm font-bold text-gray-600 mb-2 group-focus-within:text-blue-600 transition-colors">
-        <span className="mr-2 text-slate-400 flex items-center justify-center shrink-0">{icon}</span>
+      <label className="flex items-center text-sm font-bold text-on-surface mb-2 group-focus-within:text-blue-600 transition-colors">
+        <span className="mr-2 text-outline flex items-center justify-center shrink-0">{icon}</span>
         {label} {required && <span className="text-red-500 ml-1">*</span>}
       </label>
       
@@ -105,7 +105,7 @@ const ThaiDatePicker: React.FC<ThaiDatePickerProps> = ({ value, onChange, label,
               );
             })}
           </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-outline">
             <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
           </div>
         </div>
@@ -131,7 +131,7 @@ const ThaiDatePicker: React.FC<ThaiDatePickerProps> = ({ value, onChange, label,
               );
             })}
           </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-outline">
             <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
           </div>
         </div>
@@ -155,7 +155,7 @@ const ThaiDatePicker: React.FC<ThaiDatePickerProps> = ({ value, onChange, label,
               );
             })}
           </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-outline">
             <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
           </div>
         </div>

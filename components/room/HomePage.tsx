@@ -1,48 +1,37 @@
-
 import React, { useState, useMemo } from 'react';
 import { Room, Booking } from '../../types';
 import BookingDetailsModal from './BookingDetailsModal';
-import Button from '../shared/Button';
-import { Calendar, Building2, Wrench, Users } from 'lucide-react';
+import {
+  Calendar, Building2, Wrench, Users, ChevronLeft, ChevronRight,
+  BookOpen, CalendarPlus, CheckCircle2, Clock, DoorOpen,
+} from 'lucide-react';
 
 // ── ข้อมูลเสริมเกี่ยวกับแต่ละห้อง (capacity, equipment, type) ──────────────
-const ROOM_METADATA: Record<string, { capacity: number; equipment: string[]; type: string; bgColor: string }> = {
-  'ห้องประชุมธีรธรรมานันท์':            { capacity: 30,  equipment: ['โปรเจกเตอร์', 'ไมโครโฟน', 'Video Call'], type: 'ห้องประชุม',      bgColor: '#1e3a6e' },
-  'ห้องประชุมเฉลิมพระเกียรติ':          { capacity: 50,  equipment: ['โปรเจกเตอร์', 'ไมโครโฟน', 'ลำโพง'],      type: 'ห้องประชุม',      bgColor: '#1a5276' },
-  'ห้องประชุมมูลนิธิสมเด็จพระธีรญาณมุนี': { capacity: 20,  equipment: ['โปรเจกเตอร์', 'ไมโครโฟน'],              type: 'ห้องประชุม',      bgColor: '#154360' },
-  'ห้องประชุมสำเภาทอง':                 { capacity: 25,  equipment: ['TV Screen', 'ไมโครโฟน'],                 type: 'ห้องประชุม',      bgColor: '#7B3F00' },
-  'ห้องประชุมไพโรจน์ปวะบุตร':           { capacity: 40,  equipment: ['โปรเจกเตอร์', 'ไมโครโฟน', 'ลำโพง'],      type: 'ห้องประชุม',      bgColor: '#1b2a8a' },
-  'ห้องงานสื่อการเรียนการสอน 421':       { capacity: 15,  equipment: ['โน้ตบุ๊ค', 'อุปกรณ์สื่อ'],              type: 'ห้องปฏิบัติการ', bgColor: '#145a32' },
-  'ห้อง CVM (ศูนย์บริหารเครือข่าย)':    { capacity: 20,  equipment: ['เซิร์ฟเวอร์', 'เครือข่าย'],             type: 'ห้องปฏิบัติการ', bgColor: '#2c3e50' },
-  'ลานโดมอเนกประสงค์':                  { capacity: 200, equipment: ['ระบบเสียง', 'แสงไฟ', 'พื้นที่โล่ง'],    type: 'อาคาร/โดม',      bgColor: '#37474f' },
-  'หอประชุมประทีป ปฐมกสิกุล':           { capacity: 500, equipment: ['เวที', 'ระบบเสียง', 'แสงไฟ'],           type: 'อาคาร/โดม',      bgColor: '#424242' },
+const ROOM_METADATA: Record<string, { capacity: number; equipment: string[]; type: string }> = {
+  'ห้องประชุมธีรธรรมานันท์':            { capacity: 30,  equipment: ['โปรเจกเตอร์', 'ไมโครโฟน', 'Video Call'], type: 'ห้องประชุม' },
+  'ห้องประชุมเฉลิมพระเกียรติ':          { capacity: 50,  equipment: ['โปรเจกเตอร์', 'ไมโครโฟน', 'ลำโพง'],      type: 'ห้องประชุม' },
+  'ห้องประชุมมูลนิธิสมเด็จพระธีรญาณมุนี': { capacity: 20,  equipment: ['โปรเจกเตอร์', 'ไมโครโฟน'],              type: 'ห้องประชุม' },
+  'ห้องประชุมสำเภาทอง':                 { capacity: 25,  equipment: ['TV Screen', 'ไมโครโฟน'],                 type: 'ห้องประชุม' },
+  'ห้องประชุมไพโรจน์ปวะบุตร':           { capacity: 40,  equipment: ['โปรเจกเตอร์', 'ไมโครโฟน', 'ลำโพง'],      type: 'ห้องประชุม' },
+  'ห้องงานสื่อการเรียนการสอน 421':       { capacity: 15,  equipment: ['โน้ตบุ๊ค', 'อุปกรณ์สื่อ'],              type: 'ห้องปฏิบัติการ' },
+  'ห้อง CVM (ศูนย์บริหารเครือข่าย)':    { capacity: 20,  equipment: ['เซิร์ฟเวอร์', 'เครือข่าย'],             type: 'ห้องปฏิบัติการ' },
+  'ลานโดมอเนกประสงค์':                  { capacity: 200, equipment: ['ระบบเสียง', 'แสงไฟ', 'พื้นที่โล่ง'],    type: 'อาคาร/โดม' },
+  'หอประชุมประทีป ปฐมกสิกุล':           { capacity: 500, equipment: ['เวที', 'ระบบเสียง', 'แสงไฟ'],           type: 'อาคาร/โดม' },
 };
 
 const ROOM_TYPES = ['ทั้งหมด', 'ห้องประชุม', 'ห้องปฏิบัติการ', 'อาคาร/โดม'];
 
-const getRoomStatus = (room: Room, roomBookings: Booking[]) => {
-  if (room.status === 'closed')
-    return { label: 'ไม่พร้อมใช้งาน', bgClass: 'bg-gray-100', textClass: 'text-gray-500', dotClass: 'bg-gray-400' };
-  if (roomBookings.length === 0)
-    return { label: 'ว่าง — พร้อมจอง', bgClass: 'bg-emerald-50', textClass: 'text-emerald-800', dotClass: 'bg-emerald-500' };
-  return {
-    label: `มีการจอง ${roomBookings.length} รายการ`,
-    bgClass: 'bg-red-50',
-    textClass: 'text-red-800',
-    dotClass: 'bg-red-500',
-  };
-};
+const BOOKING_STEPS = ['เลือกวันที่', 'เลือกห้อง', 'กรอกแบบฟอร์มการจอง'];
 
 interface HomePageProps {
   rooms: Room[];
   bookings: Booking[];
   onSelectRoom: (room: Room, date: string) => void;
-  onBackToLanding: () => void;
   onNavigateToMyBookings: () => void;
   onQuickBook: () => void;
 }
 
-const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNavigateToMyBookings, onQuickBook }) => {
+const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onQuickBook }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [activeFilter, setActiveFilter] = useState('ทั้งหมด');
@@ -121,243 +110,300 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onNa
         onBookNow={handleBookFromModal}
       />
 
-      <div className="max-w-6xl mx-auto px-3 md:px-0 pb-16 animate-fade-in">
+      <div className="flex flex-col w-full gap-space-md pb-16 animate-fade-in">
 
-        {/* ── Intro Banner ────────────────────────────────────────── */}
-        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-6 flex flex-col md:flex-row items-start gap-4">
-          <div className="flex items-start gap-4 flex-1">
-            <div className="p-2.5 bg-white rounded-xl shadow-sm text-xl shrink-0">📖</div>
+        {/* ── แถบแนะนำวิธีใช้งาน ─────────────────────────────────────────── */}
+        <div className="bg-surface-container-lowest rounded-xl shadow-card p-space-md flex flex-col lg:flex-row items-start lg:items-center justify-between gap-space-md">
+          <div className="flex items-start gap-space-md">
+            <div className="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-primary shrink-0 shadow-sm">
+              <BookOpen className="w-6 h-6" />
+            </div>
             <div>
-              <p className="text-sm font-bold text-blue-900 mb-1">วิธีใช้งานระบบจองห้องประชุม</p>
-              <p className="text-sm text-blue-700 leading-relaxed">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-heading text-headline-sm text-on-surface">วิธีใช้งานระบบจองห้องประชุม</span>
+                <span className="bg-secondary-fixed text-on-secondary-fixed px-2 py-0.5 rounded font-label text-label-sm">3 ขั้นตอนง่าย</span>
+              </div>
+              <p className="font-body text-body-sm text-on-surface-variant mt-0.5">
                 เลือกวันที่บนปฏิทิน → เลือกห้องที่ต้องการ → กด "ดูรายละเอียด / จอง" เพื่อตรวจสอบช่วงเวลาว่างและกรอกแบบฟอร์ม
               </p>
-              <div className="flex flex-wrap gap-4 mt-3">
-                {['เลือกวันที่', 'เลือกห้อง', 'กรอกแบบฟอร์ม'].map((s, i) => (
-                  <span key={i} className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700">
-                    <span className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px]">{i + 1}</span>
-                    {s}
-                  </span>
+              <div className="flex flex-wrap items-center gap-space-sm mt-space-xs">
+                {BOOKING_STEPS.map((step, i) => (
+                  <React.Fragment key={step}>
+                    {i > 0 && <span className="text-outline text-body-sm">→</span>}
+                    <div className="flex items-center gap-1.5 bg-surface-container-low px-2.5 py-1 rounded-md">
+                      <span className="w-4 h-4 rounded-full bg-primary text-on-primary text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
+                      <span className="font-label text-label-sm text-on-surface">{step}</span>
+                    </div>
+                  </React.Fragment>
                 ))}
               </div>
             </div>
           </div>
-          <Button onClick={onQuickBook} className="shrink-0 hidden md:flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm">
-            + จองห้อง
-          </Button>
+
+          <button
+            onClick={onQuickBook}
+            className="hidden md:inline-flex items-center gap-1.5 bg-primary hover:bg-primary-container text-on-primary px-space-lg py-2 rounded-lg font-label text-label-md shadow-sm transition-all active:scale-[0.98] shrink-0 cursor-pointer"
+          >
+            <CalendarPlus className="w-5 h-5" />
+            <span>จองห้อง</span>
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
+        {/* ── เนื้อหาหลัก: ปฏิทิน + รายการห้อง ───────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start">
 
-          {/* ── Calendar ─────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 h-fit lg:sticky lg:top-20">
-            <h2 className="text-base font-bold text-primary mb-5 flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-primary shrink-0" /> ปฏิทินการใช้ห้อง
-            </h2>
+          {/* ── ปฏิทิน ─────────────────────────────────────────────────── */}
+          <aside className="lg:col-span-4 flex flex-col gap-space-md lg:sticky lg:top-32">
+            <div className="bg-surface-container-lowest rounded-xl shadow-card p-space-md flex flex-col">
+              <div className="flex items-center justify-between pb-space-sm">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-primary" />
+                  <h2 className="font-heading text-headline-sm text-on-surface">ปฏิทินการใช้ห้อง</h2>
+                </div>
+                <span className="bg-surface-container px-2 py-0.5 rounded-full text-on-surface font-label text-label-sm">
+                  {currentMonth.getFullYear() + 543}
+                </span>
+              </div>
 
-            <div className="flex justify-between items-center mb-5">
-              <button
-                onClick={() => changeMonth(-1)}
-                aria-label="เดือนก่อน"
-                className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-all active:scale-95"
-              >
-                <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-              </button>
-              <h3 className="text-base font-bold text-primary">
-                {thaiMonths[currentMonth.getMonth()]} {currentMonth.getFullYear() + 543}
-              </h3>
-              <button
-                onClick={() => changeMonth(1)}
-                aria-label="เดือนถัดไป"
-                className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-all active:scale-95"
-              >
-                <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-              </button>
+              {/* เลือกเดือน */}
+              <div className="flex items-center justify-between my-space-xs px-space-xs bg-surface-container-low py-1.5 rounded-lg">
+                <button
+                  onClick={() => changeMonth(-1)}
+                  aria-label="เดือนก่อน"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-surface-container text-on-surface transition-colors cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="font-heading text-headline-sm text-on-surface">
+                  {thaiMonths[currentMonth.getMonth()]} {currentMonth.getFullYear() + 543}
+                </span>
+                <button
+                  onClick={() => changeMonth(1)}
+                  aria-label="เดือนถัดไป"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-surface-container text-on-surface transition-colors cursor-pointer"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-7 text-center py-2 text-outline font-label text-label-md">
+                {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map(d => <span key={d}>{d}</span>)}
+              </div>
+
+              <div className="grid grid-cols-7 gap-1 text-center font-body text-body-sm">
+                {calendarDays.map((item, idx) => {
+                  const dateStr = item.date.toISOString().split('T')[0];
+                  const selected = selectedDate === dateStr;
+                  const booked = hasBooking(dateStr);
+                  const bksOnDay = getBookingsOnDate(dateStr);
+                  const today = isToday(item.date);
+
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => item.currentMonth && handleDayClick(dateStr)}
+                      disabled={!item.currentMonth}
+                      aria-label={`วันที่ ${item.day}${booked ? ' มีการจอง' : ''}`}
+                      className={[
+                        'h-11 rounded-lg flex flex-col items-center justify-center relative transition-colors',
+                        !item.currentMonth ? 'opacity-0 pointer-events-none' : 'cursor-pointer',
+                        today ? 'bg-primary text-on-primary font-bold shadow-sm' : '',
+                        !today && selected ? 'bg-surface-container-high text-primary font-bold' : '',
+                        !today && !selected && booked ? 'bg-error-container text-on-error-container font-semibold' : '',
+                        !today && !selected && !booked ? 'hover:bg-surface-container text-on-surface' : '',
+                      ].join(' ')}
+                    >
+                      <span>{item.day}</span>
+                      {booked && item.currentMonth ? (
+                        <span className="text-[9px] leading-none absolute bottom-0.5">{bksOnDay.length} จอง</span>
+                      ) : item.currentMonth && (
+                        <span className={`w-1.5 h-1.5 rounded-full absolute bottom-1 ${today ? 'bg-live' : 'bg-live opacity-70'}`} />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* คำอธิบายสัญลักษณ์ */}
+              <div className="mt-space-md bg-surface-container-low p-space-sm rounded-xl flex flex-col gap-1.5">
+                <span className="font-label text-label-sm text-outline tracking-wider">คำอธิบายสัญลักษณ์</span>
+                <div className="grid grid-cols-2 gap-2 font-body text-body-sm text-on-surface-variant">
+                  {[
+                    { cls: 'bg-primary', label: 'วันนี้' },
+                    { cls: 'bg-error-container', label: 'มีการจอง' },
+                    { cls: 'bg-surface-container-high', label: 'วันที่เลือก' },
+                    { cls: 'bg-live', label: 'ห้องว่าง' },
+                  ].map(l => (
+                    <div key={l.label} className="flex items-center gap-1.5">
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${l.cls}`} />
+                      <span>{l.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
+          </aside>
 
-            <div className="grid grid-cols-7 mb-2">
-              {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map(d => (
-                <div key={d} className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider py-1">{d}</div>
-              ))}
-            </div>
+          {/* ── รายการห้อง ─────────────────────────────────────────────── */}
+          <section className="lg:col-span-8 flex flex-col gap-space-md">
+            <div className="bg-surface-container-lowest rounded-xl shadow-card p-space-md flex flex-col md:flex-row md:items-center justify-between gap-space-sm">
+              <div className="flex items-center gap-space-sm">
+                <div className="w-10 h-10 rounded-xl bg-primary-container text-on-primary flex items-center justify-center shrink-0">
+                  <DoorOpen className="w-6 h-6" />
+                </div>
+                <div>
+                  <h1 className="font-heading text-headline-md text-on-surface">เลือกห้องประชุม</h1>
+                  <p className="font-body text-body-sm text-on-surface-variant">
+                    สถานะการใช้ห้อง ณ <strong className="text-on-surface">{selectedDateLabel}</strong>
+                  </p>
+                </div>
+              </div>
 
-            <div className="grid grid-cols-7 gap-1">
-              {calendarDays.map((item, idx) => {
-                const dateStr = item.date.toISOString().split('T')[0];
-                const selected = selectedDate === dateStr;
-                const booked = hasBooking(dateStr);
-                const bksOnDay = getBookingsOnDate(dateStr);
-                const today = isToday(item.date);
-
-                return (
+              <div className="flex items-center gap-1 bg-surface-container-low p-1 rounded-xl overflow-x-auto">
+                {ROOM_TYPES.map(type => (
                   <button
-                    key={idx}
-                    onClick={() => item.currentMonth && handleDayClick(dateStr)}
-                    disabled={!item.currentMonth}
-                    aria-label={`วันที่ ${item.day}${booked ? ' มีการจอง' : ''}`}
-                    className={[
-                      'rounded-xl p-1 flex flex-col items-center transition-all min-h-[52px] border',
-                      !item.currentMonth ? 'opacity-0 pointer-events-none border-transparent' : '',
-                      item.currentMonth && !booked && !selected ? 'border-transparent hover:border-sky-200 hover:bg-sky-50' : '',
-                      selected ? 'border-primary bg-blue-50 shadow-sm' : '',
-                      booked && !selected && item.currentMonth ? 'border-red-200 bg-red-50' : '',
-                    ].join(' ')}
+                    key={type}
+                    onClick={() => setActiveFilter(type)}
+                    className={`px-space-md py-1.5 rounded-lg font-label text-label-md whitespace-nowrap transition-colors cursor-pointer ${
+                      activeFilter === type
+                        ? 'bg-primary text-on-primary shadow-sm'
+                        : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
+                    }`}
                   >
-                    <span className={`text-sm font-bold leading-none ${today ? 'text-emerald-600' : 'text-gray-700'}`}>{item.day}</span>
-                    {today && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1" />}
-                    {booked && item.currentMonth && (
-                      <div className="text-[8px] font-bold bg-white text-red-700 border border-red-100 rounded px-1 mt-1 w-full text-center truncate">
-                        {bksOnDay.length} จอง
-                      </div>
-                    )}
-                    {!booked && item.currentMonth && !today && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1 opacity-60" />
-                    )}
+                    {type}
                   </button>
-                );
-              })}
-            </div>
-
-            {/* Legend */}
-            <div className="mt-5 pt-4 border-t border-gray-100">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2.5">คำอธิบายสัญลักษณ์</p>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                {[
-                  { colorClass: 'bg-emerald-500', label: 'วันนี้' },
-                  { colorClass: 'bg-red-200 border border-red-300', label: 'มีการจอง' },
-                  { colorClass: 'bg-blue-50 border border-primary', label: 'วันที่เลือก' },
-                  { colorClass: 'bg-emerald-300 opacity-70', label: 'ว่าง' },
-                ].map((l, i) => (
-                  <div key={i} className="flex items-center gap-1.5 text-[11px] text-gray-500 font-medium">
-                    <div className={`w-3 h-3 rounded-sm shrink-0 ${l.colorClass}`} />
-                    {l.label}
-                  </div>
                 ))}
               </div>
             </div>
-          </div>
 
-          {/* ── Room List ────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-              <h2 className="text-base font-bold text-primary flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-primary shrink-0" /> เลือกห้องประชุม
-              </h2>
-              <span className="text-xs font-semibold text-gray-500 bg-gray-50 border border-gray-100 rounded-full px-3 py-1.5">
-                {selectedDateLabel}
-              </span>
-            </div>
-
-            {/* Filter chips */}
-            <div className="flex flex-wrap gap-2 mb-5">
-              {ROOM_TYPES.map(type => (
-                <button
-                  key={type}
-                  onClick={() => setActiveFilter(type)}
-                  className={`text-xs font-bold px-3.5 py-1.5 rounded-full border transition-all ${
-                    activeFilter === type
-                      ? 'bg-primary text-white border-primary shadow-sm shadow-primary/10'
-                      : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 hover:text-blue-700'
-                  }`}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
-
-            {/* Room grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-space-md">
               {filteredRooms.map(room => {
                 const meta = ROOM_METADATA[room.name];
                 const isAvailable = room.status === 'available';
-                const roomBookings = bookings.filter(b => b.roomName === room.name && b.date === selectedDate && b.status === 'จองแล้ว');
-                const status = getRoomStatus(room, roomBookings);
+                const roomBookings = bookings
+                  .filter(b => b.roomName === room.name && b.date === selectedDate && b.status === 'จองแล้ว')
+                  .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
                 return (
                   <div
                     key={room.id}
-                    className={`rounded-2xl border overflow-hidden flex flex-col transition-all duration-200 ${
-                      isAvailable
-                        ? 'border-gray-100 hover:border-primary hover:shadow-lg hover:-translate-y-1'
-                        : 'border-gray-100 opacity-55'
+                    className={`bg-surface-container-lowest rounded-xl shadow-card p-space-md flex flex-col justify-between gap-space-md transition-all ${
+                      isAvailable ? 'hover:shadow-card-hover' : 'opacity-70'
                     }`}
                   >
-                    {/* Banner */}
-                    <div
-                      className="h-14 md:h-20 flex items-center justify-center relative"
-                      style={{ backgroundColor: meta?.bgColor ?? '#374151' }}
-                    >
-                      <Building2 className="w-12 h-12 text-white opacity-25" />
-                      {meta && (
-                        <span className="absolute top-2 left-2 text-[9px] font-bold bg-black/40 text-white/90 rounded-full px-2 py-0.5">
-                          {meta.type}
-                        </span>
-                      )}
-                      {room.status === 'closed' && (
-                        <span className="absolute top-2 right-2 text-[9px] font-bold bg-black/50 text-gray-300 rounded-full px-2 py-0.5 flex items-center gap-1">
-                          <Wrench className="w-2.5 h-2.5" /> ปิดซ่อม
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="p-3.5 flex flex-col flex-1">
-                      <h3 className="text-sm font-bold text-gray-800 leading-snug mb-2">{room.name}</h3>
-
-                      {/* Specs */}
-                      {meta && (
-                        <div className="flex flex-wrap gap-1.5 mb-3">
-                          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 bg-gray-50 rounded-md px-2 py-0.5">
-                            <Users className="w-3 h-3 text-slate-400 shrink-0" /> {meta.capacity} ที่นั่ง
-                          </span>
-                          {meta.equipment.slice(0, 2).map(eq => (
-                            <span key={eq} className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-500 bg-gray-50 rounded-md px-2 py-0.5">
-                              ✓ {eq}
-                            </span>
-                          ))}
+                    <div className="flex flex-col gap-3">
+                      {/* หัวการ์ด */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                            isAvailable ? 'bg-surface-container text-primary' : 'bg-surface-container-low text-outline'
+                          }`}>
+                            <Building2 className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h3 className={`font-heading text-headline-sm ${isAvailable ? 'text-on-surface' : 'text-outline'}`}>
+                              {room.name}
+                            </h3>
+                            {meta && (
+                              <div className="flex items-center gap-1.5 font-body text-body-sm text-on-surface-variant mt-0.5 flex-wrap">
+                                <Users className="w-3.5 h-3.5 text-outline" />
+                                <span>รองรับ {meta.capacity} ที่นั่ง</span>
+                                <span className="text-outline">•</span>
+                                <span className="text-outline">{meta.type}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
 
-                      {/* Status badge */}
-                      <div className={`flex items-center gap-2 rounded-xl px-3 py-2 mb-3 ${status.bgClass}`}>
-                        <span className={`w-2 h-2 rounded-full shrink-0 ${status.dotClass}`} />
-                        <span className={`text-xs font-bold ${status.textClass}`}>{status.label}</span>
+                        {!isAvailable ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-error-container text-on-error-container font-label text-label-sm shrink-0">
+                            <Wrench className="w-3.5 h-3.5" />
+                            ปิดปรับปรุง
+                          </span>
+                        ) : roomBookings.length === 0 ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success-container text-on-success-container font-label text-label-sm shrink-0">
+                            <span className="w-2 h-2 rounded-full bg-on-success-container" />
+                            ว่างตลอดวัน
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label text-label-sm shrink-0">
+                            <span className="w-2 h-2 rounded-full bg-secondary" />
+                            มีการจอง {roomBookings.length} รายการ
+                          </span>
+                        )}
                       </div>
 
-                      {/* CTA */}
-                      {isAvailable ? (
-                        <button
-                          onClick={() => handleShowRoomDetails(room)}
-                          className="mt-auto w-full bg-primary hover:bg-primary-hover text-white text-xs font-bold py-2.5 rounded-xl transition-all active:scale-95 shadow-sm shadow-primary/5"
-                        >
-                          ดูรายละเอียด / จอง
-                        </button>
-                      ) : (
-                        <div className="mt-auto w-full text-center bg-gray-100 text-gray-400 py-2.5 rounded-xl text-xs font-bold">
-                          ไม่สามารถจองได้
+                      {/* กล่องสรุปสถานะและช่วงเวลา */}
+                      <div className="bg-surface-container-low p-3 rounded-xl flex flex-col gap-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-label text-label-md text-on-surface flex items-center gap-1.5">
+                            {!isAvailable ? (
+                              <><Wrench className="w-4 h-4 text-outline" /> งดให้บริการชั่วคราว</>
+                            ) : roomBookings.length === 0 ? (
+                              <><CheckCircle2 className="w-4 h-4 text-on-success-container" /> พร้อมใช้งานตลอดทั้งวัน</>
+                            ) : (
+                              <><Clock className="w-4 h-4 text-secondary" /> ช่วงเวลาที่ถูกจองไว้แล้ว</>
+                            )}
+                          </span>
                         </div>
-                      )}
+
+                        {isAvailable && roomBookings.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {roomBookings.map(b => (
+                              <span
+                                key={b.id}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-surface-container-lowest text-on-surface-variant font-label text-label-sm"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-error" />
+                                {b.startTime} - {b.endTime} น.
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {meta && (
+                          <p className="font-body text-body-sm text-on-surface-variant">
+                            อุปกรณ์: {meta.equipment.join(', ')}
+                          </p>
+                        )}
+                      </div>
                     </div>
+
+                    {/* ปุ่ม */}
+                    {isAvailable ? (
+                      <button
+                        onClick={() => handleShowRoomDetails(room)}
+                        className="w-full bg-primary hover:bg-primary-container text-on-primary py-2 px-3 rounded-lg font-label text-label-md shadow-sm transition-all active:scale-[0.98] inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <CalendarPlus className="w-4 h-4" />
+                        <span>ดูรายละเอียด / จอง</span>
+                      </button>
+                    ) : (
+                      <div className="w-full bg-surface-container-low text-outline py-2 px-3 rounded-lg font-label text-label-md text-center">
+                        ไม่สามารถจองได้
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
 
             {filteredRooms.length === 0 && (
-              <div className="text-center py-16 text-gray-400">
-                <Building2 className="w-16 h-16 text-slate-300 mx-auto mb-3" />
-                <p className="text-sm font-semibold">ไม่พบห้องในหมวดหมู่นี้</p>
+              <div className="text-center py-16 bg-surface-container-lowest rounded-xl shadow-card">
+                <Building2 className="w-12 h-12 text-outline-variant mx-auto mb-3" />
+                <p className="font-heading text-headline-sm text-on-surface">ไม่พบห้องในหมวดหมู่นี้</p>
               </div>
             )}
-          </div>
+          </section>
         </div>
 
-        {/* Mobile floating CTA */}
+        {/* ปุ่มลอยสำหรับมือถือ */}
         <div className="md:hidden fixed bottom-6 right-5 z-30">
           <button
             onClick={onQuickBook}
-            className="flex items-center gap-2 bg-primary text-white px-5 py-3 rounded-2xl shadow-xl shadow-primary/20 text-sm font-bold active:scale-95 hover:bg-primary-hover transition-all"
+            className="flex items-center gap-2 bg-primary text-on-primary px-5 py-3 rounded-2xl shadow-lg font-label text-label-lg active:scale-95 hover:bg-primary-container transition-all cursor-pointer"
           >
-            <span className="text-lg font-black">+</span> จองห้องประชุม
+            <CalendarPlus className="w-5 h-5" /> จองห้องประชุม
           </button>
         </div>
       </div>
