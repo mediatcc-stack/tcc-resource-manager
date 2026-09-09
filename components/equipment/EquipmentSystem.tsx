@@ -234,7 +234,7 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
     };
     
     return (
-        <div className="animate-fade-in mb-20" {...swipeHandlers}>
+        <div className="mb-20" {...swipeHandlers}>
             <SystemToolbar
                 tabs={[
                     { key: 'list',       label: 'รายการยืมทั้งหมด', icon: <ClipboardList className="w-4 h-4" /> },

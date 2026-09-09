@@ -88,6 +88,7 @@
  *    layout/
  *      Navbar.tsx                         ← แถบหัวเรื่อง 2 ชั้น (แบรนด์ + เมนูระบบ)
  *      Breadcrumb.tsx                     ← แถบเส้นทางการใช้งาน
+ *      PageTransition.tsx                 ← โมชั่นตอนเปลี่ยนหน้า + เลื่อนจอขึ้นบนสุด
  *      Footer.tsx                         ← ส่วนท้ายของทุกหน้า
  *    room/
  *      RoomBookingSystem.tsx              ← controller ระบบจองห้อง
@@ -133,6 +134,7 @@ import EquipmentSystem from './components/equipment/EquipmentSystem';
 import RepairSystem from './components/repair/RepairSystem';
 import Navbar from './components/layout/Navbar';
 import Breadcrumb from './components/layout/Breadcrumb';
+import PageTransition from './components/layout/PageTransition';
 import Footer from './components/layout/Footer';
 import { SystemType, ToastMessage } from './types';
 import ToastContainer from './components/shared/ToastContainer';
@@ -220,13 +222,16 @@ const App: React.FC = () => {
       <main className="main-content flex-1 w-full pt-[var(--header-height)]">
         <div className="max-w-content mx-auto px-gutter-mobile md:px-gutter-tablet lg:px-gutter-desktop py-space-md">
           <Breadcrumb />
-          <Routes>
-            <Route path="/"          element={<LandingPage onAdminLogin={handleAdminToggle} isAdmin={isAdmin} />} />
-            <Route path="/room"      element={<RoomBookingSystem showToast={showToast} isAdmin={isAdmin} />} />
-            <Route path="/equipment" element={<EquipmentSystem showToast={showToast} isAdmin={isAdmin} />} />
-            <Route path="/repair"    element={<RepairSystem showToast={showToast} isAdmin={isAdmin} />} />
-            <Route path="*"          element={<Navigate to="/" replace />} />
-          </Routes>
+          {/* โมชั่นตอนเปลี่ยนระบบ — เนื้อหาเลื่อนเข้าตามทิศของเมนู */}
+          <PageTransition>
+            <Routes>
+              <Route path="/"          element={<LandingPage onAdminLogin={handleAdminToggle} isAdmin={isAdmin} />} />
+              <Route path="/room"      element={<RoomBookingSystem showToast={showToast} isAdmin={isAdmin} />} />
+              <Route path="/equipment" element={<EquipmentSystem showToast={showToast} isAdmin={isAdmin} />} />
+              <Route path="/repair"    element={<RepairSystem showToast={showToast} isAdmin={isAdmin} />} />
+              <Route path="*"          element={<Navigate to="/" replace />} />
+            </Routes>
+          </PageTransition>
         </div>
       </main>
       <Footer />

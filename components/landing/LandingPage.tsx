@@ -47,7 +47,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onAdminLogin, isAdmin }) => {
   const navigate = useNavigate();
 
   return (
-    <div className="flex flex-col w-full animate-fade-in">
+    <div className="flex flex-col w-full">
 
       {/* ── Hero ───────────────────────────────────────────────────────────── */}
       <section className="relative w-full overflow-hidden rounded-2xl md:rounded-3xl bg-gradient-to-br from-primary via-primary-container to-secondary text-on-primary py-12 md:py-16 px-space-md md:px-space-2xl shadow-xl shadow-primary/10">
