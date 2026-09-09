@@ -48,6 +48,13 @@ const sign = async (body) => {
   return btoa(String.fromCharCode(...new Uint8Array(mac)));
 };
 
+const recipientState = async (env, id) => {
+  const raw = await env.ROOM_BOOKINGS_KV.get(`recipient:${id}`);
+  return raw === null ? null : JSON.parse(raw);
+};
+
+const getStatus = async (env) => (await worker.fetch(req('/status'), env, ctx)).json();
+
 let pass = 0, fail = 0;
 const check = (name, cond, extra = '') => { if (cond) { pass++; console.log(`  ✓ ${name}`); } else { fail++; console.log(`  ✗ ${name} ${extra}`); } };
 
@@ -199,7 +206,7 @@ console.log('\n[4] /notify — รายงานผลจริงจาก LIN
 
   const env4 = { ...baseEnv(), REPAIR_GROUP_ID: undefined };
   const noGroup = await (await worker.fetch(authed('/notify', { method: 'POST', body: JSON.stringify({ message: 'ซ่อม', target: 'repair' }) }), env4, ctx)).json();
-  check('ไม่ตั้ง REPAIR_GROUP_ID → บอกว่าไม่สำเร็จพร้อมเหตุผล', noGroup.success === false && String(noGroup.error).includes('REPAIR_GROUP_ID'));
+  check('ไม่มีกลุ่มรับแจ้งซ่อมเลย → บอกว่าไม่สำเร็จพร้อมวิธีแก้', noGroup.success === false && String(noGroup.error).includes('REPAIR_GROUP_ID'), noGroup.error);
 }
 
 // ── 5) ข้อความยาวเกินลิมิต LINE ────────────────────────────────────────────
@@ -230,17 +237,130 @@ console.log('\n[6] /webhook — ตรวจลายเซ็น');
 
   const real = await worker.fetch(req('/webhook', { method: 'POST', body, headers: { 'x-line-signature': await sign(body) } }), env, ctx);
   check('ลายเซ็นถูก → 200', real.status === 200);
-  check('ลายเซ็นถูก → เพิ่มกลุ่มเป็นผู้รับ', (await env.ROOM_BOOKINGS_KV.get('recipient:Cforged')) === '1');
+  check('ลายเซ็นถูก → เพิ่มกลุ่มเป็นผู้รับ', (await recipientState(env, 'Cforged'))?.topics.includes('rooms'));
 
   // leave → ลบออก
   const leaveBody = JSON.stringify({ events: [{ type: 'leave', source: { groupId: 'Cforged' } }] });
   await worker.fetch(req('/webhook', { method: 'POST', body: leaveBody, headers: { 'x-line-signature': await sign(leaveBody) } }), env, ctx);
-  check('leave → ลบผู้รับออก', (await env.ROOM_BOOKINGS_KV.get('recipient:Cforged')) === null);
+  check('leave → หยุดรับแจ้งเตือน (แต่ยังเก็บ Group ID ไว้)',
+    String((await recipientState(env, 'Cforged'))?.left).startsWith('left:'));
 
   // ยังไม่ตั้ง CHANNEL_SECRET → ยังทำงานได้ (แต่มี warning) เพื่อไม่ให้ระบบเดิมพังทันที
   const envNoSecret = { ...baseEnv(), CHANNEL_SECRET: undefined };
   const legacy = await worker.fetch(req('/webhook', { method: 'POST', body }), envNoSecret, ctx);
   check('ไม่ตั้ง CHANNEL_SECRET → ยังรับ event ได้ (ของเดิมไม่พัง)', legacy.status === 200);
+}
+
+// ── 6b) บอทออกจากกลุ่ม — ต้องเก็บ Group ID ไว้ ไม่ลบ key ทิ้ง ─────────────────
+console.log('\n[6b] บอทออกจากกลุ่ม — เก็บ key ไว้ให้ก็อป Group ID ต่อได้');
+{
+  const env = baseEnv();
+  const join = JSON.stringify({ events: [{ type: 'join', source: { groupId: 'Cgroup9' } }] });
+  await worker.fetch(req('/webhook', { method: 'POST', body: join, headers: { 'x-line-signature': await sign(join) } }), env, ctx);
+  check('เข้ากลุ่ม → ติ๊ก "จองห้อง" ให้เป็นค่าเริ่มต้น', (await recipientState(env, 'Cgroup9'))?.topics.join() === 'rooms');
+
+  const leave = JSON.stringify({ events: [{ type: 'leave', source: { groupId: 'Cgroup9' } }] });
+  await worker.fetch(req('/webhook', { method: 'POST', body: leave, headers: { 'x-line-signature': await sign(leave) } }), env, ctx);
+  const afterLeave = await recipientState(env, 'Cgroup9');
+  check('ออกจากกลุ่ม → key ยังอยู่ (ไม่ลืม Group ID)', afterLeave !== null, JSON.stringify(afterLeave));
+  check('ออกจากกลุ่ม → มีเครื่องหมาย left พร้อมเวลา', String(afterLeave?.left).startsWith('left:'), JSON.stringify(afterLeave));
+
+  lineCalls = []; lineResponder = () => new Response('{}', { status: 200 });
+  const notify = await (await worker.fetch(authed('/notify', { method: 'POST', body: JSON.stringify({ message: 'x' }) }), env, ctx)).json();
+  check('กลุ่มที่ออกไปแล้วไม่ได้รับแจ้งเตือนอีก', notify.total === 1 && lineCalls[0].body.to === 'Ufallback', JSON.stringify(notify));
+
+  // เชิญกลับเข้ากลุ่มเดิม → กลับมารับแจ้งเตือนเอง
+  await worker.fetch(req('/webhook', { method: 'POST', body: join, headers: { 'x-line-signature': await sign(join) } }), env, ctx);
+  check('เชิญบอทกลับ → กลับมารับแจ้งเตือน', (await getStatus(env)).recipientCount === 1);
+
+  // ปิดรับเองด้วยการแก้ค่าใน Dashboard เป็น "off"
+  await env.ROOM_BOOKINGS_KV.put('recipient:Cgroup9', 'off');
+  check('แก้ค่าเป็น "off" ด้วยมือ → หยุดรับแจ้งเตือน', (await getStatus(env)).recipientCount === 0);
+
+  // ออกจากกลุ่มอีกครั้ง แล้ว /recipients ต้องยังเห็น เพื่อก็อป Group ID ไปใช้ต่อ
+  await worker.fetch(req('/webhook', { method: 'POST', body: leave, headers: { 'x-line-signature': await sign(leave) } }), env, ctx);
+  lineResponder = () => new Response(JSON.stringify({ groupName: 'กลุ่มแจ้งซ่อม' }), { status: 200 });
+  const listed = await (await worker.fetch(authed('/recipients'), env, ctx)).json();
+  const gone = listed.find(r => r.id === 'Cgroup9');
+  check('/recipients ยังคืนกลุ่มที่บอทออกไปแล้ว พร้อม active:false', gone && gone.active === false, JSON.stringify(listed));
+}
+
+// ── 6c) เลือกหัวข้อแจ้งเตือนรายกลุ่ม (ติ๊กจากหน้าแอดมิน) ────────────────────
+console.log('\n[6c] แต่ละกลุ่มเลือกรับเฉพาะหัวข้อที่ติ๊กไว้');
+{
+  const env = baseEnv();
+  const setTopics = (id, topics) => worker.fetch(authed('/recipients', { method: 'POST', body: JSON.stringify({ id, topics }) }), env, ctx);
+  const notify = async (target) => {
+    lineCalls = []; lineResponder = () => new Response('{}', { status: 200 });
+    const body = await (await worker.fetch(authed('/notify', { method: 'POST', body: JSON.stringify({ message: 'x', target }) }), env, ctx)).json();
+    return { body, to: lineCalls.filter(c => c.url.endsWith('/message/push')).map(c => c.body.to).sort() };
+  };
+
+  await env.ROOM_BOOKINGS_KV.put('recipient:Cห้อง', '1');       // ค่าเดิมแบบเก่า = รับจองห้อง
+  await env.ROOM_BOOKINGS_KV.put('recipient:Cทั้งคู่', '1');
+  check('บันทึกหัวข้อผ่าน POST /recipients', (await setTopics('Cซ่อม', ['repairs'])).status === 200);
+  await setTopics('Cทั้งคู่', ['rooms', 'repairs']);
+
+  const rooms = await notify(undefined);
+  check('จองห้อง → เข้าเฉพาะกลุ่มที่ติ๊ก "จองห้อง"', rooms.to.join(',') === ['Cทั้งคู่', 'Cห้อง'].sort().join(','), rooms.to.join(','));
+  const repairs = await notify('repair');
+  check('แจ้งซ่อม → เข้าเฉพาะกลุ่มที่ติ๊ก "แจ้งซ่อม"', repairs.to.join(',') === ['Cซ่อม', 'Cทั้งคู่'].sort().join(','), repairs.to.join(','));
+  check('กลุ่มที่ติ๊กเฉพาะซ่อม ไม่ได้รับเรื่องจองห้อง', !rooms.to.includes('Cซ่อม'));
+
+  // เอาติ๊กออกหมด = ไม่รับอะไรเลย
+  await setTopics('Cห้อง', []);
+  const afterUncheck = await notify(undefined);
+  check('เอาติ๊กออกหมด → กลุ่มนั้นเงียบ', !afterUncheck.to.includes('Cห้อง'), afterUncheck.to.join(','));
+
+  // บอทออกจากกลุ่มแล้วเชิญกลับ — ต้องจำหัวข้อที่เคยติ๊กไว้
+  const leave = JSON.stringify({ events: [{ type: 'leave', source: { groupId: 'Cซ่อม' } }] });
+  await worker.fetch(req('/webhook', { method: 'POST', body: leave, headers: { 'x-line-signature': await sign(leave) } }), env, ctx);
+  const whileGone = await notify('repair');
+  check('บอทออกจากกลุ่ม → ไม่ส่งหาแล้ว', !whileGone.to.includes('Cซ่อม'), whileGone.to.join(','));
+  const join = JSON.stringify({ events: [{ type: 'join', source: { groupId: 'Cซ่อม' } }] });
+  await worker.fetch(req('/webhook', { method: 'POST', body: join, headers: { 'x-line-signature': await sign(join) } }), env, ctx);
+  const back = await notify('repair');
+  check('เชิญกลับ → จำได้ว่าเคยติ๊กเฉพาะแจ้งซ่อม', back.to.includes('Cซ่อม'), back.to.join(','));
+  const roomsAfterBack = await notify(undefined);
+  check('เชิญกลับ → ไม่ถูกรีเซ็ตเป็นรับจองห้อง', !roomsAfterBack.to.includes('Cซ่อม'), roomsAfterBack.to.join(','));
+
+  // ลบกลุ่มออกจากรายการถาวร
+  const del = (id) => worker.fetch(authed(`/recipients?id=${encodeURIComponent(id)}`, { method: 'DELETE' }), env, ctx);
+  check('ลบกลุ่มออกจากรายการได้', (await del('Cห้อง')).status === 200);
+  check('ลบแล้ว key หายจริง', (await env.ROOM_BOOKINGS_KV.get('recipient:Cห้อง')) === null);
+  const delRepairEnv = await (await del('Crepair')).json();
+  check('ลบกลุ่มที่ตั้งไว้ใน REPAIR_GROUP_ID → เตือนว่ามันจะกลับมา',
+    String(delRepairEnv.warning).includes('REPAIR_GROUP_ID'), JSON.stringify(delRepairEnv));
+  check('ลบโดยไม่ส่ง id → 400', (await worker.fetch(authed('/recipients', { method: 'DELETE' }), env, ctx)).status === 400);
+
+  // ข้อมูลเข้าไม่ถูกรูปแบบ
+  const badTopic = await worker.fetch(authed('/recipients', { method: 'POST', body: JSON.stringify({ id: 'C1', topics: ['ทุกอย่าง'] }) }), env, ctx);
+  check('หัวข้อที่ไม่รู้จัก → 400', badTopic.status === 400);
+  const noId = await worker.fetch(authed('/recipients', { method: 'POST', body: JSON.stringify({ topics: [] }) }), env, ctx);
+  check('ไม่ส่ง id → 400', noId.status === 400);
+}
+
+// ── 6d) ระบบเดิมที่ยังไม่ได้ติ๊กอะไร ต้องทำงานเหมือนเดิม ─────────────────────
+console.log('\n[6d] เข้ากันได้กับของเดิม (ยังไม่เคยตั้งค่าในหน้าแอดมิน)');
+{
+  const env = baseEnv();
+  await env.ROOM_BOOKINGS_KV.put('recipient:Cเดิม', '1');   // ค่าที่มีอยู่จริงในระบบตอนนี้
+  lineCalls = []; lineResponder = () => new Response('{}', { status: 200 });
+  await worker.fetch(authed('/notify', { method: 'POST', body: JSON.stringify({ message: 'x' }) }), env, ctx);
+  check('ค่าเก่า "1" → ยังได้รับแจ้งเตือนจองห้องเหมือนเดิม', lineCalls[0].body.to === 'Cเดิม');
+
+  lineCalls = [];
+  await worker.fetch(authed('/notify', { method: 'POST', body: JSON.stringify({ message: 'x', target: 'repair' }) }), env, ctx);
+  check('ยังไม่มีใครติ๊ก "แจ้งซ่อม" → ใช้ REPAIR_GROUP_ID เป็นตัวสำรอง', lineCalls[0].body.to === 'Crepair');
+  check('ค่าเก่า "1" ไม่ได้รับแจ้งซ่อม', lineCalls.every(c => c.body.to !== 'Cเดิม'));
+
+  // /recipients ดึงกลุ่มจาก REPAIR_GROUP_ID เข้ามาให้ติ๊กได้ในหน้าเว็บ
+  lineResponder = () => new Response(JSON.stringify({ groupName: 'กลุ่มแจ้งซ่อม' }), { status: 200 });
+  const listed = await (await worker.fetch(authed('/recipients'), env, ctx)).json();
+  const repairEntry = listed.find(r => r.id === 'Crepair');
+  check('/recipients ดึงกลุ่มจาก REPAIR_GROUP_ID มาให้จัดการในหน้าเว็บ', !!repairEntry, JSON.stringify(listed.map(r => r.id)));
+  check('กลุ่มนั้นถูกติ๊ก "แจ้งซ่อม" ไว้ให้แล้ว', repairEntry?.topics.join(',') === 'repairs', JSON.stringify(repairEntry));
+  check('กลุ่มเดิมแสดงว่าติ๊ก "จองห้อง" ไว้', listed.find(r => r.id === 'Cเดิม')?.topics.join(',') === 'rooms');
 }
 
 // ── 7) @mention routing ─────────────────────────────────────────────────────

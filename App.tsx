@@ -141,7 +141,7 @@ import Footer from './components/layout/Footer';
 import { SystemType, ToastMessage } from './types';
 import ToastContainer from './components/shared/ToastContainer';
 import ConfigurationStatusModal from './components/admin/ConfigurationStatusModal';
-import { fetchWorkerStatus, fetchRecipients, WorkerStatus, NotificationRecipient } from './services/apiService';
+import { fetchWorkerStatus, fetchRecipients, updateRecipientTopics, deleteRecipient, WorkerStatus, NotificationRecipient, NotificationTopic } from './services/apiService';
 import Modal from './components/shared/Modal';
 import Button from './components/shared/Button';
 
@@ -204,6 +204,29 @@ const App: React.FC = () => {
   const removeToast = useCallback((id: number) => {
     setToastMessages(prev => prev.filter(toast => toast.id !== id));
   }, []);
+
+  /** ติ๊กเลือกว่ากลุ่มไหนรับแจ้งเตือนเรื่องอะไร — อัปเดตหน้าจอทันทีแล้วค่อยยืนยันกับ Worker */
+  const handleChangeRecipientTopics = useCallback(async (id: string, topics: NotificationTopic[]) => {
+    const before = recipients;
+    setRecipients(prev => prev?.map(r => (r.id === id ? { ...r, topics } : r)) ?? prev);
+    try {
+      await updateRecipientTopics(id, topics);
+    } catch (error: any) {
+      setRecipients(before ?? null);   // บันทึกไม่ผ่าน — คืนค่าเดิม ไม่ให้หน้าจอโกหก
+      showToast(`บันทึกการตั้งค่าแจ้งเตือนไม่สำเร็จ: ${error.message}`, 'error');
+    }
+  }, [recipients, showToast]);
+
+  /** เอากลุ่มที่บอทไม่ได้อยู่แล้วออกจากรายการ */
+  const handleDeleteRecipient = useCallback(async (id: string) => {
+    try {
+      const result = await deleteRecipient(id);
+      setRecipients(prev => prev?.filter(r => r.id !== id) ?? prev);
+      showToast(result?.warning || 'เอากลุ่มออกจากรายการแล้ว', result?.warning ? 'error' : 'success');
+    } catch (error: any) {
+      showToast(`ลบกลุ่มไม่สำเร็จ: ${error.message}`, 'error');
+    }
+  }, [showToast]);
 
   // ── ระบบ Login/Logout Admin ──────────────────────────────────────────────────
   const handleAdminToggle = () => {
@@ -285,6 +308,8 @@ const App: React.FC = () => {
         recipients={recipients}
         isLoading={isCheckingSystem}
         onRefresh={runSystemCheck}
+        onChangeTopics={handleChangeRecipientTopics}
+        onDeleteRecipient={handleDeleteRecipient}
       />
 
       {/* ── Modal ล็อกอินเจ้าหน้าที่ ── */}

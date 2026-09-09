@@ -12,8 +12,9 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 import React from 'react';
-import { WorkerStatus, NotificationRecipient } from '../../services/apiService';
+import { WorkerStatus, NotificationRecipient, NotificationTopic, TOPIC_LABELS } from '../../services/apiService';
 import { WORKER_BASE_URL } from '../../constants';
+import { ChevronDown, Trash2 } from 'lucide-react';
 
 interface StatusItemProps {
   label: string;
@@ -42,12 +43,47 @@ interface ConfigurationStatusModalProps {
   recipients: NotificationRecipient[] | null;
   isLoading?: boolean;
   onRefresh?: () => void;
+  /** ติ๊ก/เอาติ๊กออกว่ากลุ่มนี้รับแจ้งเตือนหัวข้ออะไรบ้าง */
+  onChangeTopics?: (id: string, topics: NotificationTopic[]) => Promise<void> | void;
+  /** เอากลุ่มออกจากรายการถาวร (ใช้กับกลุ่มที่บอทไม่ได้อยู่แล้ว) */
+  onDeleteRecipient?: (id: string) => Promise<void> | void;
 }
 
+const TOPIC_ORDER: NotificationTopic[] = ['rooms', 'repairs'];
+
 const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({
-  isOpen, onClose, status, error, recipients, isLoading = false, onRefresh,
+  isOpen, onClose, status, error, recipients, isLoading = false, onRefresh, onChangeTopics, onDeleteRecipient,
 }) => {
+  /** id ของกลุ่มที่กำลังบันทึกอยู่ — กันกดรัวจนสถานะสลับไปมา */
+  const [savingId, setSavingId] = React.useState<string | null>(null);
+  /** id ของกลุ่มที่กดลบไว้ รอกดยืนยันอีกครั้ง — ลบทันทีเลยเสี่ยงกดพลาด */
+  const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
+  const [isChecklistOpen, setIsChecklistOpen] = React.useState(false);
+
   if (!isOpen) return null;
+
+  const removeRecipient = async (id: string) => {
+    if (!onDeleteRecipient || savingId) return;
+    setSavingId(id);
+    try {
+      await onDeleteRecipient(id);
+      setConfirmDeleteId(null);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const toggleTopic = async (recipient: NotificationRecipient, topic: NotificationTopic) => {
+    if (!onChangeTopics || savingId) return;
+    const current = recipient.topics || [];
+    const next = current.includes(topic) ? current.filter(t => t !== topic) : [...current, topic];
+    setSavingId(recipient.id);
+    try {
+      await onChangeTopics(recipient.id, next);
+    } finally {
+      setSavingId(null);
+    }
+  };
 
   return (
     <div
@@ -62,82 +98,179 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({
         <div className="p-6 border-b border-outline-variant">
           <h3 className="text-xl font-bold text-primary flex items-center gap-3">
             <span className="text-2xl">⚙️</span>
-            <span>ผลการตรวจสอบการตั้งค่าระบบ</span>
+            <span>ตั้งค่าแจ้งเตือน & สถานะระบบ</span>
           </h3>
         </div>
 
         <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           {isLoading && <p className="text-sm text-on-surface-variant text-center py-4">กำลังตรวจสอบ...</p>}
           {error && <StatusItem label="การเชื่อมต่อ Worker" isOk={false} failText={error} />}
-          
-          {status && (
-            <ul className="space-y-2">
-              <StatusItem label="การเชื่อมต่อ Worker" isOk={true} okText="เชื่อมต่อสำเร็จ" failText="" />
-              <StatusItem 
-                label="LINE Access Token" 
-                isOk={status.lineApiToken} 
-                failText="ไม่ได้ตั้งค่าใน Worker" 
-              />
-              <StatusItem
-                label="ลายเซ็น Webhook (CHANNEL_SECRET)"
-                isOk={status.channelSecretSet}
-                okText="ตรวจลายเซ็นแล้ว"
-                failText="ยังไม่ตั้งค่า — คนนอกแอบเพิ่มกลุ่มรับแจ้งเตือนได้"
-              />
-              <StatusItem
-                label="กลุ่มที่รับแจ้งเตือน"
-                isOk={(status.recipientCount ?? 0) > 0}
-                okText={`${status.recipientCount} กลุ่ม`}
-                failText="ไม่มีกลุ่มไหนรับแจ้งเตือนเลย"
-              />
-              <StatusItem
-                label="LINE Recipient ID"
-                isOk={status.recipientIdSet}
-                failText="ไม่ได้ตั้งค่า ID ผู้รับใน Worker"
-              />
-              <StatusItem
-                label="LINE กลุ่มแจ้งซ่อม"
-                isOk={status.repairGroupIdSet}
-                failText="ไม่ได้ตั้งค่า REPAIR_GROUP_ID ใน Worker"
-              />
-              <StatusItem
-                label="ฐานข้อมูลห้องประชุม"
-                isOk={status.roomKvBinding}
-                failText="ไม่ได้ผูก KV Namespace"
-              />
-              <StatusItem
-                label="ฐานข้อมูลอุปกรณ์"
-                isOk={status.equipmentKvBinding}
-                failText="ไม่ได้ผูก KV Namespace"
-              />
-              <StatusItem
-                label="ฐานข้อมูลแจ้งซ่อม"
-                isOk={status.repairKvBinding}
-                failText="ไม่ได้ผูก KV Namespace"
-              />
-            </ul>
-          )}
 
           {recipients && recipients.length > 0 && (
-            <div className="pt-4 border-t border-outline-variant mt-4">
-              <h4 className="text-sm font-bold text-on-surface mb-3">แจ้งเตือนจะส่งเข้ากลุ่มเหล่านี้</h4>
+            <div>
+              <h4 className="text-sm font-bold text-on-surface mb-1">กลุ่มที่รับแจ้งเตือน</h4>
+              <p className="text-[11px] text-on-surface-variant mb-3">
+                ติ๊กเลือกว่าแต่ละกลุ่มจะรับแจ้งเตือนเรื่องอะไร — เอาติ๊กออกทั้งหมด = กลุ่มนั้นไม่ได้รับอะไรเลย
+              </p>
               <ul className="space-y-2">
                 {recipients.map(r => (
-                  <li key={r.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-surface-container-low border border-outline-variant">
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-on-surface truncate">
-                        {r.name || '(อ่านชื่อไม่ได้ — บอทอาจถูกเตะออกจากกลุ่มแล้ว)'}
-                      </p>
-                      <p className="text-[10px] text-outline font-mono truncate">{r.id}</p>
+                  <li
+                    key={r.id}
+                    className={`p-3 rounded-lg border ${
+                      r.active
+                        ? 'bg-surface-container-low border-outline-variant'
+                        : 'bg-surface-container-low border-dashed border-outline-variant opacity-70'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-on-surface truncate">
+                          {r.name || '(อ่านชื่อไม่ได้ — บอทไม่ได้อยู่ในกลุ่มแล้ว)'}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => navigator.clipboard?.writeText(r.id)}
+                          title="คัดลอก Group ID"
+                          className="text-[10px] text-outline font-mono truncate hover:text-primary cursor-pointer max-w-full block text-left"
+                        >
+                          {r.id}
+                        </button>
+                      </div>
+                      {!r.active && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-surface-container text-on-surface-variant">
+                            บอทไม่อยู่ในกลุ่มแล้ว
+                          </span>
+                          {onDeleteRecipient && (
+                            confirmDeleteId === r.id ? (
+                              <span className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => removeRecipient(r.id)}
+                                  disabled={savingId === r.id}
+                                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-red-600 text-white hover:bg-red-700 transition disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                                >
+                                  {savingId === r.id ? 'กำลังลบ...' : 'ยืนยันลบ'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmDeleteId(null)}
+                                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition cursor-pointer"
+                                >
+                                  ยกเลิก
+                                </button>
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteId(r.id)}
+                                title="เอากลุ่มนี้ออกจากรายการ"
+                                className="p-1.5 rounded-lg text-outline hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-surface-container text-on-surface-variant shrink-0">
-                      {r.type === 'group' ? 'กลุ่ม' : 'ส่วนตัว'}
-                    </span>
+
+                    <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                      {TOPIC_ORDER.map(topic => {
+                        const checked = (r.topics || []).includes(topic);
+                        return (
+                          <label
+                            key={topic}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all select-none ${
+                              checked
+                                ? 'bg-primary-light text-primary border-blue-200'
+                                : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant'
+                            } ${savingId === r.id ? 'opacity-50' : 'cursor-pointer hover:border-outline'}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={savingId === r.id || !onChangeTopics}
+                              onChange={() => toggleTopic(r, topic)}
+                              className="w-3.5 h-3.5 accent-primary cursor-pointer"
+                            />
+                            {TOPIC_LABELS[topic]}
+                          </label>
+                        );
+                      })}
+                      {(r.topics || []).length === 0 && (
+                        <span className="text-[11px] font-semibold text-outline">ไม่ได้รับแจ้งเตือนอะไรเลย</span>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
             </div>
           )}
+
+          
+          {status && (() => {
+            // รวมรายการตรวจสอบไว้เป็นข้อมูล เพื่อนับจำนวนที่ยังไม่ผ่านมาสรุปบนหัวข้อ
+            const checks = [
+              { label: 'การเชื่อมต่อ Worker', isOk: true, okText: 'เชื่อมต่อสำเร็จ', failText: '' },
+              { label: 'LINE Access Token', isOk: status.lineApiToken, failText: 'ไม่ได้ตั้งค่าใน Worker' },
+              {
+                label: 'ลายเซ็น Webhook (CHANNEL_SECRET)',
+                isOk: status.channelSecretSet,
+                okText: 'ตรวจลายเซ็นแล้ว',
+                failText: 'ยังไม่ตั้งค่า — คนนอกแอบเพิ่มกลุ่มรับแจ้งเตือนได้',
+              },
+              {
+                label: 'กลุ่มที่รับแจ้งเตือน',
+                isOk: (status.recipientCount ?? 0) > 0,
+                okText: `${status.recipientCount} กลุ่ม`,
+                failText: 'ไม่มีกลุ่มไหนรับแจ้งเตือนเลย',
+              },
+              { label: 'LINE Recipient ID', isOk: status.recipientIdSet, failText: 'ไม่ได้ตั้งค่า ID ผู้รับใน Worker' },
+              { label: 'LINE กลุ่มแจ้งซ่อม', isOk: status.repairGroupIdSet, failText: 'ไม่ได้ตั้งค่า REPAIR_GROUP_ID ใน Worker' },
+              { label: 'ฐานข้อมูลห้องประชุม', isOk: status.roomKvBinding, failText: 'ไม่ได้ผูก KV Namespace' },
+              { label: 'ฐานข้อมูลอุปกรณ์', isOk: status.equipmentKvBinding, failText: 'ไม่ได้ผูก KV Namespace' },
+              { label: 'ฐานข้อมูลแจ้งซ่อม', isOk: status.repairKvBinding, failText: 'ไม่ได้ผูก KV Namespace' },
+            ];
+            const failed = checks.filter(c => !c.isOk).length;
+            const expanded = isChecklistOpen || failed > 0;   // มีอะไรผิดให้เห็นทันที ไม่ต้องกดหา
+
+            return (
+              <div className="pt-4 border-t border-outline-variant">
+                <button
+                  type="button"
+                  onClick={() => setIsChecklistOpen(open => !open)}
+                  aria-expanded={expanded}
+                  className="w-full flex items-center justify-between gap-3 p-3 rounded-lg bg-surface-container-low border border-outline-variant hover:border-outline transition cursor-pointer"
+                >
+                  <span className="flex items-center gap-2 font-bold text-sm text-on-surface">
+                    <span>{failed > 0 ? '❌' : '✅'}</span>
+                    สถานะการตั้งค่าระบบ
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className={`text-xs font-bold ${failed > 0 ? 'text-red-700' : 'text-green-700'}`}>
+                      {failed > 0 ? `มีปัญหา ${failed} รายการ` : `ปกติทั้งหมด ${checks.length} รายการ`}
+                    </span>
+                    <ChevronDown className={`w-4 h-4 text-outline transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                  </span>
+                </button>
+
+                {expanded && (
+                  <ul className="space-y-2 mt-2 animate-fade-in">
+                    {checks.map(check => (
+                      <StatusItem
+                        key={check.label}
+                        label={check.label}
+                        isOk={check.isOk}
+                        okText={check.okText}
+                        failText={check.failText}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })()}
 
           <div className="pt-4 border-t border-outline-variant mt-4">
             <h4 className="text-sm font-bold text-on-surface mb-3">คำแนะนำเพิ่มเติม</h4>
