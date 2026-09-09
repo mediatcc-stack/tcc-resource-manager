@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { APP_CONFIG } from '../../constants';
-import { GraduationCap, ArrowLeft, Building2, ShieldCheck, KeyRound } from 'lucide-react';
+import { GraduationCap, Building2, ShieldCheck, KeyRound } from 'lucide-react';
 
 interface NavbarProps {
   isAdmin: boolean;
@@ -19,7 +19,7 @@ const NAV_ITEMS: { path: string; label: string }[] = [
 /**
  * แถบหัวเรื่องแบบ 2 ชั้น (fixed)
  *  ชั้นบน  — แบรนด์ระบบ + สถานะ/ปุ่มโหมดเจ้าหน้าที่
- *  ชั้นล่าง — ปุ่มกลับหน้าแรก + แท็บเลือกระบบ
+ *  ชั้นล่าง — แท็บเลือกระบบ (รวมแท็บ "หน้าแรก" ไว้แล้ว)
  */
 const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminToggle }) => {
   const location = useLocation();
@@ -81,19 +81,7 @@ const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminToggle }) => {
       <div className="bg-surface/90 backdrop-blur-xl">
         <div className="max-w-content mx-auto px-gutter-mobile md:px-gutter-tablet lg:px-gutter-desktop h-12 flex items-center justify-between gap-space-md">
           <div className="flex items-center gap-space-md overflow-x-auto py-1">
-            {currentPath !== '/' && (
-              <>
-                <button
-                  onClick={() => navigate('/')}
-                  className="inline-flex items-center gap-1.5 px-space-sm py-1.5 rounded-lg font-label text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all shrink-0 cursor-pointer"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  <span>หน้าแรกระบบ</span>
-                </button>
-                <div className="h-4 w-px bg-outline-variant shrink-0" />
-              </>
-            )}
-
+            {/* มีแท็บ "หน้าแรก" ในรายการเมนูอยู่แล้ว จึงไม่ใส่ปุ่มย้อนกลับหน้าแรกซ้ำอีกปุ่ม */}
             <nav className="flex items-center gap-space-xs shrink-0">
               {NAV_ITEMS.map(item => {
                 const isActive = currentPath === item.path;
