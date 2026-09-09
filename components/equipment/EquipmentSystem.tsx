@@ -105,8 +105,9 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
     const updateBorrowingList = async (newList: BorrowingRequest[]): Promise<boolean> => {
         setConnectionStatus('syncing');
         try {
-            await saveData('equipment', newList);
-            setBorrowings(newList);
+            // ส่ง borrowings (ก่อนแก้) ไปด้วย เผื่อมีคนบันทึกแทรก จะได้รวมข้อมูลแทนที่จะทับของเขาหาย
+            const saved = await saveData('equipment', newList, borrowings);
+            setBorrowings(saved);
             setLastUpdated(new Date());
             setConnectionStatus('connected');
             fetchBorrowings(true);
@@ -144,8 +145,8 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
         if (editingRequest) {
             const updatedBorrowings = borrowings.map(b => b.id === editingRequest.id ? { ...b, ...formValues } : b);
             try {
-                await saveData('equipment', updatedBorrowings);
-                setBorrowings(updatedBorrowings);
+                const saved = await saveData('equipment', updatedBorrowings, borrowings);
+                setBorrowings(saved);
                 setLastUpdated(new Date());
                 setCurrentPage('list');
                 setEditingRequest(null);
@@ -166,8 +167,8 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
         const updatedBorrowings = [createdRequest, ...borrowings];
 
         try {
-            await saveData('equipment', updatedBorrowings);
-            setBorrowings(updatedBorrowings);
+            const saved = await saveData('equipment', updatedBorrowings, borrowings);
+            setBorrowings(saved);
             setLastUpdated(new Date());
 
             // จำไว้ว่ารายการนี้เป็นของผู้ใช้เครื่องนี้ (เบราว์เซอร์นี้) เพื่อให้กลับมาแก้ไขเองได้ทีหลัง

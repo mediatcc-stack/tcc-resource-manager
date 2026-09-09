@@ -118,7 +118,8 @@
  *      Toast.tsx / ToastContainer.tsx     ← ระบบ notification
  *      ThaiDatePicker.tsx                 ← Date picker แบบไทย
  *    admin/
- *      ConfigurationStatusModal.tsx       ← ตรวจสอบสถานะ Worker
+ *      ConfigurationStatusModal.tsx       ← ตรวจสอบสถานะ Worker + กลุ่มที่รับแจ้งเตือน
+ *                                            (ปุ่มเกียร์บน Navbar เฉพาะโหมดเจ้าหน้าที่)
  *      GroupIdFinder.tsx                  ← (ว่างอยู่ — TODO)
  *      NotificationSettingsModal.tsx      ← (ว่างอยู่ — TODO)
  *
@@ -139,6 +140,8 @@ import { SwipeNavigationProvider } from './hooks/useSwipeNavigation';
 import Footer from './components/layout/Footer';
 import { SystemType, ToastMessage } from './types';
 import ToastContainer from './components/shared/ToastContainer';
+import ConfigurationStatusModal from './components/admin/ConfigurationStatusModal';
+import { fetchWorkerStatus, fetchRecipients, WorkerStatus, NotificationRecipient } from './services/apiService';
 import Modal from './components/shared/Modal';
 import Button from './components/shared/Button';
 
@@ -154,6 +157,40 @@ const App: React.FC = () => {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ── หน้าตรวจสอบสุขภาพระบบ (เฉพาะเจ้าหน้าที่) ──
+  // ใช้เช็คหลัง deploy Worker ว่า LINE/KV/ลายเซ็น webhook พร้อมไหม
+  // และแจ้งเตือนจะไปเข้ากลุ่มไหนบ้าง
+  const [isSystemCheckOpen, setIsSystemCheckOpen] = useState(false);
+  const [workerStatus, setWorkerStatus] = useState<WorkerStatus | null>(null);
+  const [recipients, setRecipients] = useState<NotificationRecipient[] | null>(null);
+  const [systemCheckError, setSystemCheckError] = useState<string | null>(null);
+  const [isCheckingSystem, setIsCheckingSystem] = useState(false);
+
+  const runSystemCheck = useCallback(async () => {
+    setIsCheckingSystem(true);
+    setSystemCheckError(null);
+    try {
+      const status = await fetchWorkerStatus();
+      setWorkerStatus(status);
+      // รายชื่อกลุ่มดึงแยก — ถ้าล้มเหลวก็ยังดูสถานะอื่นได้
+      try {
+        setRecipients(await fetchRecipients());
+      } catch (e) {
+        setRecipients(null);
+      }
+    } catch (error: any) {
+      setWorkerStatus(null);
+      setSystemCheckError(error.message || 'เชื่อมต่อ Worker ไม่ได้');
+    } finally {
+      setIsCheckingSystem(false);
+    }
+  }, []);
+
+  const handleOpenSystemCheck = useCallback(() => {
+    setIsSystemCheckOpen(true);
+    runSystemCheck();
+  }, [runSystemCheck]);
 
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
     const newToast: ToastMessage = {
@@ -218,7 +255,7 @@ const App: React.FC = () => {
   return (
     <SwipeNavigationProvider>
       <div className="app-container flex flex-col min-h-screen bg-surface">
-        <Navbar isAdmin={isAdmin} onAdminToggle={handleAdminToggle} />
+        <Navbar isAdmin={isAdmin} onAdminToggle={handleAdminToggle} onOpenSystemCheck={handleOpenSystemCheck} />
 
         {/* เว้นที่ใต้ header ตามความสูงจริง (Navbar อัปเดต --header-height ให้เอง) */}
         <main className="main-content flex-1 w-full pt-[var(--header-height)]">
@@ -239,7 +276,18 @@ const App: React.FC = () => {
         <Footer />
         <ToastContainer messages={toastMessages} onRemove={removeToast} />
 
-        {/* ── Modal ล็อกอินเจ้าหน้าที่ ── */}
+        {/* ── หน้าตรวจสอบสุขภาพระบบ (เจ้าหน้าที่) ── */}
+      <ConfigurationStatusModal
+        isOpen={isSystemCheckOpen}
+        onClose={() => setIsSystemCheckOpen(false)}
+        status={workerStatus}
+        error={systemCheckError}
+        recipients={recipients}
+        isLoading={isCheckingSystem}
+        onRefresh={runSystemCheck}
+      />
+
+      {/* ── Modal ล็อกอินเจ้าหน้าที่ ── */}
         <Modal
           isOpen={isLoginModalOpen}
           onClose={() => !isSubmitting && setIsLoginModalOpen(false)}

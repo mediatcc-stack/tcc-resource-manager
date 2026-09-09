@@ -104,7 +104,10 @@
  *  │  API_SECRET_KEY          │  Key สำหรับ Frontend เรียก Worker (/data)     │
  *  │                          │  ต้องตรงกับ VITE_API_SECRET_KEY ใน Pages     │
  *  │  CHANNEL_ACCESS_TOKEN    │  LINE Bot Long-lived Token (ส่ง Push message) │
- *  │  CHANNEL_SECRET          │  LINE Channel Secret (verify Webhook)         │
+ *  │  CHANNEL_SECRET          │  LINE Channel Secret — ใช้ตรวจลายเซ็น         │
+ *  │                          │  /webhook (⚠️ ต้องตั้ง! ถ้าไม่ตั้ง ใครก็ยิง     │
+ *  │                          │  event ปลอมมาแอบเพิ่มกลุ่มตัวเองเป็นผู้รับ     │
+ *  │                          │  แจ้งเตือนได้ — ดูที่ verifyLineSignature)     │
  *  │  RECIPIENT_ID            │  LINE User ID สำรอง (ถ้า KV ว่าง)            │
  *  │  REPAIR_GROUP_ID         │  LINE Group ID เฉพาะสำหรับแจ้งซ่อม           │
  *  │                          │  (แจ้งเตือน /notify?target=repair จะส่ง      │
@@ -144,6 +147,9 @@
  *
  *  PROTECTED (ต้องใส่ Header: X-API-Key):
  *    GET  /data?type=rooms      → ดึงข้อมูลการจองห้องทั้งหมด
+ *    GET  /data?type=rooms&version=prev → ดึง "สำเนาก่อนการบันทึกครั้งล่าสุด" (กู้ข้อมูล)
+ *      ↳ GET ส่ง header X-Data-Version กลับไปด้วย, POST ควรแนบกลับมา
+ *        ถ้าเลขไม่ตรง = มีคนบันทึกแทรก → ตอบ 409 { version, data } ให้เอาไปรวมแล้วส่งใหม่
  *    POST /data?type=rooms      → บันทึกข้อมูลการจองห้องทั้งหมด (overwrite)
  *    GET  /data?type=equipment  → ดึงข้อมูลการยืมอุปกรณ์ทั้งหมด
  *    POST /data?type=equipment  → บันทึกข้อมูลการยืมอุปกรณ์ทั้งหมด (overwrite)
@@ -152,12 +158,38 @@
  *    POST /notify               → Body: { message, target? } → ส่ง LINE แจ้งเตือน
  *                                  target: "repair" → ส่งเข้าเฉพาะกลุ่ม REPAIR_GROUP_ID
  *                                  ไม่ระบุ → ส่งเข้า recipient ทั่วไปทุกคน (จองห้อง)
+ *                                  ตอบกลับ { success, sent, failed, total, error? }
+ *                                  success = false เมื่อส่งไม่ถึงสักปลายทาง
  *    GET  /recipients           → ดูรายชื่อผู้รับแจ้งเตือน [{ id, name, type }]
  *                                  name ดึงสดจาก LINE API ทุกครั้ง (ไม่แคช)
  *
  * ═══════════════════════════════════════════════════════════════════════════════
  *  🛠️  แก้ไขล่าสุด
  * ═══════════════════════════════════════════════════════════════════════════════
+ *  v2.9 (2026-09-09) — กันข้อมูลหายเมื่อหลายคนใช้พร้อมกัน + จำกัดการเดารหัส
+ *                       • /data ใช้ระบบเลขรุ่น (X-Data-Version): GET ส่งเลขรุ่นกลับไป
+ *                         POST แนบกลับมา ถ้าไม่ตรง = มีคนบันทึกแทรก → ตอบ 409 พร้อมข้อมูล
+ *                         ล่าสุด ให้ฝั่งเว็บรวมข้อมูลแล้วส่งใหม่ (เดิม last-write-wins
+ *                         ของคนที่บันทึกก่อนหายทั้งก้อนโดยไม่มีใครรู้)
+ *                         ไม่แนบเลขรุ่นมาก็ยังบันทึกได้ frontend รุ่นเก่าจึงไม่พัง
+ *                       • /auth/login จำกัด 10 ครั้ง/IP/15 นาที (เดิมเดาได้ไม่จำกัด)
+ *                       • เพิ่ม Access-Control-Expose-Headers ไม่งั้นเบราว์เซอร์อ่าน
+ *                         X-Data-Version ไม่ได้ ระบบกันชนจะเงียบไปเฉย ๆ
+ *  v2.8 (2026-09-09) — รอบตรวจความน่าเชื่อถือของการแจ้งเตือนและความปลอดภัย
+ *                       • /webhook ตรวจลายเซ็น x-line-signature ด้วย CHANNEL_SECRET
+ *                         (ปิดช่องที่ใครก็ยิง event "join" ปลอมมาแอบเป็นผู้รับแจ้งเตือนได้)
+ *                         ถ้ายังไม่ได้ตั้ง CHANNEL_SECRET จะยังทำงานเหมือนเดิมแต่ขึ้น warning
+ *                       • /notify รอผลจาก LINE จริงแล้วตอบ { sent, failed, total }
+ *                         หน้าเว็บจึงไม่ขึ้น "ส่งสำเร็จ" ทั้งที่ push ล้มเหลวทุกปลายทางอีกต่อไป
+ *                       • push ที่ล้มเหลวชั่วคราว (429 โควตาเต็ม / 5xx) ลองใหม่ 3 ครั้ง
+ *                         แบบถอยเวลา และลบผู้รับที่ตอบ 403 (ถูกเตะออกจากกลุ่ม) ทิ้งอัตโนมัติ
+ *                       • ข้อความยาวเกิน 5,000 ตัวอักษรถูกตัดเป็นหลายข้อความ
+ *                         (เดิม LINE ตอบ 400 แล้วสรุปทั้งก้อนหายเงียบ ๆ)
+ *                       • POST /data ปฏิเสธ body ที่ไม่ใช่ array และเก็บสำเนาก่อนหน้าไว้ที่
+ *                         <type>_data_prev เรียกคืนได้ที่ /data?type=...&version=prev
+ *                       • scheduled() ใช้วันที่ตามเวลาไทย (เดิมใช้ UTC — เพี้ยนถ้าเปลี่ยนเวลา cron)
+ *                       • @mention ที่ไม่ตรงคำสั่งไหน ตอบวิธีใช้กลับไป (เดิมบอทเงียบ)
+ *                       • /status บอก channelSecretSet และ recipientCount เพิ่ม
  *  v2.7 (2026-08-03) — /recipients คืนชื่อกลุ่ม/ชื่อผู้ใช้จริงคู่กับ ID (ดึงสดจาก
  *                       LINE Group Summary / Profile API ทุกครั้งที่เรียก ไม่แคช
  *                       ไว้ที่ไหน จึงเห็นชื่อล่าสุดเสมอแม้มีคนเปลี่ยนชื่อกลุ่มทีหลัง)
@@ -198,7 +230,10 @@
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, X-API-Key',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, X-API-Key, X-Data-Version',
+  // เบราว์เซอร์จะไม่ยอมให้ JS อ่าน header ที่ไม่ใช่ header มาตรฐาน ถ้าไม่ประกาศตรงนี้
+  // ถ้าลืมบรรทัดนี้ ฝั่งเว็บจะอ่าน X-Data-Version ไม่ได้ → ระบบกันข้อมูลชนกันจะเงียบไปเฉย ๆ
+  'Access-Control-Expose-Headers': 'X-Data-Version',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -218,6 +253,96 @@ const corsHeaders = {
 //  ให้อัตโนมัติครั้งแรกที่เรียก (ถ้ายังไม่เคย migrate) — ไม่ต้องเพิ่มเพื่อนบอทใหม่
 // ─────────────────────────────────────────────────────────────────────────────
 const RECIPIENT_PREFIX = 'recipient:';
+/** จำกัดการเดารหัสผ่านแอดมิน: กี่ครั้งต่อ IP ภายในกี่วินาที */
+const LOGIN_MAX_ATTEMPTS = 10;
+const LOGIN_WINDOW_SECONDS = 15 * 60;
+/** key ที่บอกว่า migrate ข้อมูลผู้รับแบบเก่า (recipient_ids) มาแล้ว — กันข้อมูลเก่าฟื้นคืนชีพ */
+const LEGACY_MIGRATED_KEY = 'recipient_ids_migrated';
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Helper รวม — ใช้ซ้ำทั้งไฟล์
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** สร้าง JSON Response พร้อม CORS header (ใช้แทนการเขียนซ้ำทุกจุด) */
+const json = (data, status = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+
+/**
+ * เวลาปัจจุบันตามเขตเวลาไทย
+ * Worker รันด้วย UTC เสมอ ถ้าใช้ new Date() ตรง ๆ วันที่จะเพี้ยนช่วงหัวค่ำถึงเที่ยงคืน
+ * (เช่น 21:00 น. ของไทย = 14:00 UTC วันเดียวกัน แต่ 07:00 น. ไทย = 00:00 UTC วันเดียวกัน
+ *  ส่วน 01:00 น. ไทย = 18:00 UTC ของ "เมื่อวาน") — จึงต้องบวก 7 ชม. แล้วอ่านด้วย getUTC*
+ */
+const bangkokNow = () => new Date(Date.now() + 7 * 60 * 60 * 1000);
+
+/** วันที่ของไทยในรูปแบบ YYYY-MM-DD (ตรงกับรูปแบบที่ frontend บันทึกไว้) */
+const bangkokDateISO = (d = bangkokNow()) =>
+  `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+
+/**
+ * ตัดข้อความยาวให้อยู่ในลิมิตของ LINE (ข้อความละไม่เกิน 5,000 ตัวอักษร)
+ * ตัดตามบรรทัดเพื่อไม่ให้ข้อความขาดกลางคำ — คืนเป็น array ของข้อความที่ส่งได้จริง
+ * (เดิมถ้าสรุปรายวันยาวเกิน LINE จะตอบ 400 แล้วข้อความ "หายทั้งก้อน" โดยไม่มีใครรู้)
+ */
+const splitMessage = (text, maxLength = 4800) => {
+  if (!text) return [];
+  if (text.length <= maxLength) return [text];
+
+  const chunks = [];
+  let current = '';
+  for (const line of text.split('\n')) {
+    // บรรทัดเดียวยาวเกินลิมิต — จำใจตัดกลางบรรทัด
+    if (line.length > maxLength) {
+      if (current) { chunks.push(current); current = ''; }
+      for (let i = 0; i < line.length; i += maxLength) chunks.push(line.slice(i, i + maxLength));
+      continue;
+    }
+    if (current.length + line.length + 1 > maxLength) {
+      chunks.push(current);
+      current = line;
+    } else {
+      current = current ? `${current}\n${line}` : line;
+    }
+  }
+  if (current) chunks.push(current);
+
+  // LINE ส่งได้ครั้งละไม่เกิน 5 ข้อความ
+  return chunks.slice(0, 5);
+};
+
+/**
+ * ตรวจลายเซ็นของ Webhook จาก LINE (HMAC-SHA256 ของ body ดิบ ด้วย CHANNEL_SECRET)
+ *
+ * ⚠️  สำคัญมาก: ถ้าไม่ตรวจ ใครก็ตามที่รู้ URL ของ /webhook สามารถยิง event ปลอม
+ *     เช่น {"events":[{"type":"join","source":{"groupId":"C..."}}]} เพื่อแอบเพิ่ม
+ *     กลุ่มตัวเองเป็นผู้รับแจ้งเตือน แล้วจะได้รับข้อมูลการจอง (ชื่อผู้จอง/หัวข้อประชุม)
+ *     ทั้งหมดของหน่วยงานไปเรื่อย ๆ โดยไม่มีใครรู้
+ */
+async function verifyLineSignature(rawBody, signature, channelSecret) {
+  if (!signature) return false;
+  try {
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(channelSecret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody));
+    const expected = btoa(String.fromCharCode(...new Uint8Array(mac)));
+    if (expected.length !== signature.length) return false;
+    // เทียบแบบเวลาคงที่ กันการเดาลายเซ็นจากเวลาที่ใช้เปรียบเทียบ
+    let diff = 0;
+    for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+    return diff === 0;
+  } catch (e) {
+    console.error(`[Webhook] Signature verification error: ${e.message}`);
+    return false;
+  }
+}
 
 async function getRecipientIds(env) {
   const list = await env.ROOM_BOOKINGS_KV.list({ prefix: RECIPIENT_PREFIX });
@@ -226,13 +351,20 @@ async function getRecipientIds(env) {
   }
 
   // ยังไม่เคย migrate — ลองอ่านของเก่า (recipient_ids array) มาย้ายเป็น key แยกให้ครั้งเดียว
+  // เช็ค flag ก่อน เพราะถ้าย้ายแล้วและผู้รับถูกลบออกภายหลังจนหมด (บอทออกจากทุกกลุ่ม)
+  // การอ่านของเก่าซ้ำจะทำให้กลุ่มที่เอาออกไปแล้วกลับมาได้รับแจ้งเตือนอีก
+  const alreadyMigrated = await env.ROOM_BOOKINGS_KV.get(LEGACY_MIGRATED_KEY);
+  if (alreadyMigrated) return [];
+
   const legacyIds = await env.ROOM_BOOKINGS_KV.get('recipient_ids', 'json') || [];
   if (Array.isArray(legacyIds) && legacyIds.length > 0) {
     await Promise.all(legacyIds.map(id => env.ROOM_BOOKINGS_KV.put(`${RECIPIENT_PREFIX}${id}`, '1')));
+    await env.ROOM_BOOKINGS_KV.put(LEGACY_MIGRATED_KEY, new Date().toISOString());
     console.log(`[Migration] Migrated ${legacyIds.length} recipient(s) from legacy "recipient_ids" to per-key storage`);
     return legacyIds;
   }
 
+  await env.ROOM_BOOKINGS_KV.put(LEGACY_MIGRATED_KEY, new Date().toISOString());
   return [];
 }
 
@@ -247,53 +379,127 @@ async function removeRecipient(env, id) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  sendNotification(message, env, recipientIdsOverride?)
-//  ส่งข้อความ Push ไปหา LINE ของเจ้าหน้าที่ทุกคนใน recipient_ids
-//  ถ้า recipient_ids ใน KV ว่าง จะใช้ RECIPIENT_ID จาก env เป็น fallback
-//  ถ้าใส่ recipientIdsOverride มา จะส่งเฉพาะรายชื่อนั้น ไม่ไปดึงจาก KV/env เลย
-//  (ใช้กับ /notify?target=repair เพื่อส่งแจ้งซ่อมเข้าเฉพาะกลุ่มที่กำหนด)
+//  ส่งข้อความเข้า LINE — push (ทักเอง) และ reply (ตอบกลับ)
 // ─────────────────────────────────────────────────────────────────────────────
-async function sendNotification(message, env, recipientIdsOverride) {
-  let recipientIds = recipientIdsOverride;
 
-  if (!recipientIds) {
-    try {
-      recipientIds = await getRecipientIds(env);
-    } catch (e) {
-      recipientIds = [];
-    }
-
-    if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
-      if (env.RECIPIENT_ID) {
-        recipientIds = [env.RECIPIENT_ID];
-      } else {
-        console.error("[LINE Push Error] No recipients found.");
-        return;
-      }
-    }
-  }
-
-  const pushPromises = recipientIds.map(recipientId =>
-    fetch('https://api.line.me/v2/bot/message/push', {
+/** เรียก LINE API หนึ่งครั้ง แล้วคืนผลแบบอ่านง่าย (ไม่ throw) */
+async function callLineApi(env, endpoint, payload) {
+  try {
+    const response = await fetch(`https://api.line.me/v2/bot/${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
       },
-      body: JSON.stringify({ to: recipientId, messages: [{ type: 'text', text: message }] }),
-    })
-    .then(async response => {
-      if (!response.ok) {
-        const errorBody = await response.text();
-        console.error(`[LINE Push Error] Failed to ID: ${recipientId}, Status: ${response.status}, Body: ${errorBody}`);
-      }
-    })
-    .catch(error => {
-      console.error(`[LINE Push Error] ID: ${recipientId}, Error: ${error.message}`);
-    })
-  );
+      body: JSON.stringify(payload),
+    });
+    if (response.ok) return { ok: true, status: response.status };
+    return { ok: false, status: response.status, body: await response.text() };
+  } catch (e) {
+    return { ok: false, status: 0, body: e.message };
+  }
+}
 
-  await Promise.all(pushPromises);
+/**
+ * ส่ง push ไปหาผู้รับหนึ่งราย พร้อมลองใหม่เมื่อเจอปัญหาชั่วคราว
+ *   429 = ส่งถี่เกิน/โควตาเดือนเต็ม, 5xx = ฝั่ง LINE มีปัญหา → ลองใหม่ได้
+ *   4xx อื่น = ข้อความหรือผู้รับมีปัญหา → ลองใหม่ก็ไม่ช่วย
+ */
+async function pushWithRetry(env, recipientId, messages, maxAttempts = 3) {
+  let result;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    result = await callLineApi(env, 'message/push', { to: recipientId, messages });
+    if (result.ok) return result;
+
+    const retriable = result.status === 429 || result.status >= 500 || result.status === 0;
+    if (!retriable || attempt === maxAttempts) return result;
+
+    await new Promise(resolve => setTimeout(resolve, 400 * 2 ** (attempt - 1))); // 400ms, 800ms
+  }
+  return result;
+}
+
+/**
+ * sendNotification(message, env, recipientIdsOverride?)
+ * ส่งข้อความ Push ไปหา LINE ของเจ้าหน้าที่ทุกคนใน recipient:<id>
+ * ถ้า KV ว่าง จะใช้ RECIPIENT_ID จาก env เป็น fallback
+ * ถ้าใส่ recipientIdsOverride มา จะส่งเฉพาะรายชื่อนั้น (ใช้กับ /notify?target=repair)
+ *
+ * คืนผลสรุปเสมอ { total, sent, failed, errors, removed } — ผู้เรียกจะได้รู้ว่าส่งไม่ถึงใคร
+ * (เดิมฟังก์ชันนี้กลืน error ทั้งหมด ทำให้หน้าเว็บขึ้น "ส่งแจ้งเตือนสำเร็จ" ทั้งที่ไม่มีใครได้รับ)
+ */
+async function sendNotification(message, env, recipientIdsOverride) {
+  const messages = splitMessage(message).map(text => ({ type: 'text', text }));
+  if (messages.length === 0) {
+    return { total: 0, sent: 0, failed: 0, errors: ['empty message'], removed: [] };
+  }
+  if (!env.CHANNEL_ACCESS_TOKEN) {
+    console.error('[LINE Push Error] CHANNEL_ACCESS_TOKEN not configured.');
+    return { total: 0, sent: 0, failed: 0, errors: ['CHANNEL_ACCESS_TOKEN not configured'], removed: [] };
+  }
+
+  let recipientIds = recipientIdsOverride;
+  if (!recipientIds) {
+    try {
+      recipientIds = await getRecipientIds(env);
+    } catch (e) {
+      console.error(`[LINE Push Error] Cannot read recipients: ${e.message}`);
+      recipientIds = [];
+    }
+    if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
+      if (env.RECIPIENT_ID) {
+        recipientIds = [env.RECIPIENT_ID];
+      } else {
+        console.error('[LINE Push Error] No recipients found.');
+        return { total: 0, sent: 0, failed: 0, errors: ['no recipients'], removed: [] };
+      }
+    }
+  }
+
+  const results = await Promise.all(recipientIds.map(async (recipientId) => {
+    const result = await pushWithRetry(env, recipientId, messages);
+    if (result.ok) return { recipientId, ok: true };
+
+    console.error(`[LINE Push Error] To: ${recipientId}, Status: ${result.status}, Body: ${result.body}`);
+
+    // 403 = บอทส่งหาปลายทางนี้ไม่ได้แล้ว (ถูกเตะออกจากกลุ่ม/กลุ่มถูกยุบ/ผู้ใช้บล็อก)
+    // ลบทิ้งอัตโนมัติ เพื่อไม่ให้ค้างเป็นผู้รับที่ส่งไม่เคยสำเร็จไปตลอด
+    // (401/400 ไม่ลบ เพราะอาจเป็นปัญหาที่ token หรือรูปแบบข้อความ ไม่ใช่ตัวผู้รับ)
+    let removed = false;
+    if (result.status === 403 && !recipientIdsOverride) {
+      try {
+        await removeRecipient(env, recipientId);
+        removed = true;
+        console.log(`[LINE Push] Removed unreachable recipient: ${recipientId}`);
+      } catch (e) {
+        console.error(`[LINE Push] Failed to remove recipient ${recipientId}: ${e.message}`);
+      }
+    }
+    return { recipientId, ok: false, removed, status: result.status, body: result.body };
+  }));
+
+  const failedResults = results.filter(r => !r.ok);
+  const summary = {
+    total: results.length,
+    sent: results.length - failedResults.length,
+    failed: failedResults.length,
+    errors: failedResults.map(r => `${r.recipientId}: ${r.status === 429 ? 'ส่งไม่ได้ (โควตา/ถี่เกินไป)' : `HTTP ${r.status}`}`),
+    removed: failedResults.filter(r => r.removed).map(r => r.recipientId),
+  };
+  console.log(`[LINE Push] sent=${summary.sent} failed=${summary.failed} total=${summary.total}`);
+  return summary;
+}
+
+/** ตอบกลับในแชท (ใช้ Reply Token — ไม่กิน Push quota) */
+async function replyToLine(env, replyToken, text, logLabel = 'Reply') {
+  const messages = splitMessage(text).map(t => ({ type: 'text', text: t }));
+  if (messages.length === 0) return { ok: false, status: 0, body: 'empty message' };
+
+  const result = await callLineApi(env, 'message/reply', { replyToken, messages });
+  if (!result.ok) {
+    console.error(`[Mention] ${logLabel} failed: Status ${result.status}, Body: ${result.body}`);
+  }
+  return result;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -305,10 +511,7 @@ const checkKvBinding = (kv, name) => {
   if (!kv) {
     const errorMsg = `KV Namespace binding "${name}" not found.`;
     console.error(`[KV Binding Error] ${errorMsg}`);
-    return new Response(JSON.stringify({ error: errorMsg }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return json({ error: errorMsg }, 500);
   }
   return null;
 };
@@ -332,38 +535,49 @@ export default {
 
     // ตรวจสอบสถานะ Worker — Frontend เรียกตอนโหลดหน้าแรก
     if (path === '/status') {
-      const status = {
+      // นับผู้รับแจ้งเตือนจริงใน KV ด้วย — ถ้าเป็น 0 แปลว่าแจ้งเตือนจะไม่ถึงใครเลย
+      let recipientCount = null;
+      try {
+        recipientCount = (await getRecipientIds(env)).length;
+      } catch (e) {
+        console.error(`[Status] Cannot count recipients: ${e.message}`);
+      }
+
+      return json({
         lineApiToken: !!env.CHANNEL_ACCESS_TOKEN,
+        channelSecretSet: !!env.CHANNEL_SECRET,   // ต้องตั้งค่า ไม่งั้น /webhook รับ event ปลอมได้
         roomKvBinding: !!env.ROOM_BOOKINGS_KV,
         equipmentKvBinding: !!env.EQUIPMENT_BORROWINGS_KV,
         repairKvBinding: !!env.REPAIR_REQUESTS_KV,
         recipientIdSet: !!env.RECIPIENT_ID,
         repairGroupIdSet: !!env.REPAIR_GROUP_ID,
-      };
-      return new Response(JSON.stringify(status), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        recipientCount,
       });
     }
 
     // ล็อกอิน Admin — ตรวจสอบรหัสผ่านกับ ADMIN_PASSWORD ใน env
     if (path === '/auth/login' && request.method === 'POST') {
+      // จำกัดการเดารหัส: 10 ครั้งต่อ IP ต่อ 15 นาที (เดิมเดาได้ไม่จำกัด)
+      const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const attemptKey = `login_attempt:${clientIp}`;
       try {
-        const { password } = await request.json();
-        if (password && password === env.ADMIN_PASSWORD) {
-          return new Response(JSON.stringify({ success: true }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        } else {
-          return new Response(JSON.stringify({ success: false }), {
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
+        const attempts = parseInt(await env.ROOM_BOOKINGS_KV.get(attemptKey) || '0', 10);
+        if (attempts >= LOGIN_MAX_ATTEMPTS) {
+          console.warn(`[Auth] Too many failed logins from ${clientIp}`);
+          return json({ success: false, error: 'พยายามเข้าสู่ระบบบ่อยเกินไป กรุณารอ 15 นาที' }, 429);
         }
+
+        const { password } = await request.json();
+        if (password && env.ADMIN_PASSWORD && password === env.ADMIN_PASSWORD) {
+          if (attempts > 0) await env.ROOM_BOOKINGS_KV.delete(attemptKey);
+          return json({ success: true });
+        }
+
+        // นับเฉพาะครั้งที่ผิด และให้ KV ลบ key ทิ้งเองเมื่อครบ 15 นาที
+        await env.ROOM_BOOKINGS_KV.put(attemptKey, String(attempts + 1), { expirationTtl: LOGIN_WINDOW_SECONDS });
+        return json({ success: false }, 401);
       } catch (e) {
-        return new Response(JSON.stringify({ success: false }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        return json({ success: false }, 400);
       }
     }
 
@@ -374,7 +588,22 @@ export default {
     //   https://tcc-line-notifier.media-tcc.workers.dev/webhook
     if (path === '/webhook' && request.method === 'POST') {
       try {
-        const body = await request.json();
+        // ต้องอ่าน body เป็นข้อความดิบก่อน เพราะลายเซ็นคำนวณจากตัวอักษรทุกตัวที่ LINE ส่งมา
+        const rawBody = await request.text();
+
+        if (env.CHANNEL_SECRET) {
+          const signature = request.headers.get('x-line-signature');
+          const valid = await verifyLineSignature(rawBody, signature, env.CHANNEL_SECRET);
+          if (!valid) {
+            console.error('[Webhook] Invalid signature — request rejected.');
+            return new Response('Invalid signature', { status: 401 });
+          }
+        } else {
+          // ไม่ตั้ง CHANNEL_SECRET = ใครก็ยิง event ปลอมมาแอบเพิ่มกลุ่มตัวเองเป็นผู้รับแจ้งเตือนได้
+          console.warn('[Webhook] CHANNEL_SECRET is not set — signature check skipped. โปรดตั้งค่าใน Worker Settings');
+        }
+
+        const body = JSON.parse(rawBody);
         const events = body.events || [];
         for (const event of events) {
 
@@ -401,9 +630,11 @@ export default {
 
             if (isBotMentioned) {
               const text = event.message.text.toLowerCase();
+              // "ขอยืมห้องประชุม" ต้องไปเข้ารายงานการจองห้อง ไม่ใช่รายงานยืมอุปกรณ์
+              const asksEquipment = text.includes('ยืม') && !text.includes('ห้อง');
 
               // คำสั่ง: @Bot ยืม / รายงานยืม → รายงานอุปกรณ์ที่ยังไม่คืน (เผื่อ Push token หมด เรียกดูเองได้)
-              if (text.includes('ยืม')) {
+              if (asksEquipment) {
                 const borrowings = await env.EQUIPMENT_BORROWINGS_KV.get('equipment_data', 'json') || [];
                 const activeBorrowStatuses = ['รออนุมัติ', 'อยู่ระหว่างการยืม', 'เกินกำหนด'];
                 const borrowPriority = { 'เกินกำหนด': 1, 'อยู่ระหว่างการยืม': 2, 'รออนุมัติ': 3 };
@@ -435,18 +666,7 @@ export default {
                     replyText += `\n\n...และอีก ${remainingBorrowings} รายการ (แสดงแค่ 20 รายการแรกเท่านั้น)`;
                   }
                 }
-
-                await fetch('https://api.line.me/v2/bot/message/reply', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
-                  },
-                  body: JSON.stringify({
-                    replyToken: event.replyToken,
-                    messages: [{ type: 'text', text: replyText }],
-                  }),
-                });
+                await replyToLine(env, event.replyToken, replyText, 'Equipment report');
 
                 console.log(`[Mention] Equipment report sent (${activeBorrowings.length}/${allActiveBorrowings.length} borrowings)`);
 
@@ -484,23 +704,12 @@ export default {
                     replyText += `\n\n...และอีก ${remainingRepairs} รายการ (แสดงแค่ 20 รายการแรกเท่านั้น)`;
                   }
                 }
-
-                await fetch('https://api.line.me/v2/bot/message/reply', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
-                  },
-                  body: JSON.stringify({
-                    replyToken: event.replyToken,
-                    messages: [{ type: 'text', text: replyText }],
-                  }),
-                });
+                await replyToLine(env, event.replyToken, replyText, 'Repair report');
 
                 console.log(`[Mention] Repair report sent (${activeRepairs.length}/${allActiveRepairs.length} repairs)`);
 
               // คำสั่ง: @Bot รายงาน / จอง / จองพรุ่งนี้ / จอง 16-6-69 / จอง 20 ก.ค. 69
-              } else if (text.includes('รายงาน') || text.includes('จอง')) {
+              } else if (text.includes('รายงาน') || text.includes('จอง') || text.includes('ห้อง')) {
 
                 const nowTH = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
 
@@ -553,18 +762,7 @@ export default {
                   });
 
                   replyText += `\n──────────────\nรวมทั้งสัปดาห์: ${totalCount} รายการ`;
-
-                  await fetch('https://api.line.me/v2/bot/message/reply', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
-                    },
-                    body: JSON.stringify({
-                      replyToken: event.replyToken,
-                      messages: [{ type: 'text', text: replyText }],
-                    }),
-                  });
+                  await replyToLine(env, event.replyToken, replyText, 'Weekly report');
 
                   console.log(`[Mention] Weekly report sent (${totalCount} bookings, ${weekLabel})`);
 
@@ -602,18 +800,7 @@ export default {
                       replyText += `\n\n...และอีก ${remaining} รายการ (แสดงแค่ 20 รายการถัดไปเท่านั้น)`;
                     }
                   }
-
-                  await fetch('https://api.line.me/v2/bot/message/reply', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
-                    },
-                    body: JSON.stringify({
-                      replyToken: event.replyToken,
-                      messages: [{ type: 'text', text: replyText }],
-                    }),
-                  });
+                  await replyToLine(env, event.replyToken, replyText, 'Upcoming report');
 
                   console.log(`[Mention] Upcoming report sent (${upcoming.length}/${allUpcoming.length} bookings)`);
 
@@ -728,21 +915,26 @@ export default {
                       if (i < dayBookings.length - 1) replyText += '\n━━━━━━\n';
                     });
                   }
-
-                  await fetch('https://api.line.me/v2/bot/message/reply', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}`,
-                    },
-                    body: JSON.stringify({
-                      replyToken: event.replyToken,
-                      messages: [{ type: 'text', text: replyText }],
-                    }),
-                  });
+                  await replyToLine(env, event.replyToken, replyText, 'Daily report');
 
                   console.log(`[Mention] Replied with ${dayBookings.length} bookings for ${targetISO}`);
                 }
+
+              } else {
+                // @บอทแล้วไม่ตรงคำสั่งไหนเลย — เดิมบอทเงียบ ทำให้คนคิดว่าบอทเสีย
+                const helpText =
+                  `🤖 พิมพ์ @ชื่อบอท ตามด้วยคำสั่งเหล่านี้ได้ครับ\n` +
+                  `──────────────\n` +
+                  `📅 จองวันนี้ / จองพรุ่งนี้ / จอง 20 ก.ค. 69\n` +
+                  `   → รายการจองห้องของวันนั้น\n\n` +
+                  `📊 รายงานสัปดาห์นี้ / รายงานสัปดาห์หน้า\n` +
+                  `   → รายการจองทั้งสัปดาห์ (จันทร์–อาทิตย์)\n\n` +
+                  `📋 จองทั้งหมด\n` +
+                  `   → การจองที่จะถึง 20 รายการถัดไป\n\n` +
+                  `📷 ยืม → อุปกรณ์ที่ยังไม่ได้คืน\n` +
+                  `🛠️ ซ่อม → งานแจ้งซ่อมที่ยังค้างอยู่`;
+                await replyToLine(env, event.replyToken, helpText, 'Help');
+                console.log('[Mention] Help message sent (unknown command)');
               }
             }
           }
@@ -761,10 +953,7 @@ export default {
     // และ VITE_API_SECRET_KEY ใน Cloudflare Pages Settings
     const apiKey = request.headers.get('X-API-Key');
     if (!apiKey || apiKey !== env.API_SECRET_KEY) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return json({ error: 'Unauthorized' }, 401);
     }
 
     try {
@@ -785,26 +974,85 @@ export default {
         };
         const KV_NAME = KV_BINDINGS[type];
         if (!KV_NAME) {
-          return new Response(JSON.stringify({ error: `Unknown data type: ${type}` }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
+          return json({ error: `Unknown data type: ${type}` }, 400);
         }
         const KV = env[KV_NAME];
         const kvError = checkKvBinding(KV, KV_NAME); // เก็บ error ไว้ตัวแปรก่อน (ไม่เรียกซ้ำ)
         if (kvError) return kvError;
 
         if (request.method === 'GET') {
-          const data = await KV.get(`${type}_data`, 'json') || [];
-          return new Response(JSON.stringify(data), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
+          // ?version=prev → อ่านสำเนาก่อนการบันทึกครั้งล่าสุด (ใช้กู้ข้อมูลเวลาเขียนทับพลาด)
+          const wantsPrevious = url.searchParams.get('version') === 'prev';
+          const data = await KV.get(wantsPrevious ? `${type}_data_prev` : `${type}_data`, 'json') || [];
+
+          // ส่งเลขรุ่นของข้อมูลติดไปด้วย — ฝั่งเว็บเก็บไว้แล้วแนบกลับมาตอนบันทึก
+          // เพื่อให้ Worker รู้ว่าเขียนทับของใหม่กว่าอยู่หรือเปล่า (ดูหัวข้อ POST)
+          const version = (await KV.get(`${type}_data_version`)) || '0';
+          const response = json(data);
+          response.headers.set('X-Data-Version', version);
+          return response;
         }
+
         if (request.method === 'POST') {
-          await KV.put(`${type}_data`, JSON.stringify(await request.json()));
-          return new Response(JSON.stringify({ success: true }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
+          let incoming;
+          try {
+            incoming = await request.json();
+          } catch (e) {
+            return json({ error: 'Body ไม่ใช่ JSON ที่ถูกต้อง' }, 400);
+          }
+
+          // กันข้อมูลหายจากการส่ง body ผิดรูป (null / object / string) มาทับ array ทั้งก้อน
+          if (!Array.isArray(incoming)) {
+            console.error(`[Data Guard] Rejected non-array payload for "${type}"`);
+            return json({ error: 'ข้อมูลต้องเป็น array เท่านั้น' }, 400);
+          }
+
+          // ── กันข้อมูลของคนอื่นหายเพราะบันทึกพร้อมกัน ────────────────────────
+          // endpoint นี้เขียนทับทั้ง array เสมอ ถ้า A กับ B เปิดหน้าเดียวกันแล้วบันทึกไล่กัน
+          // ของ A จะหายไปทั้งก้อนโดยไม่มีใครรู้ (last write wins)
+          // ตอนนี้ฝั่งเว็บแนบ X-Data-Version ที่ได้ตอน GET กลับมาด้วย ถ้าไม่ตรงกับของใน KV
+          // แปลว่ามีคนบันทึกแทรกไปแล้ว → ตอบ 409 พร้อมข้อมูลล่าสุด ให้ฝั่งเว็บรวมแล้วส่งใหม่
+          //
+          // ⚠️ KV เป็น eventually consistent ไม่ใช่ transaction — ถ้าสองคนบันทึกพร้อมกัน
+          //    ในระดับวินาทีเดียวกันจากคนละภูมิภาค อาจตรวจไม่เจอ ทางแก้ที่ปิดช่องได้จริง
+          //    ต้องย้ายไป Durable Objects หรือ D1 (ดู TODO ใน DEVELOPER_GUIDE)
+          const currentVersion = (await KV.get(`${type}_data_version`)) || '0';
+          const clientVersion = request.headers.get('X-Data-Version');
+          if (clientVersion && clientVersion !== currentVersion) {
+            console.warn(`[Data Guard] Conflict on "${type}": client=${clientVersion} current=${currentVersion}`);
+            const current = await KV.get(`${type}_data`, 'json') || [];
+            const conflictResponse = json({
+              error: 'conflict',
+              message: 'มีคนบันทึกข้อมูลแทรกเข้ามาก่อน',
+              version: currentVersion,
+              data: current,
+            }, 409);
+            conflictResponse.headers.set('X-Data-Version', currentVersion);
+            return conflictResponse;
+          }
+          const newVersion = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+          // เก็บสำเนาของเดิมไว้ก่อนเขียนทับ — /data?type=...&version=prev ดึงกลับมาได้
+          // (endpoint นี้เขียนทับทั้งก้อนเสมอ ถ้าไม่มีสำเนาไว้ พลาดครั้งเดียวคือข้อมูลหายถาวร)
+          const previous = await KV.get(`${type}_data`);
+          if (previous) {
+            await KV.put(`${type}_data_prev`, previous);
+            await KV.put(`${type}_data_prev_at`, new Date().toISOString());
+
+            // เตือนไว้ใน log เมื่อจำนวนรายการหายไปเกินครึ่ง — ไล่ดูย้อนหลังได้ว่าเกิดตอนไหน
+            try {
+              const previousCount = JSON.parse(previous).length;
+              if (previousCount >= 10 && incoming.length < previousCount / 2) {
+                console.warn(`[Data Guard] "${type}" shrank ${previousCount} → ${incoming.length} รายการ (สำเนาเดิมอยู่ที่ ${type}_data_prev)`);
+              }
+            } catch (e) { /* ของเดิมพัง ข้ามการเทียบไป */ }
+          }
+
+          await KV.put(`${type}_data`, JSON.stringify(incoming));
+          await KV.put(`${type}_data_version`, newVersion);
+          const okResponse = json({ success: true, count: incoming.length, version: newVersion });
+          okResponse.headers.set('X-Data-Version', newVersion);
+          return okResponse;
         }
       }
 
@@ -816,18 +1064,32 @@ export default {
       if (path === '/notify' && request.method === 'POST') {
         const { message, target } = await request.json();
 
-        if (target === 'repair') {
-          if (!env.REPAIR_GROUP_ID) {
-            console.error('[LINE Push Error] REPAIR_GROUP_ID not configured — skipped repair notification.');
-          } else {
-            ctx.waitUntil(sendNotification(message, env, [env.REPAIR_GROUP_ID]));
-          }
-        } else {
-          ctx.waitUntil(sendNotification(message, env));
+        if (typeof message !== 'string' || message.trim() === '') {
+          return json({ success: false, error: 'ไม่มีข้อความที่จะส่ง' }, 400);
         }
 
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        if (target === 'repair' && !env.REPAIR_GROUP_ID) {
+          console.error('[LINE Push Error] REPAIR_GROUP_ID not configured — skipped repair notification.');
+          return json({
+            success: false, sent: 0, failed: 0, total: 0,
+            error: 'ยังไม่ได้ตั้งค่า REPAIR_GROUP_ID ใน Worker',
+          }, 200);
+        }
+
+        // รอผลจาก LINE จริง ๆ ก่อนตอบกลับ (เดิมใช้ ctx.waitUntil แล้วตอบ success ทันที
+        // หน้าเว็บจึงขึ้นว่า "ส่งสำเร็จ" แม้ push จะล้มเหลวทุกปลายทาง เช่น token หมดอายุ
+        // หรือโควตาข้อความรายเดือนเต็ม) — ปกติใช้เวลาไม่ถึงวินาที
+        const result = target === 'repair'
+          ? await sendNotification(message, env, [env.REPAIR_GROUP_ID])
+          : await sendNotification(message, env);
+
+        return json({
+          success: result.sent > 0,
+          sent: result.sent,
+          failed: result.failed,
+          total: result.total,
+          removed: result.removed,
+          error: result.sent > 0 ? undefined : (result.errors[0] || 'ส่งแจ้งเตือนไม่สำเร็จ'),
         });
       }
 
@@ -854,22 +1116,14 @@ export default {
             return { id, name: null, type: isGroup ? 'group' : 'user' };
           }
         }));
-        return new Response(JSON.stringify(recipients), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        return json(recipients);
       }
 
-      return new Response(JSON.stringify({ error: 'Route not found' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return json({ error: 'Route not found' }, 404);
 
     } catch (e) {
       console.error(`[Worker Error] ${e.message}\n${e.stack}`);
-      return new Response(JSON.stringify({ error: 'Worker internal error' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return json({ error: 'Worker internal error' }, 500);
     }
   },
 
@@ -881,19 +1135,33 @@ export default {
   //  ทำหน้าที่: ส่งสรุปการจองห้องวันนี้ไปยัง LINE
   // ───────────────────────────────────────────────────────────────────────────
   async scheduled(event, env, ctx) {
-    const today = new Date().toISOString().split('T')[0];
+    // ต้องใช้วันที่ตามเวลาไทย ไม่ใช่ UTC — ไม่งั้นถ้าเปลี่ยนเวลา cron ไปช่วงค่ำของไทย
+    // สรุปที่ส่งจะกลายเป็นของ "เมื่อวาน" โดยไม่มีใครสังเกต
+    const today = bangkokDateISO();
     const bookings = await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json') || [];
     const todayBookings = bookings
       .filter(b => b.date === today && b.status === 'จองแล้ว')
       .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
-    if (todayBookings.length > 0) {
-      let reportMsg = `📊 สรุปการจองห้องประชุม (วันนี้)\n---------------------\n`;
-      todayBookings.forEach(b => {
-        reportMsg += `📅 ${b.roomName} (${b.startTime}-${b.endTime})\n   - ${b.purpose} (โดย ${b.bookerName})\n\n`;
-      });
-      reportMsg += `🔗 ตรวจสอบเพิ่มเติมในระบบ`;
-      await sendNotification(reportMsg, env);
+    if (todayBookings.length === 0) {
+      console.log(`[Scheduled] ${today} — ไม่มีการจอง ไม่ต้องส่งแจ้งเตือน`);
+      return;
+    }
+
+    const dateLabel = new Date(`${today}T00:00:00+07:00`)
+      .toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Bangkok' });
+
+    let reportMsg = `📊 สรุปการจองห้องประชุมวันนี้ (${dateLabel})\n──────────────\n`;
+    todayBookings.forEach(b => {
+      reportMsg += `\n🕐 ${b.startTime}–${b.endTime} น.\n🏢 ${b.roomName}\n📝 ${b.purpose}\n👤 ${b.bookerName}\n`;
+    });
+    reportMsg += `\n──────────────\nรวม ${todayBookings.length} รายการ`;
+
+    // ข้อความยาวเกิน 5,000 ตัวอักษรจะถูกตัดเป็นหลายข้อความให้เองใน sendNotification
+    const result = await sendNotification(reportMsg, env);
+    console.log(`[Scheduled] ${today} — ${todayBookings.length} bookings, sent=${result.sent}/${result.total}`);
+    if (result.failed > 0) {
+      console.error(`[Scheduled] ส่งไม่สำเร็จ ${result.failed} ปลายทาง: ${result.errors.join(', ')}`);
     }
   }
 };

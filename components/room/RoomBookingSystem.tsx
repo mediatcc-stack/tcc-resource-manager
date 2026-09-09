@@ -8,7 +8,7 @@ import BookingForm from './BookingForm';
 import MyBookingsPage from './MyBookingsPage';
 import StatisticsPage from './StatisticsPage';
 import { fetchData, saveData } from '../../services/apiService';
-import { sendLineNotification } from '../../services/notificationService';
+import { sendLineNotification, NotifyResult } from '../../services/notificationService';
 import { addMyBookingId, getMyBookingIds } from '../../services/myBookingsStorage';
 import { v4 as uuidv4 } from 'uuid';
 import LoadingSpinner from '../shared/LoadingSpinner';
@@ -87,7 +87,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
 
       // Persist status changes to ensure consistency across all users.
       if (hasChanges && !isBackground) { // Only save on foreground fetches to prevent loops/spam
-        saveData('rooms', processedData)
+        saveData('rooms', processedData, data)
             .then(() => {
                 console.log("System: Automatically updated status for expired bookings.");
             })
@@ -148,8 +148,9 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
 
   const updateBookingList = async (newList: Booking[]): Promise<boolean> => {
     try {
-      await saveData('rooms', newList);
-      setBookings(newList);
+      // ส่ง bookings (ก่อนแก้) ไปด้วย เผื่อมีคนบันทึกแทรก จะได้รวมข้อมูลแทนที่จะทับของเขาหาย
+      const saved = await saveData('rooms', newList, bookings);
+      setBookings(saved);
       setLastUpdated(new Date());
       fetchBookings(true);
       return true;
@@ -248,8 +249,8 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
     const updatedBookings = [...bookings, ...createdBookings];
     
     try {
-      await saveData('rooms', updatedBookings);
-      setBookings(updatedBookings);
+      const savedBookings = await saveData('rooms', updatedBookings, bookings);
+      setBookings(savedBookings);
       setLastUpdated(new Date());
       setCurrentPage('home');
       showToast('การจองห้องสำเร็จ!', 'success');
@@ -269,6 +270,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
       }
 
       // --- Send LINE Notification ---
+      let notifyResult: NotifyResult | null = null;
       try {
           if (createdBookings.length === 0) return;
 
@@ -305,7 +307,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
               };
               const multiArrangement = arrangementLabel(firstBooking.roomArrangement);
               const notifyMessage = `🏫 จองห้องใหม่\n──────────────\n${roomNames}\n📅 ${dateRange} | ${firstBooking.startTime}–${firstBooking.endTime} น.\n📝 ${firstBooking.purpose}\n👤 ${firstBooking.bookerName}${multiArrangement ? `\n🪑 ${multiArrangement}` : ''}`;
-              await sendLineNotification(notifyMessage);
+              notifyResult = await sendLineNotification(notifyMessage);
           } else { // Single booking
               const booking = createdBookings[0];
               const bookingDate = new Date(booking.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -318,10 +320,14 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
               };
               const arrangementText = getArrangementLabel(booking.roomArrangement);
               const notifyMessage = `🏫 จองห้องใหม่\n──────────────\n${booking.roomName}\n📅 ${bookingDate} | ${booking.startTime}–${booking.endTime} น.\n📝 ${booking.purpose}\n👤 ${booking.bookerName}${arrangementText ? `\n🪑 ${arrangementText}` : ''}`;
-              await sendLineNotification(notifyMessage);
+              notifyResult = await sendLineNotification(notifyMessage);
           }
       } catch (e) {
           console.error("Failed to send LINE notification:", e);
+      }
+      // จองสำเร็จแล้วแน่นอน แต่ถ้าเจ้าหน้าที่ไม่ได้รับแจ้งเตือน ผู้จองควรรู้ไว้ว่าต้องแจ้งเอง
+      if (notifyResult && !notifyResult.ok) {
+          showToast(`จองสำเร็จ แต่แจ้งเตือน LINE ไม่ถึงเจ้าหน้าที่ (${notifyResult.error})`, 'error');
       }
       // --- End Notification ---
 

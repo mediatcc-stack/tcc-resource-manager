@@ -1,5 +1,18 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════════════
+ *  ConfigurationStatusModal.tsx — หน้าตรวจสอบสุขภาพระบบ (เฉพาะโหมดเจ้าหน้าที่)
+ * ═══════════════════════════════════════════════════════════════════════════════
+ *
+ *  เปิดจากปุ่มรูปเกียร์บนแถบหัวเรื่องเมื่ออยู่ในโหมดเจ้าหน้าที่
+ *  ใช้เช็คหลัง deploy Worker ใหม่ทุกครั้ง — โดยเฉพาะ 2 อย่างนี้
+ *    • ลายเซ็น Webhook (CHANNEL_SECRET) — ถ้ายังไม่ตั้ง ใครก็แอบเพิ่มกลุ่มตัวเอง
+ *      เป็นผู้รับแจ้งเตือนได้
+ *    • กลุ่มที่รับแจ้งเตือน — ถ้าเป็น 0 แปลว่าแจ้งเตือนที่ส่งออกไปไม่ถึงใครเลย
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════
+ */
 import React from 'react';
-import { WorkerStatus } from '../../services/apiService';
+import { WorkerStatus, NotificationRecipient } from '../../services/apiService';
 import { WORKER_BASE_URL } from '../../constants';
 
 interface StatusItemProps {
@@ -26,9 +39,14 @@ interface ConfigurationStatusModalProps {
   onClose: () => void;
   status: WorkerStatus | null;
   error: string | null;
+  recipients: NotificationRecipient[] | null;
+  isLoading?: boolean;
+  onRefresh?: () => void;
 }
 
-const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({ isOpen, onClose, status, error }) => {
+const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({
+  isOpen, onClose, status, error, recipients, isLoading = false, onRefresh,
+}) => {
   if (!isOpen) return null;
 
   return (
@@ -48,7 +66,8 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({ isO
           </h3>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+          {isLoading && <p className="text-sm text-on-surface-variant text-center py-4">กำลังตรวจสอบ...</p>}
           {error && <StatusItem label="การเชื่อมต่อ Worker" isOk={false} failText={error} />}
           
           {status && (
@@ -58,6 +77,18 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({ isO
                 label="LINE Access Token" 
                 isOk={status.lineApiToken} 
                 failText="ไม่ได้ตั้งค่าใน Worker" 
+              />
+              <StatusItem
+                label="ลายเซ็น Webhook (CHANNEL_SECRET)"
+                isOk={status.channelSecretSet}
+                okText="ตรวจลายเซ็นแล้ว"
+                failText="ยังไม่ตั้งค่า — คนนอกแอบเพิ่มกลุ่มรับแจ้งเตือนได้"
+              />
+              <StatusItem
+                label="กลุ่มที่รับแจ้งเตือน"
+                isOk={(status.recipientCount ?? 0) > 0}
+                okText={`${status.recipientCount} กลุ่ม`}
+                failText="ไม่มีกลุ่มไหนรับแจ้งเตือนเลย"
               />
               <StatusItem
                 label="LINE Recipient ID"
@@ -87,6 +118,27 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({ isO
             </ul>
           )}
 
+          {recipients && recipients.length > 0 && (
+            <div className="pt-4 border-t border-outline-variant mt-4">
+              <h4 className="text-sm font-bold text-on-surface mb-3">แจ้งเตือนจะส่งเข้ากลุ่มเหล่านี้</h4>
+              <ul className="space-y-2">
+                {recipients.map(r => (
+                  <li key={r.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-surface-container-low border border-outline-variant">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-on-surface truncate">
+                        {r.name || '(อ่านชื่อไม่ได้ — บอทอาจถูกเตะออกจากกลุ่มแล้ว)'}
+                      </p>
+                      <p className="text-[10px] text-outline font-mono truncate">{r.id}</p>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-surface-container text-on-surface-variant shrink-0">
+                      {r.type === 'group' ? 'กลุ่ม' : 'ส่วนตัว'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="pt-4 border-t border-outline-variant mt-4">
             <h4 className="text-sm font-bold text-on-surface mb-3">คำแนะนำเพิ่มเติม</h4>
             <div className="text-xs text-on-surface bg-surface-container-low p-4 rounded-lg space-y-2 border border-outline-variant">
@@ -97,7 +149,16 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({ isO
 
         </div>
 
-        <div className="p-4 bg-surface-container-low border-t border-outline-variant flex justify-end items-center rounded-b-2xl">
+        <div className="p-4 bg-surface-container-low border-t border-outline-variant flex justify-end items-center gap-2 rounded-b-2xl">
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              disabled={isLoading}
+              className="px-4 py-2 bg-surface-container text-on-surface rounded-lg text-sm font-semibold hover:bg-surface-container-high transition disabled:opacity-50"
+            >
+              ตรวจสอบใหม่
+            </button>
+          )}
           <button
             onClick={onClose}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition"
