@@ -13,6 +13,8 @@ interface SystemToolbarProps<T extends string> {
   activeKey: T;
   onSelect: (key: T) => void;
   connectionStatus: ConnectionStatus;
+  /** แสดงคำใบ้ "ปัดเพื่อสลับแท็บ" บนจอเล็ก (ซ่อนถาวรหลังผู้ใช้ปัดสำเร็จครั้งแรก) */
+  swipeHint?: boolean;
   action?: {
     label: string;
     icon?: React.ReactNode;
@@ -28,7 +30,7 @@ const STATUS_TEXT: Record<ConnectionStatus, string> = {
 
 /**
  * แถบคำสั่งด้านบนของแต่ละระบบ
- * ซ้าย  — กลุ่มแท็บสลับมุมมอง
+ * ซ้าย  — กลุ่มแท็บสลับมุมมอง (บนมือถือปัดซ้าย/ขวาที่เนื้อหาเพื่อสลับได้ด้วย)
  * ขวา   — ป้ายสถานะการเชื่อมต่อ + ปุ่มสร้างรายการใหม่
  */
 function SystemToolbar<T extends string>({
@@ -36,6 +38,7 @@ function SystemToolbar<T extends string>({
   activeKey,
   onSelect,
   connectionStatus,
+  swipeHint = false,
   action,
 }: SystemToolbarProps<T>) {
   const dotClass =
@@ -46,25 +49,34 @@ function SystemToolbar<T extends string>({
   return (
     <div className="bg-surface-container-lowest rounded-xl shadow-card p-space-sm md:p-space-md mb-space-lg flex flex-col md:flex-row md:items-center justify-between gap-space-md">
       {/* กลุ่มแท็บ */}
-      <div className="flex items-center gap-space-xs bg-surface-container-low p-1 rounded-xl w-full md:w-auto overflow-x-auto">
-        {tabs.map(tab => {
-          const isActive = tab.key === activeKey;
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => onSelect(tab.key)}
-              className={`flex items-center gap-space-xs px-space-md py-2 rounded-lg font-label text-label-md whitespace-nowrap transition-all cursor-pointer shrink-0 ${
-                isActive
-                  ? 'bg-primary text-on-primary shadow-sm'
-                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
-              }`}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+      <div className="w-full md:w-auto">
+        <div className="flex items-center gap-space-xs bg-surface-container-low p-1 rounded-xl w-full overflow-x-auto">
+          {tabs.map(tab => {
+            const isActive = tab.key === activeKey;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => onSelect(tab.key)}
+                className={`flex items-center gap-space-xs px-space-md py-2 rounded-lg font-label text-label-md whitespace-nowrap transition-all cursor-pointer shrink-0 ${
+                  isActive
+                    ? 'bg-primary text-on-primary shadow-sm'
+                    : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
+                }`}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {swipeHint && tabs.length > 1 && (
+          <p className="md:hidden mt-space-xs px-1 font-label text-label-sm text-on-surface-variant flex items-center gap-1.5">
+            <span aria-hidden="true">↔</span>
+            ปัดซ้าย–ขวาที่เนื้อหาเพื่อสลับแท็บได้
+          </p>
+        )}
       </div>
 
       {/* สถานะ + ปุ่มหลัก */}

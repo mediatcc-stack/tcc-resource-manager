@@ -12,7 +12,11 @@ import { v4 as uuidv4 } from 'uuid';
 import LoadingSpinner from '../shared/LoadingSpinner';
 import Button from '../shared/Button';
 import SystemToolbar from '../shared/SystemToolbar';
+import { useSwipeableTabs } from '../../hooks/useSwipeableTabs';
 import { ClipboardList, BarChart3, PlusCircle } from 'lucide-react';
+
+/** ลำดับแท็บที่ปัดสลับกันได้ (หน้า 'form' เป็นฟอร์ม จึงไม่อยู่ในลำดับนี้) */
+const SWIPEABLE_TABS: RepairPage[] = ['list', 'statistics'];
 
 interface RepairSystemProps {
     showToast: (message: string, type: 'success' | 'error') => void;
@@ -31,6 +35,14 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
     const [myRepairIds, setMyRepairIds] = useState<string[]>(() => getMyRepairIds());
 
     const pollTimer = useRef<number | null>(null);
+
+    // ปัดซ้าย/ขวาบนมือถือเพื่อสลับแท็บ — ใช้ selectTab แทน setCurrentPage ตรง ๆ เพื่อให้อนิเมชันไปทางเดียวกัน
+    const { swipeHandlers, selectTab, contentAnimationClass, showSwipeHint } = useSwipeableTabs<RepairPage>({
+        order: SWIPEABLE_TABS,
+        activeKey: currentPage,
+        onChange: (key) => { setEditingRequest(null); setCurrentPage(key); },
+        enabled: !isLoading,
+    });
 
     const fetchRepairs = useCallback(async (isBackground = false) => {
         if (!isBackground) {
@@ -237,22 +249,23 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
     };
 
     return (
-        <div className="animate-fade-in mb-20">
+        <div className="animate-fade-in mb-20" {...swipeHandlers}>
             <SystemToolbar
                 tabs={[
                     { key: 'list',       label: 'รายการแจ้งซ่อมทั้งหมด', icon: <ClipboardList className="w-4 h-4" /> },
                     { key: 'statistics', label: 'สถิติการแจ้งซ่อม',      icon: <BarChart3 className="w-4 h-4" /> },
                 ]}
                 activeKey={currentPage === 'form' ? 'list' : currentPage}
-                onSelect={(key) => { setEditingRequest(null); setCurrentPage(key); }}
+                onSelect={selectTab}
                 connectionStatus={connectionStatus}
+                swipeHint={showSwipeHint}
                 action={{
                     label: 'แจ้งซ่อมอุปกรณ์',
                     icon: <PlusCircle className="w-4 h-4" />,
                     onClick: () => { setEditingRequest(null); setCurrentPage('form'); },
                 }}
             />
-            <div>
+            <div key={currentPage} className={contentAnimationClass}>
                 {renderCurrentPage()}
             </div>
         </div>

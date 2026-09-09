@@ -78,6 +78,8 @@
  *  cloudflare-worker.js                   ← Backend (deploy แยก)
  *  _redirects                             ← Cloudflare Pages SPA config
  *  .env.example                           ← ตัวอย่าง env variables (สำหรับ dev)
+ *  hooks/
+ *    useSwipeableTabs.ts                  ← ปัดซ้าย/ขวาบนมือถือเพื่อสลับแท็บในแต่ละระบบ
  *  services/
  *    apiService.ts                        ← ติดต่อ Worker (fetch/save data)
  *    notificationService.ts               ← ส่ง LINE แจ้งเตือน
