@@ -66,7 +66,7 @@ const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminToggle, onOpenSystemChe
                 ระบบบริหารจัดการทรัพยากรส่วนกลาง
               </span>
               <span className="font-body text-body-sm text-on-primary-container leading-none mt-0.5 hidden sm:block truncate">
-                {APP_CONFIG.collegeName} — งานสื่อดิจิทัลและสื่อสารองค์กร
+                {APP_CONFIG.collegeName}
               </span>
             </div>
           </button>
@@ -130,9 +130,13 @@ const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminToggle, onOpenSystemChe
             </nav>
           </div>
 
+          {/* หน่วยงานที่ดูแลระบบร่วมกัน — สองบรรทัดเพื่อไม่ให้เบียดเมนู */}
           <div className="hidden lg:flex items-center gap-space-xs text-on-surface-variant font-label text-label-sm shrink-0">
-            <Building2 className="w-4 h-4" />
-            <span>งานสื่อดิจิทัลและสื่อสารองค์กร</span>
+            <Building2 className="w-4 h-4 shrink-0" />
+            <span className="flex flex-col leading-tight text-right">
+              <span>{APP_CONFIG.departments[0]}</span>
+              <span>ร่วมกับ {APP_CONFIG.departments[1]}</span>
+            </span>
           </div>
         </div>
       </div>
