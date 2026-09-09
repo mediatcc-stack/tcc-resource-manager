@@ -160,7 +160,7 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onQu
                   <Calendar className="w-5 h-5 text-primary" />
                   <h2 className="font-heading text-headline-sm text-on-surface">ปฏิทินการใช้ห้อง</h2>
                 </div>
-                <span className="bg-surface-container px-2 py-0.5 rounded-full text-on-surface font-label text-label-sm">
+                <span className="bg-surface-container px-2 py-0.5 rounded-full text-on-surface font-label text-label-sm whitespace-nowrap">
                   {currentMonth.getFullYear() + 543}
                 </span>
               </div>
@@ -311,17 +311,17 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onQu
                         </div>
 
                         {!isAvailable ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-error-container text-on-error-container font-label text-label-sm shrink-0">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-error-container text-on-error-container font-label text-label-sm shrink-0 whitespace-nowrap">
                             <Wrench className="w-3.5 h-3.5" />
                             ปิดปรับปรุง
                           </span>
                         ) : roomBookings.length === 0 ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success-container text-on-success-container font-label text-label-sm shrink-0">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success-container text-on-success-container font-label text-label-sm shrink-0 whitespace-nowrap">
                             <span className="w-2 h-2 rounded-full bg-on-success-container" />
                             ว่างตลอดวัน
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label text-label-sm shrink-0">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label text-label-sm shrink-0 whitespace-nowrap">
                             <span className="w-2 h-2 rounded-full bg-secondary" />
                             มีการจอง {roomBookings.length} รายการ
                           </span>
@@ -362,13 +362,13 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onQu
                     {isAvailable ? (
                       <button
                         onClick={() => handleShowRoomDetails(room)}
-                        className="w-full bg-primary hover:bg-primary-container text-on-primary py-2 px-3 rounded-lg font-label text-label-md shadow-sm transition-all active:scale-[0.98] inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="w-full bg-primary hover:bg-primary-container text-on-primary py-2 px-3 rounded-lg font-label text-label-md shadow-sm transition-all active:scale-[0.98] inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
                       >
                         <CalendarPlus className="w-4 h-4" />
                         <span>ดูรายละเอียด / จอง</span>
                       </button>
                     ) : (
-                      <div className="w-full bg-surface-container-low text-outline py-2 px-3 rounded-lg font-label text-label-md text-center">
+                      <div className="w-full bg-surface-container-low text-outline py-2 px-3 rounded-lg font-label text-label-md text-center whitespace-nowrap">
                         ไม่สามารถจองได้
                       </div>
                     )}

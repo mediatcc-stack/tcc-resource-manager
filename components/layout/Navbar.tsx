@@ -26,6 +26,21 @@ const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminToggle }) => {
   const navigate = useNavigate();
   const currentPath = location.pathname;
   const activeTabRef = useRef<HTMLButtonElement | null>(null);
+  const headerRef = useRef<HTMLElement | null>(null);
+
+  // แถบหัวเรื่องเป็น fixed — ส่งความสูงจริงไปให้ --header-height เพื่อให้เนื้อหาเว้นที่พอดีเสมอ
+  // (บนจอแคบชื่อระบบอาจขึ้น 2 บรรทัด ความสูงจึงไม่คงที่)
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const apply = () => {
+      document.documentElement.style.setProperty('--header-height', `${Math.round(el.getBoundingClientRect().height)}px`);
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // บนจอแคบแถบเมนูเลื่อนแนวนอนได้ — เลื่อนให้เห็นระบบที่กำลังใช้งานอยู่เสมอ
   useEffect(() => {
@@ -33,22 +48,22 @@ const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminToggle }) => {
   }, [currentPath]);
 
   return (
-    <header className="fixed top-0 left-0 w-full z-50 shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+    <header ref={headerRef} className="fixed inset-x-0 top-0 z-50 shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
       {/* ── ชั้นบน: แบรนด์ ── */}
       <div className="bg-gradient-to-r from-primary to-primary-container text-on-primary">
-        <div className="max-w-content mx-auto px-gutter-mobile md:px-gutter-tablet lg:px-gutter-desktop h-16 flex items-center justify-between gap-space-md">
+        <div className="max-w-content mx-auto px-gutter-mobile md:px-gutter-tablet lg:px-gutter-desktop min-h-16 py-2 flex items-center justify-between gap-space-md">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-space-sm text-left cursor-pointer"
+            className="flex items-center gap-space-sm text-left cursor-pointer min-w-0"
           >
             <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-on-primary backdrop-blur-md shrink-0">
               <GraduationCap className="w-6 h-6" />
             </div>
-            <div className="flex flex-col">
-              <span className="font-heading text-headline-sm tracking-tight leading-tight text-on-primary">
+            <div className="flex flex-col min-w-0">
+              <span className="font-heading text-label-lg sm:text-headline-sm tracking-tight leading-tight text-on-primary line-clamp-2">
                 ระบบบริหารจัดการทรัพยากรส่วนกลาง
               </span>
-              <span className="font-body text-body-sm text-on-primary-container leading-none mt-0.5 hidden sm:block">
+              <span className="font-body text-body-sm text-on-primary-container leading-none mt-0.5 hidden sm:block truncate">
                 {APP_CONFIG.collegeName} — งานสื่อดิจิทัลและสื่อสารองค์กร
               </span>
             </div>

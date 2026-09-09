@@ -123,13 +123,13 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
         <div className={`bg-surface-container-lowest rounded-xl shadow-card hover:shadow-md transition-all ${isExpanded ? 'ring-1 ring-secondary' : ''}`}>
             <div className="p-space-md">
                 <div className="flex justify-between items-start gap-4">
-                    <div className="flex-1 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
                         <div className="flex items-center gap-1.5 flex-wrap">
-                            <div className={`px-3 py-1 font-label text-label-sm rounded-full inline-flex items-center gap-1.5 ${colorClasses.bg} ${colorClasses.text}`}>
+                            <div className={`px-3 py-1 font-label text-label-sm rounded-full inline-flex items-center gap-1.5 whitespace-nowrap ${colorClasses.bg} ${colorClasses.text}`}>
                                 {getStatusIcon(req.status, "w-3 h-3")} {statusInfo.text}
                             </div>
                             {isMine && !isAdmin && (
-                                <span className="px-2.5 py-0.5 rounded-full font-label text-label-sm inline-block bg-surface-container-high text-primary">
+                                <span className="px-2.5 py-0.5 rounded-full font-label text-label-sm inline-block whitespace-nowrap bg-surface-container-high text-primary">
                                     รายการของฉัน
                                 </span>
                             )}
@@ -166,9 +166,9 @@ const BorrowingCard: React.FC<BorrowingCardProps> = ({ req, onChangeStatus, onDe
                     <div className="flex items-start gap-space-xs shrink-0">
                     <button
                         onClick={() => setIsExpanded(!isExpanded)}
-                        className="px-space-sm py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-primary font-label text-label-sm transition-colors flex items-center gap-1 cursor-pointer"
+                        className="px-space-sm py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-primary font-label text-label-sm transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
                     >
-                        {isExpanded ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        {isExpanded ? <EyeOff className="w-3.5 h-3.5 shrink-0" /> : <Eye className="w-3.5 h-3.5 shrink-0" />}
                         <span>{isExpanded ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียด'}</span>
                     </button>
 

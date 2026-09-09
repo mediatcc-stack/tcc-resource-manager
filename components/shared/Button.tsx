@@ -75,6 +75,7 @@ const Button: React.FC<ButtonProps> = ({
     alignItems: 'center',
     justifyContent: 'center',
     gap: '6px',
+    whiteSpace: 'nowrap', // ป้ายบนปุ่มต้องอยู่บรรทัดเดียวเสมอ ไม่ตกบรรทัดกลางคำ
     outline: 'none',
     opacity: disabled ? 0.55 : 1,
     ...(disabled ? {} : (hovered ? hoverStyles[variant] : variantStyles[variant])),
