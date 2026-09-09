@@ -75,8 +75,10 @@
  *    2. Bot จะรับ Webhook event "join" อัตโนมัติ
  *    3. Worker จะบันทึกเป็น KV key "recipient:<groupId>" ให้เอง (v2.3 ขึ้นไป)
  *    หรือเพิ่มด้วยตัวเองได้ที่ KV → สร้าง key ใหม่ชื่อ "recipient:<Group ID>" ค่า "1"
- *    ค่าใน key = สถานะ: "1"/"on" รับแจ้งเตือน, "off" ปิดเอง, "left:<เวลา>" บอทออกจากกลุ่มแล้ว
- *    (บอทออกจากกลุ่มจะไม่ลบ key ทิ้ง แค่เปลี่ยนค่า — Group ID จึงยังอยู่ให้ก็อปไปใช้ต่อได้)
+ *    ค่าใน key = {"topics":["rooms"],"left":null} — topics คือเรื่องที่กลุ่มนั้นรับ
+ *    (rooms = จองห้อง, repairs = แจ้งซ่อม) ตั้งได้จากหน้าแอดมินในเว็บ ไม่ต้องแก้ KV เอง
+ *    left ไม่ว่าง = บอทไม่ได้อยู่ในกลุ่มแล้ว (ไม่ลบ key ทิ้ง Group ID จึงยังอยู่ให้ใช้ต่อ)
+ *    ค่าเดิมแบบเก่ายังใช้ได้: "1"/"on" = รับจองห้อง, "off" = ไม่รับ, "rooms,repairs" ก็ได้
  *    (การแอดเพื่อนบอทแบบคนเดียว "follow" จะไม่ถูกบันทึกเป็นผู้รับแจ้งเตือนอีกต่อไป)
  *
  *  ⚠️  ตั้งแต่ v2.3 เปลี่ยนจากเก็บเป็น array ก้อนเดียวใน "recipient_ids" มาเป็น
@@ -163,13 +165,29 @@
  *                                  ตอบกลับ { success, sent, failed, total, error? }
  *                                  success = false เมื่อส่งไม่ถึงสักปลายทาง
  *    GET  /recipients           → ดูรายชื่อผู้รับแจ้งเตือน
- *                                  [{ id, name, type, active, status }]
+ *                                  [{ id, name, type, active, topics }]
  *                                  name ดึงสดจาก LINE API ทุกครั้ง (ไม่แคช)
- *                                  active: false = หยุดรับแล้วแต่ยังเก็บ Group ID ไว้
+ *                                  active: false = บอทไม่ได้อยู่ในกลุ่มแล้ว
+ *                                  topics: หัวข้อที่กลุ่มนั้นรับ (rooms / repairs)
+ *    POST /recipients           → Body: { id, topics: ["rooms","repairs"] }
+ *                                  ตั้งว่ากลุ่มนี้รับแจ้งเตือนเรื่องอะไรบ้าง
+ *                                  ([] = ไม่รับอะไรเลย) — หน้าแอดมินเรียกเมื่อติ๊ก
  *
  * ═══════════════════════════════════════════════════════════════════════════════
  *  🛠️  แก้ไขล่าสุด
  * ═══════════════════════════════════════════════════════════════════════════════
+ *  v2.11 (2026-09-09) — เลือกได้ว่าแต่ละกลุ่มรับแจ้งเตือน "เรื่องอะไร" (topics)
+ *                       • ค่าใน recipient:<id> เก็บเป็น {"topics":[...],"left":null}
+ *                         topics = rooms (จองห้อง) / repairs (แจ้งซ่อม)
+ *                       • POST /recipients { id, topics } — หน้าแอดมินติ๊กเลือกได้เลย
+ *                         ไม่ต้องแก้ KV เอง และไม่จำกัดว่าแจ้งซ่อมได้กลุ่มเดียว
+ *                       • /notify เลือกปลายทางจากหัวข้อ: ไม่ระบุ target = rooms,
+ *                         target "repair" = repairs
+ *                       • ถ้ายังไม่มีกลุ่มไหนติ๊กหัวข้อนั้น ใช้ RECIPIENT_ID /
+ *                         REPAIR_GROUP_ID เป็นตัวสำรอง (ระบบเดิมจึงไม่พัง)
+ *                       • GET /recipients ดึงกลุ่มที่ตั้งไว้ใน REPAIR_GROUP_ID เข้ามา
+ *                         ในรายการให้อัตโนมัติ จะได้ติ๊กจัดการในหน้าเว็บได้
+ *                       • เชิญบอทกลับเข้ากลุ่มเดิม ยังจำหัวข้อที่เคยติ๊กไว้
  *  v2.10 (2026-09-09) — บอทออกจากกลุ่มแล้ว "ไม่ลบ key ทิ้ง" แค่เปลี่ยนค่าเป็น
  *                       left:<เวลา> เพื่อให้ Group ID ยังอยู่ให้ก็อปไปใช้ต่อ
  *                       (เช่น เอาไปใส่ REPAIR_GROUP_ID) เชิญบอทกลับเข้ากลุ่มเดิม
@@ -362,30 +380,81 @@ async function verifyLineSignature(rawBody, signature, channelSecret) {
   }
 }
 
-/** true = ค่านี้แปลว่ากลุ่มยังรับแจ้งเตือนอยู่ (ค่าเก่า "1" และค่าว่างถือว่ารับ) */
-const isActiveRecipientValue = (value) => {
-  if (value === null || value === undefined) return true;
-  const normalized = String(value).trim().toLowerCase();
-  return !(normalized.startsWith('left') || normalized === 'off' || normalized === '0' || normalized === 'false');
-};
+/**
+ * หัวข้อแจ้งเตือนที่กลุ่มหนึ่งสมัครรับได้
+ *   rooms   = การจองห้องประชุม (รวมสรุปประจำวันตอนเช้า)
+ *   repairs = การแจ้งซ่อมอุปกรณ์ไอที
+ * (ระบบยืมอุปกรณ์ไม่ส่งแจ้งเตือนตั้งแต่ v2.4 จึงไม่มีหัวข้อ)
+ */
+const ALL_TOPICS = ['rooms', 'repairs'];
+/** กลุ่มที่เพิ่งเชิญบอทเข้ามา รับอะไรก่อน — คงพฤติกรรมเดิมคือรับการจองห้อง */
+const DEFAULT_TOPICS = ['rooms'];
 
 /**
- * รายชื่อผู้รับแจ้งเตือนทั้งหมดพร้อมสถานะ — [{ id, active, value }]
- * อ่านค่าของทุก key ด้วย (ไม่กี่ key) เพื่อให้แก้สถานะด้วยมือใน Dashboard แล้วมีผลจริง
+ * แปลงค่าใน KV เป็นสถานะที่ใช้งานได้ — { topics, left }
+ * รองรับทั้งรูปแบบใหม่และของเดิม เพื่อไม่ให้ข้อมูลที่มีอยู่พัง
+ *   {"topics":["rooms"],"left":null}  ← รูปแบบปัจจุบัน (หน้าเว็บแอดมินเขียนให้)
+ *   "1" / "on" / ค่าว่าง               ← ของเดิม = รับการจองห้อง
+ *   "off" / "0"                        ← ไม่รับอะไรเลย
+ *   "left:<เวลา>"                      ← บอทไม่ได้อยู่ในกลุ่มแล้ว
+ *   "rooms,repairs"                    ← พิมพ์เองใน Dashboard ก็ได้
+ */
+const parseRecipientValue = (value) => {
+  const raw = value === null || value === undefined ? '' : String(value).trim();
+  if (raw === '' || raw === '1' || raw.toLowerCase() === 'on') return { topics: [...DEFAULT_TOPICS], left: null };
+
+  if (raw.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(raw);
+      const topics = Array.isArray(parsed.topics) ? parsed.topics.filter(t => ALL_TOPICS.includes(t)) : [];
+      return { topics, left: parsed.left || null };
+    } catch (e) {
+      return { topics: [...DEFAULT_TOPICS], left: null }; // ค่าพัง — ถือว่าเหมือนเดิมไว้ก่อน
+    }
+  }
+
+  const lower = raw.toLowerCase();
+  if (lower.startsWith('left') || lower.startsWith('unreachable')) {
+    const marker = raw.slice(raw.indexOf(':') + 1).trim();
+    return { topics: [...DEFAULT_TOPICS], left: marker || 'unknown' };
+  }
+  if (lower === 'off' || lower === '0' || lower === 'false') return { topics: [], left: null };
+
+  const topics = lower.split(',').map(t => t.trim()).filter(t => ALL_TOPICS.includes(t));
+  return { topics, left: null };
+};
+
+const serializeRecipientValue = ({ topics, left }) =>
+  JSON.stringify({ topics: topics.filter(t => ALL_TOPICS.includes(t)), left: left || null });
+
+/**
+ * รายชื่อผู้รับแจ้งเตือนทั้งหมดพร้อมสถานะ — [{ id, topics, left, active }]
+ * อ่านค่าของทุก key ด้วย (มีไม่กี่ key) เพื่อให้แก้ด้วยมือใน Dashboard แล้วมีผลจริง
  */
 async function listRecipients(env) {
   const list = await env.ROOM_BOOKINGS_KV.list({ prefix: RECIPIENT_PREFIX });
   return Promise.all(list.keys.map(async (key) => {
     const id = key.name.slice(RECIPIENT_PREFIX.length);
-    const value = await env.ROOM_BOOKINGS_KV.get(key.name);
-    return { id, value, active: isActiveRecipientValue(value) };
+    const state = parseRecipientValue(await env.ROOM_BOOKINGS_KV.get(key.name));
+    return { id, ...state, active: !state.left };
   }));
 }
 
-async function getRecipientIds(env) {
+/** บันทึกสถานะของผู้รับหนึ่งราย (รวมหัวข้อที่สมัครไว้) */
+async function saveRecipient(env, id, state) {
+  await env.ROOM_BOOKINGS_KV.put(`${RECIPIENT_PREFIX}${id}`, serializeRecipientValue(state));
+}
+
+/**
+ * ID ของกลุ่มที่ต้องได้รับแจ้งเตือนหัวข้อนี้
+ * topic = null → ทุกกลุ่มที่ยังรับอะไรอยู่บ้าง (ใช้กับ /status)
+ */
+async function getRecipientIds(env, topic = null) {
   const recipients = await listRecipients(env);
   if (recipients.length > 0) {
-    return recipients.filter(r => r.active).map(r => r.id);
+    return recipients
+      .filter(r => r.active && (topic ? r.topics.includes(topic) : r.topics.length > 0))
+      .map(r => r.id);
   }
 
   // ยังไม่เคย migrate — ลองอ่านของเก่า (recipient_ids array) มาย้ายเป็น key แยกให้ครั้งเดียว
@@ -406,9 +475,17 @@ async function getRecipientIds(env) {
   return [];
 }
 
+/**
+ * บอทเข้ากลุ่ม — เปิดรับแจ้งเตือน
+ * ถ้าเคยตั้งหัวข้อไว้แล้ว (เช่น เคยเลือกรับเฉพาะแจ้งซ่อม) จะคงหัวข้อเดิมไว้
+ * ไม่รีเซ็ตกลับเป็นค่าเริ่มต้น เวลาบอทถูกเตะออกแล้วเชิญกลับเข้ามาใหม่
+ */
 async function addRecipient(env, id) {
   if (!id) return;
-  await env.ROOM_BOOKINGS_KV.put(`${RECIPIENT_PREFIX}${id}`, '1');
+  const existing = await env.ROOM_BOOKINGS_KV.get(`${RECIPIENT_PREFIX}${id}`);
+  const previous = existing === null ? null : parseRecipientValue(existing);
+  const topics = previous && previous.topics.length > 0 ? previous.topics : [...DEFAULT_TOPICS];
+  await saveRecipient(env, id, { topics, left: null });
 }
 
 /**
@@ -417,7 +494,9 @@ async function addRecipient(env, id) {
  */
 async function removeRecipient(env, id, reason = 'left') {
   if (!id) return;
-  await env.ROOM_BOOKINGS_KV.put(`${RECIPIENT_PREFIX}${id}`, `${reason}:${new Date().toISOString()}`);
+  const existing = await env.ROOM_BOOKINGS_KV.get(`${RECIPIENT_PREFIX}${id}`);
+  const previous = existing === null ? { topics: [...DEFAULT_TOPICS] } : parseRecipientValue(existing);
+  await saveRecipient(env, id, { topics: previous.topics, left: `${reason}:${new Date().toISOString()}` });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -462,15 +541,17 @@ async function pushWithRetry(env, recipientId, messages, maxAttempts = 3) {
 }
 
 /**
- * sendNotification(message, env, recipientIdsOverride?)
- * ส่งข้อความ Push ไปหา LINE ของเจ้าหน้าที่ทุกคนใน recipient:<id>
- * ถ้า KV ว่าง จะใช้ RECIPIENT_ID จาก env เป็น fallback
- * ถ้าใส่ recipientIdsOverride มา จะส่งเฉพาะรายชื่อนั้น (ใช้กับ /notify?target=repair)
+ * sendNotification(message, env, { topic, recipientIds })
+ * ส่งข้อความ Push เข้ากลุ่มที่สมัครรับหัวข้อนั้นไว้ (topic: 'rooms' | 'repairs')
+ * ถ้ายังไม่มีกลุ่มไหนสมัครหัวข้อนั้น จะใช้ค่าสำรองใน Worker Settings
+ *   rooms → RECIPIENT_ID, repairs → REPAIR_GROUP_ID
+ * ใส่ recipientIds มาเองได้ ถ้าต้องการระบุปลายทางตรง ๆ
  *
  * คืนผลสรุปเสมอ { total, sent, failed, errors, removed } — ผู้เรียกจะได้รู้ว่าส่งไม่ถึงใคร
  * (เดิมฟังก์ชันนี้กลืน error ทั้งหมด ทำให้หน้าเว็บขึ้น "ส่งแจ้งเตือนสำเร็จ" ทั้งที่ไม่มีใครได้รับ)
  */
-async function sendNotification(message, env, recipientIdsOverride) {
+async function sendNotification(message, env, options = {}) {
+  const { topic = 'rooms', recipientIds: recipientIdsOverride } = options;
   const messages = splitMessage(message).map(text => ({ type: 'text', text }));
   if (messages.length === 0) {
     return { total: 0, sent: 0, failed: 0, errors: ['empty message'], removed: [] };
@@ -483,17 +564,26 @@ async function sendNotification(message, env, recipientIdsOverride) {
   let recipientIds = recipientIdsOverride;
   if (!recipientIds) {
     try {
-      recipientIds = await getRecipientIds(env);
+      recipientIds = await getRecipientIds(env, topic);
     } catch (e) {
       console.error(`[LINE Push Error] Cannot read recipients: ${e.message}`);
       recipientIds = [];
     }
+
+    // ยังไม่มีกลุ่มไหนสมัครหัวข้อนี้ → ใช้ค่าใน Worker Settings เป็นตัวสำรอง
+    // (ทำให้ระบบเดิมที่ตั้ง REPAIR_GROUP_ID / RECIPIENT_ID ไว้ยังทำงานเหมือนเดิม
+    //  แต่พอเริ่มติ๊กเลือกกลุ่มในหน้าแอดมินแล้ว รายชื่อในหน้าเว็บจะเป็นตัวตัดสินแทน)
     if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
-      if (env.RECIPIENT_ID) {
-        recipientIds = [env.RECIPIENT_ID];
+      const fallback = topic === 'repairs' ? env.REPAIR_GROUP_ID : env.RECIPIENT_ID;
+      if (fallback) {
+        console.log(`[LINE Push] ไม่มีกลุ่มที่สมัครหัวข้อ "${topic}" — ใช้ค่าสำรองจาก Worker Settings`);
+        recipientIds = [fallback];
       } else {
-        console.error('[LINE Push Error] No recipients found.');
-        return { total: 0, sent: 0, failed: 0, errors: ['no recipients'], removed: [] };
+        console.error(`[LINE Push Error] No recipients for topic "${topic}".`);
+        const hint = topic === 'repairs'
+          ? 'ยังไม่มีกลุ่มไหนติ๊กรับ "แจ้งซ่อม" และไม่ได้ตั้ง REPAIR_GROUP_ID ใน Worker'
+          : 'ยังไม่มีกลุ่มไหนติ๊กรับ "จองห้องประชุม" และไม่ได้ตั้ง RECIPIENT_ID ใน Worker';
+        return { total: 0, sent: 0, failed: 0, errors: [hint], removed: [] };
       }
     }
   }
@@ -1110,20 +1200,14 @@ export default {
           return json({ success: false, error: 'ไม่มีข้อความที่จะส่ง' }, 400);
         }
 
-        if (target === 'repair' && !env.REPAIR_GROUP_ID) {
-          console.error('[LINE Push Error] REPAIR_GROUP_ID not configured — skipped repair notification.');
-          return json({
-            success: false, sent: 0, failed: 0, total: 0,
-            error: 'ยังไม่ได้ตั้งค่า REPAIR_GROUP_ID ใน Worker',
-          }, 200);
-        }
+        // target = "repair" → หัวข้อ repairs, ไม่ระบุ → หัวข้อ rooms
+        // กลุ่มไหนได้รับบ้างขึ้นกับที่ติ๊กไว้ในหน้าแอดมิน (ดู sendNotification)
+        const topic = target === 'repair' ? 'repairs' : 'rooms';
 
         // รอผลจาก LINE จริง ๆ ก่อนตอบกลับ (เดิมใช้ ctx.waitUntil แล้วตอบ success ทันที
         // หน้าเว็บจึงขึ้นว่า "ส่งสำเร็จ" แม้ push จะล้มเหลวทุกปลายทาง เช่น token หมดอายุ
         // หรือโควตาข้อความรายเดือนเต็ม) — ปกติใช้เวลาไม่ถึงวินาที
-        const result = target === 'repair'
-          ? await sendNotification(message, env, [env.REPAIR_GROUP_ID])
-          : await sendNotification(message, env);
+        const result = await sendNotification(message, env, { topic });
 
         return json({
           success: result.sent > 0,
@@ -1141,16 +1225,26 @@ export default {
       if (path === '/recipients' && request.method === 'GET') {
         // รวมกลุ่มที่หยุดรับแจ้งเตือนแล้วมาด้วย (active: false) เพื่อให้ยังเห็น Group ID
         // เอาไปก็อปใช้ต่อได้ เช่น ใส่ใน REPAIR_GROUP_ID หรือเปิดรับใหม่ภายหลัง
-        const stored = await listRecipients(env);
-        if (stored.length === 0) await getRecipientIds(env); // เผื่อยังต้อง migrate ของเก่า
-        const entries = stored.length > 0 ? stored : (await listRecipients(env));
+        let stored = await listRecipients(env);
+        if (stored.length === 0) {
+          await getRecipientIds(env);          // เผื่อยังต้อง migrate ของเก่า
+          stored = await listRecipients(env);
+        }
 
-        const recipients = await Promise.all(entries.map(async ({ id, active, value }) => {
+        // กลุ่มที่ตั้งไว้ใน REPAIR_GROUP_ID แต่ยังไม่มีใน KV — สร้างให้อัตโนมัติ
+        // จะได้โผล่ในหน้าแอดมินให้ติ๊กเลือกหัวข้อได้เหมือนกลุ่มอื่น ไม่ต้องไปแก้ env
+        if (env.REPAIR_GROUP_ID && !stored.some(r => r.id === env.REPAIR_GROUP_ID)) {
+          await saveRecipient(env, env.REPAIR_GROUP_ID, { topics: ['repairs'], left: null });
+          console.log(`[Recipients] เพิ่ม ${env.REPAIR_GROUP_ID} จาก REPAIR_GROUP_ID เข้ารายการให้จัดการในหน้าเว็บ`);
+          stored = await listRecipients(env);
+        }
+
+        const recipients = await Promise.all(stored.map(async ({ id, active, topics }) => {
           const isGroup = id.startsWith('C');
           const summaryUrl = isGroup
             ? `https://api.line.me/v2/bot/group/${id}/summary`
             : `https://api.line.me/v2/bot/profile/${id}`;
-          const base = { id, type: isGroup ? 'group' : 'user', active, status: value || '1' };
+          const base = { id, type: isGroup ? 'group' : 'user', active, topics };
           try {
             const res = await fetch(summaryUrl, {
               headers: { 'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}` },
@@ -1163,6 +1257,33 @@ export default {
           }
         }));
         return json(recipients);
+      }
+
+      // ── POST /recipients — ตั้งว่ากลุ่มนี้รับแจ้งเตือนหัวข้ออะไรบ้าง ──────
+      // Body: { id: "C...", topics: ["rooms", "repairs"] }  (ส่ง [] = ไม่รับอะไรเลย)
+      // เรียกจากหน้าตรวจสอบระบบของแอดมิน (ติ๊ก/เอาติ๊กออกหน้ากลุ่ม)
+      if (path === '/recipients' && request.method === 'POST') {
+        let body;
+        try {
+          body = await request.json();
+        } catch (e) {
+          return json({ error: 'Body ไม่ใช่ JSON ที่ถูกต้อง' }, 400);
+        }
+
+        const { id, topics } = body;
+        if (typeof id !== 'string' || id.trim() === '') {
+          return json({ error: 'ต้องระบุ id ของกลุ่ม' }, 400);
+        }
+        if (!Array.isArray(topics) || topics.some(t => !ALL_TOPICS.includes(t))) {
+          return json({ error: `topics ต้องเป็น array ของ ${ALL_TOPICS.join(' / ')}` }, 400);
+        }
+
+        const existing = await env.ROOM_BOOKINGS_KV.get(`${RECIPIENT_PREFIX}${id}`);
+        const previous = existing === null ? { left: null } : parseRecipientValue(existing);
+        await saveRecipient(env, id, { topics, left: previous.left });   // คงสถานะ "บอทออกจากกลุ่ม" ไว้
+        console.log(`[Recipients] ${id} → [${topics.join(', ') || 'ไม่รับอะไรเลย'}]`);
+
+        return json({ success: true, id, topics, active: !previous.left });
       }
 
       return json({ error: 'Route not found' }, 404);
@@ -1204,7 +1325,7 @@ export default {
     reportMsg += `\n──────────────\nรวม ${todayBookings.length} รายการ`;
 
     // ข้อความยาวเกิน 5,000 ตัวอักษรจะถูกตัดเป็นหลายข้อความให้เองใน sendNotification
-    const result = await sendNotification(reportMsg, env);
+    const result = await sendNotification(reportMsg, env, { topic: 'rooms' });
     console.log(`[Scheduled] ${today} — ${todayBookings.length} bookings, sent=${result.sent}/${result.total}`);
     if (result.failed > 0) {
       console.error(`[Scheduled] ส่งไม่สำเร็จ ${result.failed} ปลายทาง: ${result.errors.join(', ')}`);

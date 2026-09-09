@@ -105,15 +105,23 @@ export interface WorkerStatus {
     recipientCount: number | null;
 }
 
+/** หัวข้อแจ้งเตือนที่กลุ่มหนึ่งสมัครรับได้ (ตรงกับ ALL_TOPICS ใน cloudflare-worker.js) */
+export type NotificationTopic = 'rooms' | 'repairs';
+
+export const TOPIC_LABELS: Record<NotificationTopic, string> = {
+    rooms: 'จองห้องประชุม',
+    repairs: 'แจ้งซ่อม',
+};
+
 /** กลุ่ม/ผู้ใช้ LINE ที่จะได้รับแจ้งเตือน (ชื่อดึงสดจาก LINE ทุกครั้งที่เรียก) */
 export interface NotificationRecipient {
     id: string;
     name: string | null;
     type: 'group' | 'user';
-    /** false = หยุดรับแจ้งเตือนแล้ว (บอทออกจากกลุ่ม หรือปิดเอง) แต่ยังเก็บ Group ID ไว้ */
+    /** false = บอทไม่ได้อยู่ในกลุ่มแล้ว (ถูกเตะออก) แต่ยังเก็บ Group ID ไว้ */
     active: boolean;
-    /** ค่าดิบใน KV เช่น "1", "off", "left:2026-09-09T..." */
-    status?: string;
+    /** หัวข้อที่กลุ่มนี้สมัครรับไว้ */
+    topics: NotificationTopic[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -170,6 +178,19 @@ export const fetchRecipients = async (): Promise<NotificationRecipient[]> => {
     const response = await fetch(`${WORKER_BASE_URL}/recipients`, { headers: getApiHeaders() });
     const data = await handleResponse(response, 'ดึงรายชื่อผู้รับแจ้งเตือนล้มเหลว');
     return Array.isArray(data) ? data : [];
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  updateRecipientTopics(id, topics) — ตั้งว่ากลุ่มนี้รับแจ้งเตือนหัวข้ออะไรบ้าง
+//  ส่ง [] = ไม่รับอะไรเลย (บอทยังอยู่ในกลุ่ม แต่เงียบ)
+// ─────────────────────────────────────────────────────────────────────────────
+export const updateRecipientTopics = async (id: string, topics: NotificationTopic[]): Promise<void> => {
+    const response = await fetch(`${WORKER_BASE_URL}/recipients`, {
+        method: 'POST',
+        headers: getApiHeaders(),
+        body: JSON.stringify({ id, topics }),
+    });
+    await handleResponse(response, 'บันทึกการตั้งค่าแจ้งเตือนล้มเหลว');
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

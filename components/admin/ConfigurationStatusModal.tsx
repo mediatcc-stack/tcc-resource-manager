@@ -12,7 +12,7 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 import React from 'react';
-import { WorkerStatus, NotificationRecipient } from '../../services/apiService';
+import { WorkerStatus, NotificationRecipient, NotificationTopic, TOPIC_LABELS } from '../../services/apiService';
 import { WORKER_BASE_URL } from '../../constants';
 
 interface StatusItemProps {
@@ -42,12 +42,31 @@ interface ConfigurationStatusModalProps {
   recipients: NotificationRecipient[] | null;
   isLoading?: boolean;
   onRefresh?: () => void;
+  /** ติ๊ก/เอาติ๊กออกว่ากลุ่มนี้รับแจ้งเตือนหัวข้ออะไรบ้าง */
+  onChangeTopics?: (id: string, topics: NotificationTopic[]) => Promise<void> | void;
 }
 
+const TOPIC_ORDER: NotificationTopic[] = ['rooms', 'repairs'];
+
 const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({
-  isOpen, onClose, status, error, recipients, isLoading = false, onRefresh,
+  isOpen, onClose, status, error, recipients, isLoading = false, onRefresh, onChangeTopics,
 }) => {
+  /** id ของกลุ่มที่กำลังบันทึกอยู่ — กันกดรัวจนสถานะสลับไปมา */
+  const [savingId, setSavingId] = React.useState<string | null>(null);
+
   if (!isOpen) return null;
+
+  const toggleTopic = async (recipient: NotificationRecipient, topic: NotificationTopic) => {
+    if (!onChangeTopics || savingId) return;
+    const current = recipient.topics || [];
+    const next = current.includes(topic) ? current.filter(t => t !== topic) : [...current, topic];
+    setSavingId(recipient.id);
+    try {
+      await onChangeTopics(recipient.id, next);
+    } finally {
+      setSavingId(null);
+    }
+  };
 
   return (
     <div
@@ -62,16 +81,87 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({
         <div className="p-6 border-b border-outline-variant">
           <h3 className="text-xl font-bold text-primary flex items-center gap-3">
             <span className="text-2xl">⚙️</span>
-            <span>ผลการตรวจสอบการตั้งค่าระบบ</span>
+            <span>ตั้งค่าแจ้งเตือน & สถานะระบบ</span>
           </h3>
         </div>
 
         <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           {isLoading && <p className="text-sm text-on-surface-variant text-center py-4">กำลังตรวจสอบ...</p>}
           {error && <StatusItem label="การเชื่อมต่อ Worker" isOk={false} failText={error} />}
+
+          {recipients && recipients.length > 0 && (
+            <div>
+              <h4 className="text-sm font-bold text-on-surface mb-1">กลุ่มที่รับแจ้งเตือน</h4>
+              <p className="text-[11px] text-on-surface-variant mb-3">
+                ติ๊กเลือกว่าแต่ละกลุ่มจะรับแจ้งเตือนเรื่องอะไร — เอาติ๊กออกทั้งหมด = กลุ่มนั้นไม่ได้รับอะไรเลย
+              </p>
+              <ul className="space-y-2">
+                {recipients.map(r => (
+                  <li
+                    key={r.id}
+                    className={`p-3 rounded-lg border ${
+                      r.active
+                        ? 'bg-surface-container-low border-outline-variant'
+                        : 'bg-surface-container-low border-dashed border-outline-variant opacity-70'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-on-surface truncate">
+                          {r.name || '(อ่านชื่อไม่ได้ — บอทไม่ได้อยู่ในกลุ่มแล้ว)'}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => navigator.clipboard?.writeText(r.id)}
+                          title="คัดลอก Group ID"
+                          className="text-[10px] text-outline font-mono truncate hover:text-primary cursor-pointer max-w-full block text-left"
+                        >
+                          {r.id}
+                        </button>
+                      </div>
+                      {!r.active && (
+                        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-surface-container text-on-surface-variant shrink-0">
+                          บอทไม่อยู่ในกลุ่มแล้ว
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                      {TOPIC_ORDER.map(topic => {
+                        const checked = (r.topics || []).includes(topic);
+                        return (
+                          <label
+                            key={topic}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all select-none ${
+                              checked
+                                ? 'bg-primary-light text-primary border-blue-200'
+                                : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant'
+                            } ${savingId === r.id ? 'opacity-50' : 'cursor-pointer hover:border-outline'}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={savingId === r.id || !onChangeTopics}
+                              onChange={() => toggleTopic(r, topic)}
+                              className="w-3.5 h-3.5 accent-primary cursor-pointer"
+                            />
+                            {TOPIC_LABELS[topic]}
+                          </label>
+                        );
+                      })}
+                      {(r.topics || []).length === 0 && (
+                        <span className="text-[11px] font-semibold text-outline">ไม่ได้รับแจ้งเตือนอะไรเลย</span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           
           {status && (
-            <ul className="space-y-2">
+            <ul className="space-y-2 pt-4 border-t border-outline-variant">
               <StatusItem label="การเชื่อมต่อ Worker" isOk={true} okText="เชื่อมต่อสำเร็จ" failText="" />
               <StatusItem 
                 label="LINE Access Token" 
@@ -116,46 +206,6 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({
                 failText="ไม่ได้ผูก KV Namespace"
               />
             </ul>
-          )}
-
-          {recipients && recipients.length > 0 && (
-            <div className="pt-4 border-t border-outline-variant mt-4">
-              <h4 className="text-sm font-bold text-on-surface mb-1">กลุ่มที่รับแจ้งเตือนการจองห้อง</h4>
-              <p className="text-[11px] text-on-surface-variant mb-3">
-                แตะที่ Group ID เพื่อคัดลอก (เช่น เอาไปใส่ REPAIR_GROUP_ID)
-              </p>
-              <ul className="space-y-2">
-                {recipients.map(r => (
-                  <li
-                    key={r.id}
-                    className={`flex items-center justify-between gap-3 p-3 rounded-lg border ${
-                      r.active
-                        ? 'bg-surface-container-low border-outline-variant'
-                        : 'bg-surface-container-low border-dashed border-outline-variant opacity-70'
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-on-surface truncate">
-                        {r.name || '(อ่านชื่อไม่ได้ — บอทไม่ได้อยู่ในกลุ่มแล้ว)'}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => navigator.clipboard?.writeText(r.id)}
-                        title="คัดลอก Group ID"
-                        className="text-[10px] text-outline font-mono truncate hover:text-primary cursor-pointer max-w-full block text-left"
-                      >
-                        {r.id}
-                      </button>
-                    </div>
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${
-                      r.active ? 'bg-green-100 text-green-700' : 'bg-surface-container text-on-surface-variant'
-                    }`}>
-                      {r.active ? (r.type === 'group' ? 'รับอยู่' : 'รับอยู่ (ส่วนตัว)') : 'หยุดรับแล้ว'}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
           )}
 
           <div className="pt-4 border-t border-outline-variant mt-4">
