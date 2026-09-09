@@ -11,8 +11,12 @@ import { v4 as uuidv4 } from 'uuid';
 import LoadingSpinner from '../shared/LoadingSpinner';
 import Button from '../shared/Button';
 import SystemToolbar from '../shared/SystemToolbar';
+import { useSwipeableTabs } from '../../hooks/useSwipeableTabs';
 import { ClipboardList, BarChart3, Plus } from 'lucide-react';
 import { APP_URL } from '../../constants';
+
+/** ลำดับแท็บที่ปัดสลับกันได้ (หน้า 'form' เป็นฟอร์ม จึงไม่อยู่ในลำดับนี้) */
+const SWIPEABLE_TABS: EquipmentPage[] = ['list', 'statistics'];
 
 interface EquipmentSystemProps {
   showToast: (message: string, type: 'success' | 'error') => void;
@@ -31,6 +35,14 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
     const [myBorrowingIds, setMyBorrowingIds] = useState<string[]>(() => getMyBorrowingIds());
 
     const pollTimer = useRef<number | null>(null);
+
+    // ปัดซ้าย/ขวาบนมือถือเพื่อสลับแท็บ — ใช้ selectTab แทน setCurrentPage ตรง ๆ เพื่อให้อนิเมชันไปทางเดียวกัน
+    const { swipeHandlers, selectTab, contentAnimationClass, showSwipeHint } = useSwipeableTabs<EquipmentPage>({
+        order: SWIPEABLE_TABS,
+        activeKey: currentPage,
+        onChange: (key) => { setEditingRequest(null); setCurrentPage(key); },
+        enabled: !isLoading,
+    });
 
     const fetchBorrowings = useCallback(async (isBackground = false) => {
         if (!isBackground) {
@@ -222,22 +234,23 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
     };
     
     return (
-        <div className="animate-fade-in mb-20">
+        <div className="animate-fade-in mb-20" {...swipeHandlers}>
             <SystemToolbar
                 tabs={[
                     { key: 'list',       label: 'รายการยืมทั้งหมด', icon: <ClipboardList className="w-4 h-4" /> },
                     { key: 'statistics', label: 'สถิติการยืม',      icon: <BarChart3 className="w-4 h-4" /> },
                 ]}
                 activeKey={currentPage === 'form' ? 'list' : currentPage}
-                onSelect={(key) => { setEditingRequest(null); setCurrentPage(key); }}
+                onSelect={selectTab}
                 connectionStatus={connectionStatus}
+                swipeHint={showSwipeHint}
                 action={{
                     label: 'ขอยืมอุปกรณ์',
                     icon: <Plus className="w-4 h-4" />,
                     onClick: () => { setEditingRequest(null); setCurrentPage('form'); },
                 }}
             />
-            <div>
+            <div key={currentPage} className={contentAnimationClass}>
                 {renderCurrentPage()}
             </div>
         </div>
