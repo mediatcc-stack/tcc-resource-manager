@@ -14,6 +14,7 @@
 import React from 'react';
 import { WorkerStatus, NotificationRecipient, NotificationTopic, TOPIC_LABELS } from '../../services/apiService';
 import { WORKER_BASE_URL } from '../../constants';
+import { ChevronDown, Trash2 } from 'lucide-react';
 
 interface StatusItemProps {
   label: string;
@@ -44,17 +45,33 @@ interface ConfigurationStatusModalProps {
   onRefresh?: () => void;
   /** ติ๊ก/เอาติ๊กออกว่ากลุ่มนี้รับแจ้งเตือนหัวข้ออะไรบ้าง */
   onChangeTopics?: (id: string, topics: NotificationTopic[]) => Promise<void> | void;
+  /** เอากลุ่มออกจากรายการถาวร (ใช้กับกลุ่มที่บอทไม่ได้อยู่แล้ว) */
+  onDeleteRecipient?: (id: string) => Promise<void> | void;
 }
 
 const TOPIC_ORDER: NotificationTopic[] = ['rooms', 'repairs'];
 
 const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({
-  isOpen, onClose, status, error, recipients, isLoading = false, onRefresh, onChangeTopics,
+  isOpen, onClose, status, error, recipients, isLoading = false, onRefresh, onChangeTopics, onDeleteRecipient,
 }) => {
   /** id ของกลุ่มที่กำลังบันทึกอยู่ — กันกดรัวจนสถานะสลับไปมา */
   const [savingId, setSavingId] = React.useState<string | null>(null);
+  /** id ของกลุ่มที่กดลบไว้ รอกดยืนยันอีกครั้ง — ลบทันทีเลยเสี่ยงกดพลาด */
+  const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
+  const [isChecklistOpen, setIsChecklistOpen] = React.useState(false);
 
   if (!isOpen) return null;
+
+  const removeRecipient = async (id: string) => {
+    if (!onDeleteRecipient || savingId) return;
+    setSavingId(id);
+    try {
+      await onDeleteRecipient(id);
+      setConfirmDeleteId(null);
+    } finally {
+      setSavingId(null);
+    }
+  };
 
   const toggleTopic = async (recipient: NotificationRecipient, topic: NotificationTopic) => {
     if (!onChangeTopics || savingId) return;
@@ -120,9 +137,41 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({
                         </button>
                       </div>
                       {!r.active && (
-                        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-surface-container text-on-surface-variant shrink-0">
-                          บอทไม่อยู่ในกลุ่มแล้ว
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-surface-container text-on-surface-variant">
+                            บอทไม่อยู่ในกลุ่มแล้ว
+                          </span>
+                          {onDeleteRecipient && (
+                            confirmDeleteId === r.id ? (
+                              <span className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => removeRecipient(r.id)}
+                                  disabled={savingId === r.id}
+                                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-red-600 text-white hover:bg-red-700 transition disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                                >
+                                  {savingId === r.id ? 'กำลังลบ...' : 'ยืนยันลบ'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmDeleteId(null)}
+                                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition cursor-pointer"
+                                >
+                                  ยกเลิก
+                                </button>
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteId(r.id)}
+                                title="เอากลุ่มนี้ออกจากรายการ"
+                                className="p-1.5 rounded-lg text-outline hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )
+                          )}
+                        </div>
                       )}
                     </div>
 
@@ -160,53 +209,68 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({
           )}
 
           
-          {status && (
-            <ul className="space-y-2 pt-4 border-t border-outline-variant">
-              <StatusItem label="การเชื่อมต่อ Worker" isOk={true} okText="เชื่อมต่อสำเร็จ" failText="" />
-              <StatusItem 
-                label="LINE Access Token" 
-                isOk={status.lineApiToken} 
-                failText="ไม่ได้ตั้งค่าใน Worker" 
-              />
-              <StatusItem
-                label="ลายเซ็น Webhook (CHANNEL_SECRET)"
-                isOk={status.channelSecretSet}
-                okText="ตรวจลายเซ็นแล้ว"
-                failText="ยังไม่ตั้งค่า — คนนอกแอบเพิ่มกลุ่มรับแจ้งเตือนได้"
-              />
-              <StatusItem
-                label="กลุ่มที่รับแจ้งเตือน"
-                isOk={(status.recipientCount ?? 0) > 0}
-                okText={`${status.recipientCount} กลุ่ม`}
-                failText="ไม่มีกลุ่มไหนรับแจ้งเตือนเลย"
-              />
-              <StatusItem
-                label="LINE Recipient ID"
-                isOk={status.recipientIdSet}
-                failText="ไม่ได้ตั้งค่า ID ผู้รับใน Worker"
-              />
-              <StatusItem
-                label="LINE กลุ่มแจ้งซ่อม"
-                isOk={status.repairGroupIdSet}
-                failText="ไม่ได้ตั้งค่า REPAIR_GROUP_ID ใน Worker"
-              />
-              <StatusItem
-                label="ฐานข้อมูลห้องประชุม"
-                isOk={status.roomKvBinding}
-                failText="ไม่ได้ผูก KV Namespace"
-              />
-              <StatusItem
-                label="ฐานข้อมูลอุปกรณ์"
-                isOk={status.equipmentKvBinding}
-                failText="ไม่ได้ผูก KV Namespace"
-              />
-              <StatusItem
-                label="ฐานข้อมูลแจ้งซ่อม"
-                isOk={status.repairKvBinding}
-                failText="ไม่ได้ผูก KV Namespace"
-              />
-            </ul>
-          )}
+          {status && (() => {
+            // รวมรายการตรวจสอบไว้เป็นข้อมูล เพื่อนับจำนวนที่ยังไม่ผ่านมาสรุปบนหัวข้อ
+            const checks = [
+              { label: 'การเชื่อมต่อ Worker', isOk: true, okText: 'เชื่อมต่อสำเร็จ', failText: '' },
+              { label: 'LINE Access Token', isOk: status.lineApiToken, failText: 'ไม่ได้ตั้งค่าใน Worker' },
+              {
+                label: 'ลายเซ็น Webhook (CHANNEL_SECRET)',
+                isOk: status.channelSecretSet,
+                okText: 'ตรวจลายเซ็นแล้ว',
+                failText: 'ยังไม่ตั้งค่า — คนนอกแอบเพิ่มกลุ่มรับแจ้งเตือนได้',
+              },
+              {
+                label: 'กลุ่มที่รับแจ้งเตือน',
+                isOk: (status.recipientCount ?? 0) > 0,
+                okText: `${status.recipientCount} กลุ่ม`,
+                failText: 'ไม่มีกลุ่มไหนรับแจ้งเตือนเลย',
+              },
+              { label: 'LINE Recipient ID', isOk: status.recipientIdSet, failText: 'ไม่ได้ตั้งค่า ID ผู้รับใน Worker' },
+              { label: 'LINE กลุ่มแจ้งซ่อม', isOk: status.repairGroupIdSet, failText: 'ไม่ได้ตั้งค่า REPAIR_GROUP_ID ใน Worker' },
+              { label: 'ฐานข้อมูลห้องประชุม', isOk: status.roomKvBinding, failText: 'ไม่ได้ผูก KV Namespace' },
+              { label: 'ฐานข้อมูลอุปกรณ์', isOk: status.equipmentKvBinding, failText: 'ไม่ได้ผูก KV Namespace' },
+              { label: 'ฐานข้อมูลแจ้งซ่อม', isOk: status.repairKvBinding, failText: 'ไม่ได้ผูก KV Namespace' },
+            ];
+            const failed = checks.filter(c => !c.isOk).length;
+            const expanded = isChecklistOpen || failed > 0;   // มีอะไรผิดให้เห็นทันที ไม่ต้องกดหา
+
+            return (
+              <div className="pt-4 border-t border-outline-variant">
+                <button
+                  type="button"
+                  onClick={() => setIsChecklistOpen(open => !open)}
+                  aria-expanded={expanded}
+                  className="w-full flex items-center justify-between gap-3 p-3 rounded-lg bg-surface-container-low border border-outline-variant hover:border-outline transition cursor-pointer"
+                >
+                  <span className="flex items-center gap-2 font-bold text-sm text-on-surface">
+                    <span>{failed > 0 ? '❌' : '✅'}</span>
+                    สถานะการตั้งค่าระบบ
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className={`text-xs font-bold ${failed > 0 ? 'text-red-700' : 'text-green-700'}`}>
+                      {failed > 0 ? `มีปัญหา ${failed} รายการ` : `ปกติทั้งหมด ${checks.length} รายการ`}
+                    </span>
+                    <ChevronDown className={`w-4 h-4 text-outline transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                  </span>
+                </button>
+
+                {expanded && (
+                  <ul className="space-y-2 mt-2 animate-fade-in">
+                    {checks.map(check => (
+                      <StatusItem
+                        key={check.label}
+                        label={check.label}
+                        isOk={check.isOk}
+                        okText={check.okText}
+                        failText={check.failText}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })()}
 
           <div className="pt-4 border-t border-outline-variant mt-4">
             <h4 className="text-sm font-bold text-on-surface mb-3">คำแนะนำเพิ่มเติม</h4>

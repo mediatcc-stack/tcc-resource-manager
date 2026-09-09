@@ -324,6 +324,15 @@ console.log('\n[6c] แต่ละกลุ่มเลือกรับเฉ
   const roomsAfterBack = await notify(undefined);
   check('เชิญกลับ → ไม่ถูกรีเซ็ตเป็นรับจองห้อง', !roomsAfterBack.to.includes('Cซ่อม'), roomsAfterBack.to.join(','));
 
+  // ลบกลุ่มออกจากรายการถาวร
+  const del = (id) => worker.fetch(authed(`/recipients?id=${encodeURIComponent(id)}`, { method: 'DELETE' }), env, ctx);
+  check('ลบกลุ่มออกจากรายการได้', (await del('Cห้อง')).status === 200);
+  check('ลบแล้ว key หายจริง', (await env.ROOM_BOOKINGS_KV.get('recipient:Cห้อง')) === null);
+  const delRepairEnv = await (await del('Crepair')).json();
+  check('ลบกลุ่มที่ตั้งไว้ใน REPAIR_GROUP_ID → เตือนว่ามันจะกลับมา',
+    String(delRepairEnv.warning).includes('REPAIR_GROUP_ID'), JSON.stringify(delRepairEnv));
+  check('ลบโดยไม่ส่ง id → 400', (await worker.fetch(authed('/recipients', { method: 'DELETE' }), env, ctx)).status === 400);
+
   // ข้อมูลเข้าไม่ถูกรูปแบบ
   const badTopic = await worker.fetch(authed('/recipients', { method: 'POST', body: JSON.stringify({ id: 'C1', topics: ['ทุกอย่าง'] }) }), env, ctx);
   check('หัวข้อที่ไม่รู้จัก → 400', badTopic.status === 400);

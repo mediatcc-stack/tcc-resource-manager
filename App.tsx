@@ -141,7 +141,7 @@ import Footer from './components/layout/Footer';
 import { SystemType, ToastMessage } from './types';
 import ToastContainer from './components/shared/ToastContainer';
 import ConfigurationStatusModal from './components/admin/ConfigurationStatusModal';
-import { fetchWorkerStatus, fetchRecipients, updateRecipientTopics, WorkerStatus, NotificationRecipient, NotificationTopic } from './services/apiService';
+import { fetchWorkerStatus, fetchRecipients, updateRecipientTopics, deleteRecipient, WorkerStatus, NotificationRecipient, NotificationTopic } from './services/apiService';
 import Modal from './components/shared/Modal';
 import Button from './components/shared/Button';
 
@@ -216,6 +216,17 @@ const App: React.FC = () => {
       showToast(`บันทึกการตั้งค่าแจ้งเตือนไม่สำเร็จ: ${error.message}`, 'error');
     }
   }, [recipients, showToast]);
+
+  /** เอากลุ่มที่บอทไม่ได้อยู่แล้วออกจากรายการ */
+  const handleDeleteRecipient = useCallback(async (id: string) => {
+    try {
+      const result = await deleteRecipient(id);
+      setRecipients(prev => prev?.filter(r => r.id !== id) ?? prev);
+      showToast(result?.warning || 'เอากลุ่มออกจากรายการแล้ว', result?.warning ? 'error' : 'success');
+    } catch (error: any) {
+      showToast(`ลบกลุ่มไม่สำเร็จ: ${error.message}`, 'error');
+    }
+  }, [showToast]);
 
   // ── ระบบ Login/Logout Admin ──────────────────────────────────────────────────
   const handleAdminToggle = () => {
@@ -298,6 +309,7 @@ const App: React.FC = () => {
         isLoading={isCheckingSystem}
         onRefresh={runSystemCheck}
         onChangeTopics={handleChangeRecipientTopics}
+        onDeleteRecipient={handleDeleteRecipient}
       />
 
       {/* ── Modal ล็อกอินเจ้าหน้าที่ ── */}

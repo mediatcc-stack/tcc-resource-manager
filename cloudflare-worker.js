@@ -172,10 +172,14 @@
  *    POST /recipients           → Body: { id, topics: ["rooms","repairs"] }
  *                                  ตั้งว่ากลุ่มนี้รับแจ้งเตือนเรื่องอะไรบ้าง
  *                                  ([] = ไม่รับอะไรเลย) — หน้าแอดมินเรียกเมื่อติ๊ก
+ *    DELETE /recipients?id=C...  → เอากลุ่มออกจากรายการถาวร (ใช้กับกลุ่มที่บอท
+ *                                  ไม่ได้อยู่แล้ว) — ปกติแค่เอาติ๊กออกก็พอ
  *
  * ═══════════════════════════════════════════════════════════════════════════════
  *  🛠️  แก้ไขล่าสุด
  * ═══════════════════════════════════════════════════════════════════════════════
+ *  v2.12 (2026-09-09) — DELETE /recipients?id=... เอากลุ่มที่บอทไม่ได้อยู่แล้ว
+ *                       ออกจากรายการได้จากหน้าแอดมิน
  *  v2.11 (2026-09-09) — เลือกได้ว่าแต่ละกลุ่มรับแจ้งเตือน "เรื่องอะไร" (topics)
  *                       • ค่าใน recipient:<id> เก็บเป็น {"topics":[...],"left":null}
  *                         topics = rooms (จองห้อง) / repairs (แจ้งซ่อม)
@@ -1284,6 +1288,25 @@ export default {
         console.log(`[Recipients] ${id} → [${topics.join(', ') || 'ไม่รับอะไรเลย'}]`);
 
         return json({ success: true, id, topics, active: !previous.left });
+      }
+
+      // ── DELETE /recipients?id=C... — เอากลุ่มออกจากรายการถาวร ──────────────
+      // ใช้กับกลุ่มที่บอทไม่ได้อยู่แล้ว/กลุ่มที่ยุบไปแล้ว เพื่อไม่ให้รกรายการ
+      // (ปกติแค่เอาติ๊กออกก็พอ — การลบทำให้ Group ID หายไปด้วย)
+      if (path === '/recipients' && request.method === 'DELETE') {
+        const id = url.searchParams.get('id');
+        if (!id) return json({ error: 'ต้องระบุ id ของกลุ่ม' }, 400);
+
+        await env.ROOM_BOOKINGS_KV.delete(`${RECIPIENT_PREFIX}${id}`);
+        console.log(`[Recipients] ลบ ${id} ออกจากรายการแล้ว`);
+
+        // กลุ่มที่ตั้งไว้ใน REPAIR_GROUP_ID จะถูกดึงกลับเข้ามาใหม่ตอนเปิดหน้ารายการ
+        // ต้องบอกให้รู้ ไม่งั้นจะงงว่าลบแล้วทำไมกลับมาอีก
+        const warning = id === env.REPAIR_GROUP_ID
+          ? 'กลุ่มนี้ตั้งไว้ใน REPAIR_GROUP_ID ของ Worker ระบบจะดึงกลับเข้ารายการอีกครั้ง — ถ้าจะลบถาวรต้องลบตัวแปรนั้นด้วย'
+          : undefined;
+
+        return json({ success: true, id, warning });
       }
 
       return json({ error: 'Route not found' }, 404);

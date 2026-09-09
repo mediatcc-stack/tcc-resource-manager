@@ -194,6 +194,18 @@ export const updateRecipientTopics = async (id: string, topics: NotificationTopi
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  deleteRecipient(id) — เอากลุ่มออกจากรายการถาวร (ใช้กับกลุ่มที่บอทไม่ได้อยู่แล้ว)
+//  คืน warning เมื่อกลุ่มนั้นถูกตั้งไว้ใน REPAIR_GROUP_ID ของ Worker (จะกลับมาอีก)
+// ─────────────────────────────────────────────────────────────────────────────
+export const deleteRecipient = async (id: string): Promise<{ warning?: string }> => {
+    const response = await fetch(`${WORKER_BASE_URL}/recipients?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: getApiHeaders(),
+    });
+    return await handleResponse(response, 'ลบกลุ่มออกจากรายการล้มเหลว');
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  fetchData(type) — ดึงข้อมูลทั้งหมดจาก KV
 //  type = 'rooms'     → การจองห้องประชุม
 //  type = 'equipment' → การยืมอุปกรณ์

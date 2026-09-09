@@ -186,6 +186,7 @@ npm run build      # สร้างไฟล์ใน dist/
 | POST | `/notify` | X-API-Key | ส่ง LINE แจ้งเตือน — ตอบ `{ success, sent, failed, total }` (`success:false` = ไม่ถึงสักปลายทาง) |
 | GET | `/recipients` | X-API-Key | ดูกลุ่มที่รับแจ้งเตือน + หัวข้อที่แต่ละกลุ่มรับ |
 | POST | `/recipients` | X-API-Key | ตั้งว่ากลุ่มนี้รับเรื่องอะไร `{ id, topics: ["rooms","repairs"] }` |
+| DELETE | `/recipients?id=C...` | X-API-Key | เอากลุ่มออกจากรายการถาวร (ใช้กับกลุ่มที่บอทไม่ได้อยู่แล้ว) |
 
 ---
 
