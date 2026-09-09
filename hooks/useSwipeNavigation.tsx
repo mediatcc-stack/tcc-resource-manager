@@ -4,7 +4,7 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  *
  *  ลำดับการปัด (ปัดซ้าย = ไปข้างหน้า, ปัดขวา = ย้อนกลับ)
- *    หน้าแรก → ระบบจองห้องประชุม → จัดการจอง → สรุปรายงาน
+ *    หน้าแรก → ระบบจองห้องประชุม → ตารางการจอง → สรุปรายงาน
  *            → ระบบยืมอุปกรณ์ → สถิติการยืม
  *            → ระบบแจ้งซ่อม  → สถิติการแจ้งซ่อม
  *
@@ -37,7 +37,7 @@ export interface SwipeStep {
 export const SWIPE_STEPS: readonly SwipeStep[] = [
   { path: '/',          tab: null,         label: 'หน้าแรก' },
   { path: '/room',      tab: 'home',       label: 'ระบบจองห้องประชุม' },
-  { path: '/room',      tab: 'mybookings', label: 'จัดการจอง' },
+  { path: '/room',      tab: 'mybookings', label: 'ตารางการจอง' },
   { path: '/room',      tab: 'statistics', label: 'สรุปรายงาน' },
   { path: '/equipment', tab: 'list',       label: 'ระบบยืมอุปกรณ์' },
   { path: '/equipment', tab: 'statistics', label: 'สถิติการยืม' },

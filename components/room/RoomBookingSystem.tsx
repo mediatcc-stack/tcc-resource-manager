@@ -411,7 +411,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
       <SystemToolbar
         tabs={[
           { key: 'home',       label: 'หน้าแรก',    icon: <Home className="w-4 h-4" /> },
-          { key: 'mybookings', label: 'จัดการจอง',  icon: <ClipboardList className="w-4 h-4" /> },
+          { key: 'mybookings', label: 'ตารางการจอง', icon: <ClipboardList className="w-4 h-4" /> },
           { key: 'statistics', label: 'สรุปรายงาน', icon: <BarChart3 className="w-4 h-4" /> },
         ]}
         activeKey={currentPage === 'booking' ? 'home' : currentPage}

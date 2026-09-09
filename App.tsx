@@ -94,7 +94,7 @@
  *      RoomBookingSystem.tsx              ← controller ระบบจองห้อง
  *      HomePage.tsx                       ← ปฏิทิน + รายชื่อห้อง
  *      BookingForm.tsx                    ← ฟอร์มกรอกข้อมูลจอง
- *      MyBookingsPage.tsx                 ← จัดการการจองของตัวเอง
+ *      MyBookingsPage.tsx                 ← ตารางการจอง (กำลังใช้อยู่/วันนี้/เร็ว ๆ นี้)
  *      StatisticsPage.tsx                 ← สรุปสถิติการใช้ห้อง
  *      BookingDetailsModal.tsx            ← Popup รายละเอียดการจอง
  *    equipment/
