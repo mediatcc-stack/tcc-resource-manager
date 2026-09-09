@@ -216,8 +216,8 @@ const App: React.FC = () => {
     <div className="app-container flex flex-col min-h-screen bg-surface">
       <Navbar isAdmin={isAdmin} onAdminToggle={handleAdminToggle} />
 
-      {/* pt-28 = ความสูงของ header แบบ 2 ชั้น (64px + 48px) */}
-      <main className="main-content flex-1 w-full pt-28">
+      {/* เว้นที่ใต้ header ตามความสูงจริง (Navbar อัปเดต --header-height ให้เอง) */}
+      <main className="main-content flex-1 w-full pt-[var(--header-height)]">
         <div className="max-w-content mx-auto px-gutter-mobile md:px-gutter-tablet lg:px-gutter-desktop py-space-md">
           <Breadcrumb />
           <Routes>

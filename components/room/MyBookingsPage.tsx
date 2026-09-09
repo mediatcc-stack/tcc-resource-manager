@@ -53,13 +53,13 @@ const DetailItem: React.FC<{icon: React.ReactNode, children: React.ReactNode}> =
 
 // SVG icons
 const CalendarIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-outline">
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-outline shrink-0">
     <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
   </svg>
 );
 
 const UserIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-outline">
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-outline shrink-0">
     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
   </svg>
 );
@@ -93,13 +93,13 @@ const BookingCard: React.FC<{
       >
           <div className="p-4 cursor-pointer hover:bg-slate-50/40 transition-all" onClick={onToggle}>
             <div className="flex justify-between items-start gap-3">
-                <div className="flex-1 space-y-2">
+                <div className="flex-1 min-w-0 space-y-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full inline-block ${statusInfo.color}`}>
+                      <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full inline-block whitespace-nowrap ${statusInfo.color}`}>
                         {statusInfo.text}
                       </span>
                       {isMine && !isAdmin && (
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-block bg-primary-light text-primary border border-blue-200">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-block whitespace-nowrap bg-primary-light text-primary border border-blue-200">
                           รายการของฉัน
                         </span>
                       )}
@@ -109,11 +109,16 @@ const BookingCard: React.FC<{
                       <CalendarIcon />
                       <span>{formattedDate} | {booking.startTime} - {booking.endTime} น.</span>
                     </div>
+                    {/* จอแคบ: ชื่อผู้จองขึ้นบรรทัดของตัวเองเต็มความกว้าง จะได้ไม่ถูกตัดจนอ่านไม่ออก */}
+                    <div className="sm:hidden flex items-center gap-1.5 text-xs font-semibold text-on-surface bg-surface-container px-2.5 py-1 rounded-lg w-fit max-w-full">
+                      <UserIcon />
+                      <span className="truncate">{booking.bookerName}</span>
+                    </div>
                 </div>
-                <div className="text-right flex flex-col items-end gap-1.5">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-on-surface bg-surface-container px-2.5 py-1 rounded-lg">
+                <div className="text-right flex flex-col items-end gap-1.5 shrink-0 sm:max-w-[50%]">
+                  <div className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-on-surface bg-surface-container px-2.5 py-1 rounded-lg max-w-full">
                     <UserIcon />
-                    <span>{booking.bookerName}</span>
+                    <span className="truncate">{booking.bookerName}</span>
                   </div>
                   <svg className={`w-5 h-5 text-outline mt-2 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />

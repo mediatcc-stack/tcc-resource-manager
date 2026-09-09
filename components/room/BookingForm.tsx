@@ -434,7 +434,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in px-4 md:px-0 mb-20">
-      <div className="bg-surface-container-lowest rounded-[2.5rem] shadow-2xl p-8 md:p-12 border border-outline-variant">
+      <div className="bg-surface-container-lowest rounded-3xl sm:rounded-[2.5rem] shadow-2xl p-4 sm:p-8 md:p-12 border border-outline-variant">
         <div className="mb-10 pb-6 border-b border-outline-variant flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-primary-light rounded-2xl text-primary">
@@ -504,10 +504,10 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
           {/* STEP 1: วัน-เวลาและห้องประชุม */}
           {currentStep === 1 && (
             <div className="space-y-6 animate-fade-in">
-              <fieldset className="space-y-6 p-6 border border-outline-variant rounded-3xl bg-slate-50/40">
+              <fieldset className="space-y-6 p-4 sm:p-6 border border-outline-variant rounded-3xl bg-slate-50/40">
                 <legend className="px-4 text-sm font-bold text-primary bg-surface-container-lowest border border-outline-variant rounded-xl py-0.5">1. ข้อมูลหลัก (วัน-เวลาและห้อง)</legend>
                 
-                <div className="flex items-center gap-4 p-4 bg-surface-container-lowest rounded-2xl border border-outline-variant mb-2">
+                <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-surface-container-lowest rounded-2xl border border-outline-variant mb-2">
                     <input type="checkbox" id="isMultiDay" checked={formData.isMultiDay} onChange={handleCheckboxChange} className="h-5 w-5 rounded border-outline-variant text-blue-600 focus:ring-blue-500 cursor-pointer"/>
                     <label htmlFor="isMultiDay" className="font-bold text-primary text-sm cursor-pointer select-none">ต้องการจองต่อเนื่องหลายวัน</label>
                 </div>
@@ -625,7 +625,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
                               <span className="ml-2.5 font-bold text-sm text-primary">{r.name}</span>
                             </div>
                             {isClosed && (
-                              <span className="text-[10px] bg-surface-container-high text-on-surface px-2 py-0.5 rounded-full font-bold flex items-center gap-1"><Wrench className="w-2.5 h-2.5" /> ปิดชั่วคราว</span>
+                              <span className="text-[10px] bg-surface-container-high text-on-surface px-2 py-0.5 rounded-full font-bold flex items-center gap-1 whitespace-nowrap shrink-0"><Wrench className="w-2.5 h-2.5 shrink-0" /> ปิดชั่วคราว</span>
                             )}
                           </div>
 
@@ -660,7 +660,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
           {/* STEP 2: รายละเอียดการประชุม */}
           {currentStep === 2 && (
             <div className="space-y-6 animate-fade-in">
-              <fieldset className="space-y-6 p-6 border border-outline-variant rounded-3xl">
+              <fieldset className="space-y-6 p-4 sm:p-6 border border-outline-variant rounded-3xl">
                 <legend className="px-4 text-sm font-bold text-primary bg-surface-container-lowest border border-outline-variant rounded-xl py-0.5">2. รายละเอียดการประชุม</legend>
                 <FormField label="วัตถุประสงค์ / เรื่อง" icon={<Target className="w-4 h-4" />} required>
                   <textarea name="purpose" value={formData.purpose} onChange={handleInputChange} rows={3} className={inputClasses} placeholder="ระบุวัตถุประสงค์..." required />
@@ -764,7 +764,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
           {/* STEP 3: ข้อมูลผู้จองและไฟล์แนบ */}
           {currentStep === 3 && (
             <div className="space-y-6 animate-fade-in">
-              <fieldset className="space-y-6 p-6 border-2 border-outline-variant rounded-3xl">
+              <fieldset className="space-y-6 p-4 sm:p-6 border-2 border-outline-variant rounded-3xl">
                 <legend className="px-4 text-sm font-bold text-primary bg-surface-container-lowest border border-outline-variant rounded-xl py-0.5">3. ข้อมูลผู้จองและไฟล์แนบ</legend>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <FormField label="หน่วยงาน / งาน" icon={<Building2 className="w-4 h-4" />} required>
@@ -813,12 +813,12 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
           )}
 
           {/* Wizard Navigation controls */}
-          <div className="flex justify-between items-center pt-8 border-t border-outline-variant">
+          <div className="flex justify-between items-center gap-3 pt-8 border-t border-outline-variant">
             <button
               type="button"
               onClick={prevStep}
               disabled={loading}
-              className="px-6 py-2.5 border border-outline-variant text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low font-bold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              className="px-4 sm:px-6 py-2.5 border border-outline-variant text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low font-bold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap shrink-0"
             >
               <ChevronLeft className="w-4 h-4" />
               {currentStep === 1 ? 'ยกเลิก' : 'ขั้นตอนก่อนหน้า'}
@@ -828,7 +828,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
               <button
                 type="button"
                 onClick={nextStep}
-                className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-white font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm shadow-primary/10"
+                className="px-4 sm:px-6 py-2.5 bg-primary hover:bg-primary-hover text-white font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm shadow-primary/10 whitespace-nowrap shrink-0"
               >
                 <span>ขั้นตอนถัดไป</span>
                 <ChevronRight className="w-4 h-4" />
@@ -838,7 +838,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room, rooms, date, existingBo
                 type="submit" 
                 variant="primary" 
                 loading={loading} 
-                className="px-10 py-2.5"
+                className="px-6 sm:px-10 py-2.5 whitespace-nowrap"
               >
                 {isEditing ? 'บันทึกการแก้ไข' : 'ยืนยันการจอง'}
               </Button>
