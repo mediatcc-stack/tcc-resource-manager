@@ -14,11 +14,8 @@ import { v4 as uuidv4 } from 'uuid';
 import LoadingSpinner from '../shared/LoadingSpinner';
 import Button from '../shared/Button';
 import SystemToolbar from '../shared/SystemToolbar';
-import { useSwipeableTabs } from '../../hooks/useSwipeableTabs';
+import { useSystemPage, useSwipeNavigation } from '../../hooks/useSwipeNavigation';
 import { Home, ClipboardList, BarChart3, CalendarPlus } from 'lucide-react';
-
-/** ลำดับแท็บที่ปัดสลับกันได้ (หน้า 'booking' เป็นฟอร์ม จึงไม่อยู่ในลำดับนี้) */
-const SWIPEABLE_TABS: RoomPage[] = ['home', 'mybookings', 'statistics'];
 
 const timeToMinutes = (timeStr: string): number => {
     if (!timeStr || !timeStr.includes(':')) return 0;
@@ -32,7 +29,9 @@ interface RoomBookingSystemProps {
 }
 
 const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmin }) => {
-  const [currentPage, setCurrentPage] = useState<RoomPage>('home');
+  // แท็บที่เปิดอยู่เก็บไว้ที่ SwipeNavigationProvider เพื่อให้ปัดข้ามระบบได้ต่อเนื่อง
+  // (หน้า 'booking' เป็นฟอร์ม ไม่อยู่ในลำดับการปัด — ระบบจะปิดการปัดให้เอง)
+  const [currentPage, setCurrentPage] = useSystemPage<RoomPage>('/room', 'home');
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -46,13 +45,12 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
 
   const pollTimer = useRef<number | null>(null);
 
-  // ปัดซ้าย/ขวาบนมือถือเพื่อสลับแท็บ — ใช้ selectTab แทน setCurrentPage ตรง ๆ เพื่อให้อนิเมชันไปทางเดียวกัน
-  const { swipeHandlers, selectTab, contentAnimationClass, showSwipeHint } = useSwipeableTabs<RoomPage>({
-    order: SWIPEABLE_TABS,
-    activeKey: currentPage,
-    onChange: (key) => { setEditingBooking(null); setCurrentPage(key); },
-    enabled: !isLoading,
-  });
+  const { showSwipeHint } = useSwipeNavigation();
+
+  // ออกจากหน้าฟอร์ม (กดแท็บหรือปัด) ต้องล้างรายการที่กำลังแก้ไขทิ้ง กันข้อมูลค้าง
+  useEffect(() => {
+    if (currentPage !== 'booking') setEditingBooking(null);
+  }, [currentPage]);
 
   const fetchBookings = useCallback(async (isBackground = false) => {
     if (!isBackground) {
@@ -409,7 +407,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
   };
   
   return (
-    <div className="mb-20" {...swipeHandlers}>
+    <div className="mb-20">
       <SystemToolbar
         tabs={[
           { key: 'home',       label: 'หน้าแรก',    icon: <Home className="w-4 h-4" /> },
@@ -417,7 +415,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
           { key: 'statistics', label: 'สรุปรายงาน', icon: <BarChart3 className="w-4 h-4" /> },
         ]}
         activeKey={currentPage === 'booking' ? 'home' : currentPage}
-        onSelect={selectTab}
+        onSelect={setCurrentPage}
         connectionStatus={connectionStatus}
         swipeHint={showSwipeHint}
         action={{
@@ -426,9 +424,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
           onClick: handleQuickBook,
         }}
       />
-      <div key={currentPage} className={contentAnimationClass}>
-        {renderCurrentPage()}
-      </div>
+      {renderCurrentPage()}
     </div>
   );
 };

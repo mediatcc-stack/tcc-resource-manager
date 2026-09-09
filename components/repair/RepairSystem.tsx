@@ -12,11 +12,8 @@ import { v4 as uuidv4 } from 'uuid';
 import LoadingSpinner from '../shared/LoadingSpinner';
 import Button from '../shared/Button';
 import SystemToolbar from '../shared/SystemToolbar';
-import { useSwipeableTabs } from '../../hooks/useSwipeableTabs';
+import { useSystemPage, useSwipeNavigation } from '../../hooks/useSwipeNavigation';
 import { ClipboardList, BarChart3, PlusCircle } from 'lucide-react';
-
-/** ลำดับแท็บที่ปัดสลับกันได้ (หน้า 'form' เป็นฟอร์ม จึงไม่อยู่ในลำดับนี้) */
-const SWIPEABLE_TABS: RepairPage[] = ['list', 'statistics'];
 
 interface RepairSystemProps {
     showToast: (message: string, type: 'success' | 'error') => void;
@@ -24,7 +21,9 @@ interface RepairSystemProps {
 }
 
 const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
-    const [currentPage, setCurrentPage] = useState<RepairPage>('list');
+    // แท็บที่เปิดอยู่เก็บไว้ที่ SwipeNavigationProvider เพื่อให้ปัดข้ามระบบได้ต่อเนื่อง
+    // (หน้า 'form' เป็นฟอร์ม ไม่อยู่ในลำดับการปัด — ระบบจะปิดการปัดให้เอง)
+    const [currentPage, setCurrentPage] = useSystemPage<RepairPage>('/repair', 'list');
     const [repairs, setRepairs] = useState<RepairRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
@@ -36,13 +35,12 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
 
     const pollTimer = useRef<number | null>(null);
 
-    // ปัดซ้าย/ขวาบนมือถือเพื่อสลับแท็บ — ใช้ selectTab แทน setCurrentPage ตรง ๆ เพื่อให้อนิเมชันไปทางเดียวกัน
-    const { swipeHandlers, selectTab, contentAnimationClass, showSwipeHint } = useSwipeableTabs<RepairPage>({
-        order: SWIPEABLE_TABS,
-        activeKey: currentPage,
-        onChange: (key) => { setEditingRequest(null); setCurrentPage(key); },
-        enabled: !isLoading,
-    });
+    const { showSwipeHint } = useSwipeNavigation();
+
+    // ออกจากหน้าฟอร์ม (กดแท็บหรือปัด) ต้องล้างรายการที่กำลังแก้ไขทิ้ง กันข้อมูลค้าง
+    useEffect(() => {
+        if (currentPage !== 'form') setEditingRequest(null);
+    }, [currentPage]);
 
     const fetchRepairs = useCallback(async (isBackground = false) => {
         if (!isBackground) {
@@ -249,14 +247,14 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
     };
 
     return (
-        <div className="mb-20" {...swipeHandlers}>
+        <div className="mb-20">
             <SystemToolbar
                 tabs={[
                     { key: 'list',       label: 'รายการแจ้งซ่อมทั้งหมด', icon: <ClipboardList className="w-4 h-4" /> },
                     { key: 'statistics', label: 'สถิติการแจ้งซ่อม',      icon: <BarChart3 className="w-4 h-4" /> },
                 ]}
                 activeKey={currentPage === 'form' ? 'list' : currentPage}
-                onSelect={selectTab}
+                onSelect={setCurrentPage}
                 connectionStatus={connectionStatus}
                 swipeHint={showSwipeHint}
                 action={{
@@ -265,9 +263,7 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
                     onClick: () => { setEditingRequest(null); setCurrentPage('form'); },
                 }}
             />
-            <div key={currentPage} className={contentAnimationClass}>
-                {renderCurrentPage()}
-            </div>
+            {renderCurrentPage()}
         </div>
     );
 };

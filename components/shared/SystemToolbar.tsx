@@ -13,7 +13,7 @@ interface SystemToolbarProps<T extends string> {
   activeKey: T;
   onSelect: (key: T) => void;
   connectionStatus: ConnectionStatus;
-  /** แสดงคำใบ้ "ปัดเพื่อสลับแท็บ" บนจอเล็ก (ซ่อนถาวรหลังผู้ใช้ปัดสำเร็จครั้งแรก) */
+  /** แสดงคำใบ้ "ปัดเพื่อเปลี่ยนหน้า" บนจอเล็ก (ซ่อนถาวรหลังผู้ใช้ปัดสำเร็จครั้งแรก) */
   swipeHint?: boolean;
   action?: {
     label: string;
@@ -30,7 +30,7 @@ const STATUS_TEXT: Record<ConnectionStatus, string> = {
 
 /**
  * แถบคำสั่งด้านบนของแต่ละระบบ
- * ซ้าย  — กลุ่มแท็บสลับมุมมอง (บนมือถือปัดซ้าย/ขวาที่เนื้อหาเพื่อสลับได้ด้วย)
+ * ซ้าย  — กลุ่มแท็บสลับมุมมอง (บนมือถือปัดซ้าย/ขวาที่เนื้อหาเพื่อเปลี่ยนหน้าได้ด้วย)
  * ขวา   — ป้ายสถานะการเชื่อมต่อ + ปุ่มสร้างรายการใหม่
  */
 function SystemToolbar<T extends string>({
@@ -71,10 +71,10 @@ function SystemToolbar<T extends string>({
           })}
         </div>
 
-        {swipeHint && tabs.length > 1 && (
+        {swipeHint && (
           <p className="md:hidden mt-space-xs px-1 font-label text-label-sm text-on-surface-variant flex items-center gap-1.5">
             <span aria-hidden="true">↔</span>
-            ปัดซ้าย–ขวาที่เนื้อหาเพื่อสลับแท็บได้
+            ปัดซ้าย–ขวาที่เนื้อหาเพื่อเปลี่ยนหน้าได้
           </p>
         )}
       </div>

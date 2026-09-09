@@ -11,12 +11,9 @@ import { v4 as uuidv4 } from 'uuid';
 import LoadingSpinner from '../shared/LoadingSpinner';
 import Button from '../shared/Button';
 import SystemToolbar from '../shared/SystemToolbar';
-import { useSwipeableTabs } from '../../hooks/useSwipeableTabs';
+import { useSystemPage, useSwipeNavigation } from '../../hooks/useSwipeNavigation';
 import { ClipboardList, BarChart3, Plus } from 'lucide-react';
 import { APP_URL } from '../../constants';
-
-/** ลำดับแท็บที่ปัดสลับกันได้ (หน้า 'form' เป็นฟอร์ม จึงไม่อยู่ในลำดับนี้) */
-const SWIPEABLE_TABS: EquipmentPage[] = ['list', 'statistics'];
 
 interface EquipmentSystemProps {
   showToast: (message: string, type: 'success' | 'error') => void;
@@ -24,7 +21,9 @@ interface EquipmentSystemProps {
 }
 
 const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin }) => {
-    const [currentPage, setCurrentPage] = useState<EquipmentPage>('list');
+    // แท็บที่เปิดอยู่เก็บไว้ที่ SwipeNavigationProvider เพื่อให้ปัดข้ามระบบได้ต่อเนื่อง
+    // (หน้า 'form' เป็นฟอร์ม ไม่อยู่ในลำดับการปัด — ระบบจะปิดการปัดให้เอง)
+    const [currentPage, setCurrentPage] = useSystemPage<EquipmentPage>('/equipment', 'list');
     const [borrowings, setBorrowings] = useState<BorrowingRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSyncing, setIsSyncing] = useState(false);
@@ -36,13 +35,12 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
 
     const pollTimer = useRef<number | null>(null);
 
-    // ปัดซ้าย/ขวาบนมือถือเพื่อสลับแท็บ — ใช้ selectTab แทน setCurrentPage ตรง ๆ เพื่อให้อนิเมชันไปทางเดียวกัน
-    const { swipeHandlers, selectTab, contentAnimationClass, showSwipeHint } = useSwipeableTabs<EquipmentPage>({
-        order: SWIPEABLE_TABS,
-        activeKey: currentPage,
-        onChange: (key) => { setEditingRequest(null); setCurrentPage(key); },
-        enabled: !isLoading,
-    });
+    const { showSwipeHint } = useSwipeNavigation();
+
+    // ออกจากหน้าฟอร์ม (กดแท็บหรือปัด) ต้องล้างรายการที่กำลังแก้ไขทิ้ง กันข้อมูลค้าง
+    useEffect(() => {
+        if (currentPage !== 'form') setEditingRequest(null);
+    }, [currentPage]);
 
     const fetchBorrowings = useCallback(async (isBackground = false) => {
         if (!isBackground) {
@@ -234,14 +232,14 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
     };
     
     return (
-        <div className="mb-20" {...swipeHandlers}>
+        <div className="mb-20">
             <SystemToolbar
                 tabs={[
                     { key: 'list',       label: 'รายการยืมทั้งหมด', icon: <ClipboardList className="w-4 h-4" /> },
                     { key: 'statistics', label: 'สถิติการยืม',      icon: <BarChart3 className="w-4 h-4" /> },
                 ]}
                 activeKey={currentPage === 'form' ? 'list' : currentPage}
-                onSelect={selectTab}
+                onSelect={setCurrentPage}
                 connectionStatus={connectionStatus}
                 swipeHint={showSwipeHint}
                 action={{
@@ -250,9 +248,7 @@ const EquipmentSystem: React.FC<EquipmentSystemProps> = ({ showToast, isAdmin })
                     onClick: () => { setEditingRequest(null); setCurrentPage('form'); },
                 }}
             />
-            <div key={currentPage} className={contentAnimationClass}>
-                {renderCurrentPage()}
-            </div>
+            {renderCurrentPage()}
         </div>
     );
 };
