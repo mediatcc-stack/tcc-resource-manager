@@ -81,25 +81,29 @@ curl -H "X-API-Key: [API_SECRET_KEY]" \
 ถ้ายังไม่มีกลุ่มไหนติ๊กหัวข้อนั้นเลย ระบบจะใช้ `RECIPIENT_ID` / `REPAIR_GROUP_ID` เป็นตัวสำรอง
 ```
 
-### วิธีเพิ่มคนรับแจ้งเตือน
+### วิธีเพิ่มกลุ่มที่รับแจ้งเตือน
 
-**วิธีอัตโนมัติ (แนะนำ):**
-1. เพิ่มเพื่อน LINE Official Account ของระบบ
-2. Worker รับ Webhook event `follow` แล้วบันทึก userId ลง KV อัตโนมัติ
+1. เชิญ LINE Official Account ของระบบเข้ากลุ่มที่ต้องการ
+2. Worker รับ Webhook event `join` แล้วบันทึก Group ID ลง KV ให้เอง (เริ่มต้นรับ "จองห้อง")
+3. เข้าเว็บ → โหมดเจ้าหน้าที่ → ปุ่มเกียร์ → ติ๊กว่ากลุ่มนั้นจะรับเรื่องอะไรบ้าง
 
-**วิธี manual:**
-1. Cloudflare Dashboard → KV → `TCC_ROOM_BOOKINGS`
-2. สร้าง key ใหม่ชื่อ `recipient:<LINE User/Group ID>` ค่าอะไรก็ได้ เช่น `1`
+> ระบบเก็บเฉพาะ **กลุ่ม** เป็นผู้รับแจ้งเตือน (ตั้งแต่ v2.5) การแอดเพื่อนบอทแบบส่วนตัว
+> (event `follow`) ไม่ถูกบันทึกเป็นผู้รับอีกต่อไป
+
+**วิธี manual (ถ้าจำเป็น):** Cloudflare Dashboard → KV → `TCC_ROOM_BOOKINGS` →
+สร้าง key `recipient:<Group ID>` ค่า `{"topics":["rooms"],"left":null}`
 
 > ⚠️ ตั้งแต่ v2.3 เปลี่ยนจากเก็บเป็น array ก้อนเดียวใน `recipient_ids` มาเป็น 1 key ต่อ 1 ผู้รับ
 > (`recipient:<id>`) เพื่อแก้บั๊กที่ผู้รับบางคนหายไปเงียบๆ เวลามีหลาย webhook event (join/leave/
 > follow/unfollow) เข้ามาพร้อมกัน — ข้อมูลเก่าจะถูก migrate มาเป็น key แยกให้อัตโนมัติ ไม่ต้องทำอะไรเพิ่ม
 
-### แจ้งเตือนอัตโนมัติ (Cron)
+### แจ้งเตือนอัตโนมัติ (Cron) — ❌ ปิดใช้งานแล้ว
 
-Worker มี `scheduled()` ส่งสรุปการจองทุกเช้า  
-ตั้งค่า Cron: Dashboard → tcc-line-notifier → Settings → Triggers  
-แนะนำ: `0 1 * * *` (01:00 UTC = 08:00 น. ไทย)
+เดิม Worker มี `scheduled()` ส่งสรุปการจองเข้ากลุ่มทุกเช้า ตอนนี้เอาออกแล้ว  
+ถ้ายังมี Cron Trigger ค้างที่ Dashboard → tcc-line-notifier → Settings → Triggers ให้ลบทิ้งได้เลย  
+(`scheduled()` เหลือไว้เป็นตัวเปล่า ๆ เพื่อไม่ให้ trigger ที่ค้างอยู่ error)
+
+ดูรายการจองแทนได้ที่แท็บ **ตารางการจอง** ในเว็บ หรือพิมพ์ `@ชื่อบอท จองวันนี้` ในกลุ่ม
 
 ---
 
@@ -178,15 +182,16 @@ npm run build      # สร้างไฟล์ใน dist/
 | POST | `/data?type=equipment` | X-API-Key | บันทึกข้อมูลการยืม |
 | GET | `/data?type=repairs` | X-API-Key | ดึงข้อมูลการแจ้งซ่อม |
 | POST | `/data?type=repairs` | X-API-Key | บันทึกข้อมูลการแจ้งซ่อม |
+| POST | `/notify` | X-API-Key | ส่ง LINE แจ้งเตือน — ตอบ `{ success, sent, failed, total }` (`success:false` = ไม่ถึงสักปลายทาง) |
+| GET | `/recipients` | X-API-Key | ดูกลุ่มที่รับแจ้งเตือน + หัวข้อที่แต่ละกลุ่มรับ |
+| POST | `/recipients` | X-API-Key | ตั้งว่ากลุ่มนี้รับเรื่องอะไร `{ id, topics: ["rooms","repairs"] }` |
+| DELETE | `/recipients?id=C...` | X-API-Key | เอากลุ่มออกจากรายการถาวร (ใช้กับกลุ่มที่บอทไม่ได้อยู่แล้ว) |
 
 > `GET /data` ส่ง header `X-Data-Version` กลับมา — `POST /data` ต้องแนบกลับไป
 > ถ้าเลขไม่ตรง (มีคนบันทึกแทรก) Worker ตอบ **409** พร้อมข้อมูลล่าสุด แล้ว `saveData()`
 > ฝั่งเว็บจะรวมข้อมูลให้เองแล้วส่งใหม่ — ผู้เรียกต้องส่ง `previousData` มาด้วยเสมอ
 > `POST /auth/login` จำกัดการเดารหัส 10 ครั้ง/IP/15 นาที (เกินแล้วตอบ 429)
-| POST | `/notify` | X-API-Key | ส่ง LINE แจ้งเตือน — ตอบ `{ success, sent, failed, total }` (`success:false` = ไม่ถึงสักปลายทาง) |
-| GET | `/recipients` | X-API-Key | ดูกลุ่มที่รับแจ้งเตือน + หัวข้อที่แต่ละกลุ่มรับ |
-| POST | `/recipients` | X-API-Key | ตั้งว่ากลุ่มนี้รับเรื่องอะไร `{ id, topics: ["rooms","repairs"] }` |
-| DELETE | `/recipients?id=C...` | X-API-Key | เอากลุ่มออกจากรายการถาวร (ใช้กับกลุ่มที่บอทไม่ได้อยู่แล้ว) |
+
 
 ---
 

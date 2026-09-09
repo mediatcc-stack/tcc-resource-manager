@@ -61,7 +61,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onAdminLogin, isAdmin }) => {
           </div>
 
           <h1 className="font-display text-headline-lg-mobile md:text-display-hero text-on-primary tracking-tight max-w-3xl">
-            ระบบงานสื่อดิจิทัลและสื่อสารองค์กร
+            ระบบบริหารจัดการทรัพยากรส่วนกลาง
           </h1>
 
           <p className="font-heading text-headline-sm md:text-headline-md text-on-primary-container tracking-wide">
@@ -127,8 +127,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onAdminLogin, isAdmin }) => {
           <ChevronRight className="w-4 h-4 text-on-surface-variant group-hover:translate-x-0.5 transition-all" />
         </button>
 
-        <div className="flex flex-wrap items-center justify-center gap-4 text-outline font-label text-label-sm mt-1">
-          <span>งานสื่อดิจิทัลและสื่อสารองค์กร</span>
+        {/* หน่วยงานที่ดูแลระบบร่วมกัน */}
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-outline font-label text-label-sm mt-1 text-center">
+          <span>{APP_CONFIG.departments[0]}</span>
+          <span>ร่วมกับ</span>
+          <span>{APP_CONFIG.departments[1]}</span>
           <span>•</span>
           <span>{APP_CONFIG.collegeName}</span>
         </div>

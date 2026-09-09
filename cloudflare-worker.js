@@ -89,10 +89,9 @@
  *    https://developers.line.biz/console/
  *    Channel ที่ใช้: ดูชื่อ Channel จาก CHANNEL_ACCESS_TOKEN ใน Settings
  *
- *  แจ้งเตือนอัตโนมัติทุกเช้า (Scheduled):
- *    Worker มี scheduled() handler ที่ส่งสรุปการจองวันนี้ทุกวัน
- *    ตั้งเวลาได้ที่: Cloudflare Dashboard → Worker → Settings → Triggers → Cron
- *    แนะนำ: "0 1 * * *"  (ตี 1 UTC = 8:00 น. ไทย)
+ *  แจ้งเตือนอัตโนมัติทุกเช้า (Scheduled): ❌ ปิดการใช้งานแล้ว (v2.13)
+ *    ถ้ายังมี Cron Trigger ค้างที่ Dashboard → Settings → Triggers ให้ลบทิ้งได้เลย
+ *    ดูรายการจองแทนได้ที่แท็บ "ตารางการจอง" ในเว็บ หรือพิมพ์ @ชื่อบอท จองวันนี้ ในกลุ่ม
  *
  * ═══════════════════════════════════════════════════════════════════════════════
  *  🔐  Environment Variables (ตั้งค่าใน Cloudflare Dashboard → Settings)
@@ -178,6 +177,9 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  *  🛠️  แก้ไขล่าสุด
  * ═══════════════════════════════════════════════════════════════════════════════
+ *  v2.13 (2026-09-09) — ปิดสรุปการจองประจำวันตอนเช้า (scheduled) ตามที่ผู้ใช้ขอ
+ *                       เหลือ scheduled() ไว้เป็นตัวเปล่า เผื่อ Cron Trigger ค้างอยู่
+ *                       จะได้ไม่ error — ลบ trigger ที่ Dashboard ได้เลย
  *  v2.12 (2026-09-09) — DELETE /recipients?id=... เอากลุ่มที่บอทไม่ได้อยู่แล้ว
  *                       ออกจากรายการได้จากหน้าแอดมิน
  *  v2.11 (2026-09-09) — เลือกได้ว่าแต่ละกลุ่มรับแจ้งเตือน "เรื่องอะไร" (topics)
@@ -309,18 +311,6 @@ const json = (data, status = 200) =>
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
-
-/**
- * เวลาปัจจุบันตามเขตเวลาไทย
- * Worker รันด้วย UTC เสมอ ถ้าใช้ new Date() ตรง ๆ วันที่จะเพี้ยนช่วงหัวค่ำถึงเที่ยงคืน
- * (เช่น 21:00 น. ของไทย = 14:00 UTC วันเดียวกัน แต่ 07:00 น. ไทย = 00:00 UTC วันเดียวกัน
- *  ส่วน 01:00 น. ไทย = 18:00 UTC ของ "เมื่อวาน") — จึงต้องบวก 7 ชม. แล้วอ่านด้วย getUTC*
- */
-const bangkokNow = () => new Date(Date.now() + 7 * 60 * 60 * 1000);
-
-/** วันที่ของไทยในรูปแบบ YYYY-MM-DD (ตรงกับรูปแบบที่ frontend บันทึกไว้) */
-const bangkokDateISO = (d = bangkokNow()) =>
-  `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 
 /**
  * ตัดข้อความยาวให้อยู่ในลิมิตของ LINE (ข้อความละไม่เกิน 5,000 ตัวอักษร)
@@ -1318,40 +1308,15 @@ export default {
   },
 
   // ───────────────────────────────────────────────────────────────────────────
-  //  scheduled(event, env, ctx)
-  //  รันตามเวลาที่กำหนด (Cron Trigger)
-  //  ตั้งค่า Cron: Dashboard → tcc-line-notifier → Settings → Triggers → Cron
-  //  แนะนำ: "0 1 * * *"  (ทุกวัน เวลา 01:00 UTC = 08:00 น. ไทย)
-  //  ทำหน้าที่: ส่งสรุปการจองห้องวันนี้ไปยัง LINE
+  //  scheduled(event, env, ctx) — ปิดการใช้งานแล้ว (ตามที่ผู้ใช้ระบบขอ)
+  //
+  //  เดิมส่งสรุปการจองห้องของวันนี้เข้ากลุ่ม LINE ทุกเช้า ตอนนี้เอาออกแล้ว
+  //  เพราะดูจากในเว็บ (แท็บ "ตารางการจอง") หรือพิมพ์ @ชื่อบอท จองวันนี้ ในกลุ่มก็ได้
+  //
+  //  ⚠️ ถ้ายังตั้ง Cron Trigger ค้างไว้ที่ Dashboard → Settings → Triggers
+  //     ให้ลบทิ้งด้วย ฟังก์ชันนี้เหลือไว้เฉย ๆ เพื่อไม่ให้ trigger ที่ค้างอยู่ error
   // ───────────────────────────────────────────────────────────────────────────
   async scheduled(event, env, ctx) {
-    // ต้องใช้วันที่ตามเวลาไทย ไม่ใช่ UTC — ไม่งั้นถ้าเปลี่ยนเวลา cron ไปช่วงค่ำของไทย
-    // สรุปที่ส่งจะกลายเป็นของ "เมื่อวาน" โดยไม่มีใครสังเกต
-    const today = bangkokDateISO();
-    const bookings = await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json') || [];
-    const todayBookings = bookings
-      .filter(b => b.date === today && b.status === 'จองแล้ว')
-      .sort((a, b) => a.startTime.localeCompare(b.startTime));
-
-    if (todayBookings.length === 0) {
-      console.log(`[Scheduled] ${today} — ไม่มีการจอง ไม่ต้องส่งแจ้งเตือน`);
-      return;
-    }
-
-    const dateLabel = new Date(`${today}T00:00:00+07:00`)
-      .toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Bangkok' });
-
-    let reportMsg = `📊 สรุปการจองห้องประชุมวันนี้ (${dateLabel})\n──────────────\n`;
-    todayBookings.forEach(b => {
-      reportMsg += `\n🕐 ${b.startTime}–${b.endTime} น.\n🏢 ${b.roomName}\n📝 ${b.purpose}\n👤 ${b.bookerName}\n`;
-    });
-    reportMsg += `\n──────────────\nรวม ${todayBookings.length} รายการ`;
-
-    // ข้อความยาวเกิน 5,000 ตัวอักษรจะถูกตัดเป็นหลายข้อความให้เองใน sendNotification
-    const result = await sendNotification(reportMsg, env, { topic: 'rooms' });
-    console.log(`[Scheduled] ${today} — ${todayBookings.length} bookings, sent=${result.sent}/${result.total}`);
-    if (result.failed > 0) {
-      console.error(`[Scheduled] ส่งไม่สำเร็จ ${result.failed} ปลายทาง: ${result.errors.join(', ')}`);
-    }
+    console.log('[Scheduled] สรุปประจำวันถูกปิดการใช้งานแล้ว — ลบ Cron Trigger ใน Worker Settings ได้เลย');
   }
 };

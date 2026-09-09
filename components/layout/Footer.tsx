@@ -12,7 +12,9 @@ const Footer: React.FC = () => (
         </div>
         <div className="text-left">
           <p className="font-label text-label-md text-on-surface">{APP_CONFIG.collegeName}</p>
-          <p className="font-body text-body-sm text-on-surface-variant">งานสื่อดิจิทัลและสื่อสารองค์กร</p>
+          {/* สองหน่วยงานที่ดูแลระบบร่วมกัน */}
+          <p className="font-body text-body-sm text-on-surface-variant">{APP_CONFIG.departments[0]}</p>
+          <p className="font-body text-body-sm text-on-surface-variant">ร่วมกับ {APP_CONFIG.departments[1]}</p>
         </div>
       </div>
       <div className="font-body text-body-sm text-on-surface-variant text-center md:text-right">
