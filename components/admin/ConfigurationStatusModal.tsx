@@ -120,18 +120,37 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({
 
           {recipients && recipients.length > 0 && (
             <div className="pt-4 border-t border-outline-variant mt-4">
-              <h4 className="text-sm font-bold text-on-surface mb-3">แจ้งเตือนจะส่งเข้ากลุ่มเหล่านี้</h4>
+              <h4 className="text-sm font-bold text-on-surface mb-1">กลุ่มที่รับแจ้งเตือนการจองห้อง</h4>
+              <p className="text-[11px] text-on-surface-variant mb-3">
+                แตะที่ Group ID เพื่อคัดลอก (เช่น เอาไปใส่ REPAIR_GROUP_ID)
+              </p>
               <ul className="space-y-2">
                 {recipients.map(r => (
-                  <li key={r.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-surface-container-low border border-outline-variant">
+                  <li
+                    key={r.id}
+                    className={`flex items-center justify-between gap-3 p-3 rounded-lg border ${
+                      r.active
+                        ? 'bg-surface-container-low border-outline-variant'
+                        : 'bg-surface-container-low border-dashed border-outline-variant opacity-70'
+                    }`}
+                  >
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-on-surface truncate">
-                        {r.name || '(อ่านชื่อไม่ได้ — บอทอาจถูกเตะออกจากกลุ่มแล้ว)'}
+                        {r.name || '(อ่านชื่อไม่ได้ — บอทไม่ได้อยู่ในกลุ่มแล้ว)'}
                       </p>
-                      <p className="text-[10px] text-outline font-mono truncate">{r.id}</p>
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard?.writeText(r.id)}
+                        title="คัดลอก Group ID"
+                        className="text-[10px] text-outline font-mono truncate hover:text-primary cursor-pointer max-w-full block text-left"
+                      >
+                        {r.id}
+                      </button>
                     </div>
-                    <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-surface-container text-on-surface-variant shrink-0">
-                      {r.type === 'group' ? 'กลุ่ม' : 'ส่วนตัว'}
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${
+                      r.active ? 'bg-green-100 text-green-700' : 'bg-surface-container text-on-surface-variant'
+                    }`}>
+                      {r.active ? (r.type === 'group' ? 'รับอยู่' : 'รับอยู่ (ส่วนตัว)') : 'หยุดรับแล้ว'}
                     </span>
                   </li>
                 ))}

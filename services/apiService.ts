@@ -110,6 +110,10 @@ export interface NotificationRecipient {
     id: string;
     name: string | null;
     type: 'group' | 'user';
+    /** false = หยุดรับแจ้งเตือนแล้ว (บอทออกจากกลุ่ม หรือปิดเอง) แต่ยังเก็บ Group ID ไว้ */
+    active: boolean;
+    /** ค่าดิบใน KV เช่น "1", "off", "left:2026-09-09T..." */
+    status?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -48,6 +48,8 @@ const sign = async (body) => {
   return btoa(String.fromCharCode(...new Uint8Array(mac)));
 };
 
+const getStatus = async (env) => (await worker.fetch(req('/status'), env, ctx)).json();
+
 let pass = 0, fail = 0;
 const check = (name, cond, extra = '') => { if (cond) { pass++; console.log(`  ✓ ${name}`); } else { fail++; console.log(`  ✗ ${name} ${extra}`); } };
 
@@ -235,12 +237,45 @@ console.log('\n[6] /webhook — ตรวจลายเซ็น');
   // leave → ลบออก
   const leaveBody = JSON.stringify({ events: [{ type: 'leave', source: { groupId: 'Cforged' } }] });
   await worker.fetch(req('/webhook', { method: 'POST', body: leaveBody, headers: { 'x-line-signature': await sign(leaveBody) } }), env, ctx);
-  check('leave → ลบผู้รับออก', (await env.ROOM_BOOKINGS_KV.get('recipient:Cforged')) === null);
+  check('leave → หยุดรับแจ้งเตือน (แต่ยังเก็บ Group ID ไว้)',
+    String(await env.ROOM_BOOKINGS_KV.get('recipient:Cforged')).startsWith('left:'));
 
   // ยังไม่ตั้ง CHANNEL_SECRET → ยังทำงานได้ (แต่มี warning) เพื่อไม่ให้ระบบเดิมพังทันที
   const envNoSecret = { ...baseEnv(), CHANNEL_SECRET: undefined };
   const legacy = await worker.fetch(req('/webhook', { method: 'POST', body }), envNoSecret, ctx);
   check('ไม่ตั้ง CHANNEL_SECRET → ยังรับ event ได้ (ของเดิมไม่พัง)', legacy.status === 200);
+}
+
+// ── 6b) บอทออกจากกลุ่ม — ต้องเก็บ Group ID ไว้ ไม่ลบ key ทิ้ง ─────────────────
+console.log('\n[6b] บอทออกจากกลุ่ม — เก็บ key ไว้ให้ก็อป Group ID ต่อได้');
+{
+  const env = baseEnv();
+  const join = JSON.stringify({ events: [{ type: 'join', source: { groupId: 'Cgroup9' } }] });
+  await worker.fetch(req('/webhook', { method: 'POST', body: join, headers: { 'x-line-signature': await sign(join) } }), env, ctx);
+  check('เข้ากลุ่ม → ค่าเป็น "1"', (await env.ROOM_BOOKINGS_KV.get('recipient:Cgroup9')) === '1');
+
+  const leave = JSON.stringify({ events: [{ type: 'leave', source: { groupId: 'Cgroup9' } }] });
+  await worker.fetch(req('/webhook', { method: 'POST', body: leave, headers: { 'x-line-signature': await sign(leave) } }), env, ctx);
+  const afterLeave = await env.ROOM_BOOKINGS_KV.get('recipient:Cgroup9');
+  check('ออกจากกลุ่ม → key ยังอยู่ (ไม่ลืม Group ID)', afterLeave !== null, String(afterLeave));
+  check('ออกจากกลุ่ม → ค่าเปลี่ยนเป็น left:<เวลา>', String(afterLeave).startsWith('left:'), String(afterLeave));
+
+  lineCalls = []; lineResponder = () => new Response('{}', { status: 200 });
+  const notify = await (await worker.fetch(authed('/notify', { method: 'POST', body: JSON.stringify({ message: 'x' }) }), env, ctx)).json();
+  check('กลุ่มที่ออกไปแล้วไม่ได้รับแจ้งเตือนอีก', notify.total === 1 && lineCalls[0].body.to === 'Ufallback', JSON.stringify(notify));
+
+  // เชิญกลับเข้ากลุ่มเดิม → กลับมารับแจ้งเตือนเอง
+  await worker.fetch(req('/webhook', { method: 'POST', body: join, headers: { 'x-line-signature': await sign(join) } }), env, ctx);
+  check('เชิญบอทกลับ → กลับมารับแจ้งเตือน', (await getStatus(env)).recipientCount === 1);
+
+  // ปิดรับเองด้วยการแก้ค่าใน Dashboard เป็น "off"
+  await env.ROOM_BOOKINGS_KV.put('recipient:Cgroup9', 'off');
+  check('แก้ค่าเป็น "off" ด้วยมือ → หยุดรับแจ้งเตือน', (await getStatus(env)).recipientCount === 0);
+
+  // /recipients ต้องยังเห็นกลุ่มที่หยุดรับ เพื่อก็อป Group ID ไปใช้ต่อ
+  lineResponder = () => new Response(JSON.stringify({ groupName: 'กลุ่มแจ้งซ่อม' }), { status: 200 });
+  const listed = await (await worker.fetch(authed('/recipients'), env, ctx)).json();
+  check('/recipients ยังคืนกลุ่มที่หยุดรับ พร้อม active:false', listed.length === 1 && listed[0].active === false, JSON.stringify(listed));
 }
 
 // ── 7) @mention routing ─────────────────────────────────────────────────────

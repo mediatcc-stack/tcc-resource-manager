@@ -74,7 +74,9 @@
  *    1. เชิญ LINE Official Account ของระบบเข้ากลุ่มที่ต้องการ
  *    2. Bot จะรับ Webhook event "join" อัตโนมัติ
  *    3. Worker จะบันทึกเป็น KV key "recipient:<groupId>" ให้เอง (v2.3 ขึ้นไป)
- *    หรือเพิ่มด้วยตัวเองได้ที่ KV → สร้าง key ใหม่ชื่อ "recipient:<Group ID>" ค่าอะไรก็ได้ เช่น "1"
+ *    หรือเพิ่มด้วยตัวเองได้ที่ KV → สร้าง key ใหม่ชื่อ "recipient:<Group ID>" ค่า "1"
+ *    ค่าใน key = สถานะ: "1"/"on" รับแจ้งเตือน, "off" ปิดเอง, "left:<เวลา>" บอทออกจากกลุ่มแล้ว
+ *    (บอทออกจากกลุ่มจะไม่ลบ key ทิ้ง แค่เปลี่ยนค่า — Group ID จึงยังอยู่ให้ก็อปไปใช้ต่อได้)
  *    (การแอดเพื่อนบอทแบบคนเดียว "follow" จะไม่ถูกบันทึกเป็นผู้รับแจ้งเตือนอีกต่อไป)
  *
  *  ⚠️  ตั้งแต่ v2.3 เปลี่ยนจากเก็บเป็น array ก้อนเดียวใน "recipient_ids" มาเป็น
@@ -160,12 +162,19 @@
  *                                  ไม่ระบุ → ส่งเข้า recipient ทั่วไปทุกคน (จองห้อง)
  *                                  ตอบกลับ { success, sent, failed, total, error? }
  *                                  success = false เมื่อส่งไม่ถึงสักปลายทาง
- *    GET  /recipients           → ดูรายชื่อผู้รับแจ้งเตือน [{ id, name, type }]
+ *    GET  /recipients           → ดูรายชื่อผู้รับแจ้งเตือน
+ *                                  [{ id, name, type, active, status }]
  *                                  name ดึงสดจาก LINE API ทุกครั้ง (ไม่แคช)
+ *                                  active: false = หยุดรับแล้วแต่ยังเก็บ Group ID ไว้
  *
  * ═══════════════════════════════════════════════════════════════════════════════
  *  🛠️  แก้ไขล่าสุด
  * ═══════════════════════════════════════════════════════════════════════════════
+ *  v2.10 (2026-09-09) — บอทออกจากกลุ่มแล้ว "ไม่ลบ key ทิ้ง" แค่เปลี่ยนค่าเป็น
+ *                       left:<เวลา> เพื่อให้ Group ID ยังอยู่ให้ก็อปไปใช้ต่อ
+ *                       (เช่น เอาไปใส่ REPAIR_GROUP_ID) เชิญบอทกลับเข้ากลุ่มเดิม
+ *                       ค่าจะกลับเป็น "1" เอง / ปิดรับเองด้วยการแก้ค่าเป็น "off" ได้
+ *                       /recipients คืนกลุ่มที่หยุดรับแล้วมาด้วย (active: false)
  *  v2.9 (2026-09-09) — กันข้อมูลหายเมื่อหลายคนใช้พร้อมกัน + จำกัดการเดารหัส
  *                       • /data ใช้ระบบเลขรุ่น (X-Data-Version): GET ส่งเลขรุ่นกลับไป
  *                         POST แนบกลับมา ถ้าไม่ตรง = มีคนบันทึกแทรก → ตอบ 409 พร้อมข้อมูล
@@ -244,10 +253,19 @@ const corsHeaders = {
 //  webhook event (เช่น 2 กลุ่ม join ไล่เลี่ยกัน) เข้ามาพร้อมกัน คำเขียนที่มาทีหลัง
 //  จะเขียนทับคำเขียนก่อนหน้าทั้งหมด ทำให้ ID ที่เพิ่งเพิ่มไปหายเงียบๆ โดยไม่มี error
 //
-//  ตอนนี้เปลี่ยนมาเก็บทีละ key แยกกัน (recipient:<id> = "1") แต่ละ webhook event
+//  ตอนนี้เปลี่ยนมาเก็บทีละ key แยกกัน (recipient:<id>) แต่ละ webhook event
 //  จะเขียนแค่ key ของตัวเอง ไม่มีทางไปทับ ID อื่นได้อีก ไม่ว่าจะมีกี่ event
 //  เข้ามาพร้อมกันก็ตาม — ใช้ namespace เดิม (ROOM_BOOKINGS_KV) ไม่ต้องเพิ่ม
 //  binding ใหม่ใน Cloudflare
+//
+//  ค่าใน key บอกว่ากลุ่มนั้นยังรับแจ้งเตือนอยู่ไหม (แก้ด้วยมือใน Dashboard ได้เลย)
+//    "1"  หรือ "on"   → รับแจ้งเตือน
+//    "off"            → ปิดชั่วคราวเอง (บอทยังอยู่ในกลุ่ม แต่ไม่ส่งหา)
+//    "left:<เวลา>"    → บอทไม่ได้อยู่ในกลุ่มแล้ว (ถูกเตะออก/ออกเอง)
+//
+//  ⚠️ ตอนบอทออกจากกลุ่ม ระบบจะ "เก็บ key ไว้แล้วเปลี่ยนค่าเป็น left:" ไม่ลบทิ้ง
+//     เพื่อให้ Group ID ยังอยู่ให้ก็อปไปใช้ทีหลังได้ (เช่น เอาไปใส่ REPAIR_GROUP_ID)
+//     ถ้าเชิญบอทกลับเข้ากลุ่มเดิม ค่าจะกลับเป็น "1" ให้เอง
 //
 //  getRecipientIds() จะ migrate ข้อมูลเก่าใน "recipient_ids" มาเป็น key แยก
 //  ให้อัตโนมัติครั้งแรกที่เรียก (ถ้ายังไม่เคย migrate) — ไม่ต้องเพิ่มเพื่อนบอทใหม่
@@ -344,10 +362,30 @@ async function verifyLineSignature(rawBody, signature, channelSecret) {
   }
 }
 
-async function getRecipientIds(env) {
+/** true = ค่านี้แปลว่ากลุ่มยังรับแจ้งเตือนอยู่ (ค่าเก่า "1" และค่าว่างถือว่ารับ) */
+const isActiveRecipientValue = (value) => {
+  if (value === null || value === undefined) return true;
+  const normalized = String(value).trim().toLowerCase();
+  return !(normalized.startsWith('left') || normalized === 'off' || normalized === '0' || normalized === 'false');
+};
+
+/**
+ * รายชื่อผู้รับแจ้งเตือนทั้งหมดพร้อมสถานะ — [{ id, active, value }]
+ * อ่านค่าของทุก key ด้วย (ไม่กี่ key) เพื่อให้แก้สถานะด้วยมือใน Dashboard แล้วมีผลจริง
+ */
+async function listRecipients(env) {
   const list = await env.ROOM_BOOKINGS_KV.list({ prefix: RECIPIENT_PREFIX });
-  if (list.keys.length > 0) {
-    return list.keys.map(k => k.name.slice(RECIPIENT_PREFIX.length));
+  return Promise.all(list.keys.map(async (key) => {
+    const id = key.name.slice(RECIPIENT_PREFIX.length);
+    const value = await env.ROOM_BOOKINGS_KV.get(key.name);
+    return { id, value, active: isActiveRecipientValue(value) };
+  }));
+}
+
+async function getRecipientIds(env) {
+  const recipients = await listRecipients(env);
+  if (recipients.length > 0) {
+    return recipients.filter(r => r.active).map(r => r.id);
   }
 
   // ยังไม่เคย migrate — ลองอ่านของเก่า (recipient_ids array) มาย้ายเป็น key แยกให้ครั้งเดียว
@@ -373,9 +411,13 @@ async function addRecipient(env, id) {
   await env.ROOM_BOOKINGS_KV.put(`${RECIPIENT_PREFIX}${id}`, '1');
 }
 
-async function removeRecipient(env, id) {
+/**
+ * หยุดส่งแจ้งเตือนให้ปลายทางนี้ — เก็บ key ไว้ แค่เปลี่ยนค่าเป็น left:<เวลา>
+ * (ไม่ลบทิ้ง เพราะ Group ID จำยากและมักต้องเอาไปใช้ต่อ เช่น ใส่ใน REPAIR_GROUP_ID)
+ */
+async function removeRecipient(env, id, reason = 'left') {
   if (!id) return;
-  await env.ROOM_BOOKINGS_KV.delete(`${RECIPIENT_PREFIX}${id}`);
+  await env.ROOM_BOOKINGS_KV.put(`${RECIPIENT_PREFIX}${id}`, `${reason}:${new Date().toISOString()}`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -468,9 +510,9 @@ async function sendNotification(message, env, recipientIdsOverride) {
     let removed = false;
     if (result.status === 403 && !recipientIdsOverride) {
       try {
-        await removeRecipient(env, recipientId);
+        await removeRecipient(env, recipientId, 'unreachable');
         removed = true;
-        console.log(`[LINE Push] Removed unreachable recipient: ${recipientId}`);
+        console.log(`[LINE Push] Recipient ${recipientId} marked unreachable (key kept for reference)`);
       } catch (e) {
         console.error(`[LINE Push] Failed to remove recipient ${recipientId}: ${e.message}`);
       }
@@ -617,8 +659,8 @@ export default {
             // Bot ถูกเตะออกจากกลุ่ม → ลบ groupId ออกจาก KV อัตโนมัติ
             const removeId = event.source.groupId;
             if (removeId) {
-              await removeRecipient(env, removeId);
-              console.log(`[Webhook] Removed recipient: ${removeId} (bot left group)`);
+              await removeRecipient(env, removeId, 'left');
+              console.log(`[Webhook] Recipient ${removeId} marked as left (key kept for reference)`);
             }
           }
 
@@ -1097,23 +1139,27 @@ export default {
       // ดึงชื่อสดจาก LINE API ทุกครั้งที่เรียก (ไม่ได้แคช/เก็บชื่อไว้ที่ไหน)
       // ถ้ามีคนเปลี่ยนชื่อกลุ่มใน LINE ภายหลัง เรียก endpoint นี้ใหม่จะเห็นชื่อล่าสุดทันที
       if (path === '/recipients' && request.method === 'GET') {
-        const recipientIds = await getRecipientIds(env);
-        const recipients = await Promise.all(recipientIds.map(async (id) => {
+        // รวมกลุ่มที่หยุดรับแจ้งเตือนแล้วมาด้วย (active: false) เพื่อให้ยังเห็น Group ID
+        // เอาไปก็อปใช้ต่อได้ เช่น ใส่ใน REPAIR_GROUP_ID หรือเปิดรับใหม่ภายหลัง
+        const stored = await listRecipients(env);
+        if (stored.length === 0) await getRecipientIds(env); // เผื่อยังต้อง migrate ของเก่า
+        const entries = stored.length > 0 ? stored : (await listRecipients(env));
+
+        const recipients = await Promise.all(entries.map(async ({ id, active, value }) => {
           const isGroup = id.startsWith('C');
           const summaryUrl = isGroup
             ? `https://api.line.me/v2/bot/group/${id}/summary`
             : `https://api.line.me/v2/bot/profile/${id}`;
+          const base = { id, type: isGroup ? 'group' : 'user', active, status: value || '1' };
           try {
             const res = await fetch(summaryUrl, {
               headers: { 'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}` },
             });
-            if (!res.ok) {
-              return { id, name: null, type: isGroup ? 'group' : 'user' };
-            }
+            if (!res.ok) return { ...base, name: null };
             const data = await res.json();
-            return { id, name: isGroup ? data.groupName : data.displayName, type: isGroup ? 'group' : 'user' };
+            return { ...base, name: isGroup ? data.groupName : data.displayName };
           } catch (e) {
-            return { id, name: null, type: isGroup ? 'group' : 'user' };
+            return { ...base, name: null };
           }
         }));
         return json(recipients);
