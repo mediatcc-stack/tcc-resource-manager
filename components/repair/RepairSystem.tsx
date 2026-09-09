@@ -105,8 +105,9 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
     const updateRepairList = async (newList: RepairRequest[]): Promise<boolean> => {
         setConnectionStatus('syncing');
         try {
-            await saveData('repairs', newList);
-            setRepairs(newList);
+            // ส่ง repairs (ก่อนแก้) ไปด้วย เผื่อมีคนบันทึกแทรก จะได้รวมข้อมูลแทนที่จะทับของเขาหาย
+            const saved = await saveData('repairs', newList, repairs);
+            setRepairs(saved);
             setLastUpdated(new Date());
             setConnectionStatus('connected');
             fetchRepairs(true);
@@ -153,8 +154,8 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
         if (editingRequest) {
             const updatedRepairs = repairs.map(r => r.id === editingRequest.id ? { ...r, ...formValues } : r);
             try {
-                await saveData('repairs', updatedRepairs);
-                setRepairs(updatedRepairs);
+                const saved = await saveData('repairs', updatedRepairs, repairs);
+                setRepairs(saved);
                 setLastUpdated(new Date());
                 setCurrentPage('list');
                 setEditingRequest(null);
@@ -175,8 +176,8 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
         const updatedRepairs = [createdRequest, ...repairs];
 
         try {
-            await saveData('repairs', updatedRepairs);
-            setRepairs(updatedRepairs);
+            const saved = await saveData('repairs', updatedRepairs, repairs);
+            setRepairs(saved);
             setLastUpdated(new Date());
 
             // จำไว้ว่ารายการนี้เป็นของผู้ใช้เครื่องนี้ (เบราว์เซอร์นี้) เพื่อให้กลับมาแก้ไขเองได้ทีหลัง

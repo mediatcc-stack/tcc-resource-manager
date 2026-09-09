@@ -87,7 +87,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
 
       // Persist status changes to ensure consistency across all users.
       if (hasChanges && !isBackground) { // Only save on foreground fetches to prevent loops/spam
-        saveData('rooms', processedData)
+        saveData('rooms', processedData, data)
             .then(() => {
                 console.log("System: Automatically updated status for expired bookings.");
             })
@@ -148,8 +148,9 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
 
   const updateBookingList = async (newList: Booking[]): Promise<boolean> => {
     try {
-      await saveData('rooms', newList);
-      setBookings(newList);
+      // ส่ง bookings (ก่อนแก้) ไปด้วย เผื่อมีคนบันทึกแทรก จะได้รวมข้อมูลแทนที่จะทับของเขาหาย
+      const saved = await saveData('rooms', newList, bookings);
+      setBookings(saved);
       setLastUpdated(new Date());
       fetchBookings(true);
       return true;
@@ -248,8 +249,8 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
     const updatedBookings = [...bookings, ...createdBookings];
     
     try {
-      await saveData('rooms', updatedBookings);
-      setBookings(updatedBookings);
+      const savedBookings = await saveData('rooms', updatedBookings, bookings);
+      setBookings(savedBookings);
       setLastUpdated(new Date());
       setCurrentPage('home');
       showToast('การจองห้องสำเร็จ!', 'success');

@@ -1,11 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { APP_CONFIG } from '../../constants';
-import { GraduationCap, Building2, ShieldCheck, KeyRound } from 'lucide-react';
+import { GraduationCap, Building2, ShieldCheck, KeyRound, Settings } from 'lucide-react';
 
 interface NavbarProps {
   isAdmin: boolean;
   onAdminToggle: () => void;
+  /** เปิดหน้าตรวจสอบสุขภาพระบบ (แสดงเฉพาะโหมดเจ้าหน้าที่) */
+  onOpenSystemCheck?: () => void;
 }
 
 // รายการเมนูหลัก — ตรงกับ Route ใน App.tsx
@@ -21,7 +23,7 @@ const NAV_ITEMS: { path: string; label: string }[] = [
  *  ชั้นบน  — แบรนด์ระบบ + สถานะ/ปุ่มโหมดเจ้าหน้าที่
  *  ชั้นล่าง — แท็บเลือกระบบ (รวมแท็บ "หน้าแรก" ไว้แล้ว)
  */
-const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminToggle }) => {
+const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminToggle, onOpenSystemCheck }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
@@ -80,6 +82,15 @@ const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminToggle }) => {
                   โหมดเจ้าหน้าที่ทำงานอยู่
                 </span>
               </div>
+            )}
+            {isAdmin && onOpenSystemCheck && (
+              <button
+                onClick={onOpenSystemCheck}
+                title="ตรวจสอบสถานะระบบและกลุ่มที่รับแจ้งเตือน"
+                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-on-primary hover:bg-white/20 transition-colors cursor-pointer"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
             )}
             <button
               onClick={onAdminToggle}

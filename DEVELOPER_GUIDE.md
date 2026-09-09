@@ -174,6 +174,11 @@ npm run build      # สร้างไฟล์ใน dist/
 | POST | `/data?type=equipment` | X-API-Key | บันทึกข้อมูลการยืม |
 | GET | `/data?type=repairs` | X-API-Key | ดึงข้อมูลการแจ้งซ่อม |
 | POST | `/data?type=repairs` | X-API-Key | บันทึกข้อมูลการแจ้งซ่อม |
+
+> `GET /data` ส่ง header `X-Data-Version` กลับมา — `POST /data` ต้องแนบกลับไป
+> ถ้าเลขไม่ตรง (มีคนบันทึกแทรก) Worker ตอบ **409** พร้อมข้อมูลล่าสุด แล้ว `saveData()`
+> ฝั่งเว็บจะรวมข้อมูลให้เองแล้วส่งใหม่ — ผู้เรียกต้องส่ง `previousData` มาด้วยเสมอ
+> `POST /auth/login` จำกัดการเดารหัส 10 ครั้ง/IP/15 นาที (เกินแล้วตอบ 429)
 | POST | `/notify` | X-API-Key | ส่ง LINE แจ้งเตือน — ตอบ `{ success, sent, failed, total }` (`success:false` = ไม่ถึงสักปลายทาง) |
 | GET | `/recipients` | X-API-Key | ดู LINE recipients |
 
@@ -200,11 +205,11 @@ node scripts/worker-test.mjs     # ต้องได้ "ล้มเหลว 
 - [ ] `VITE_API_SECRET_KEY` ถูกฝังอยู่ในไฟล์ JS ที่ส่งให้เบราว์เซอร์ ใครเปิด DevTools ก็อ่านได้
       → ใครก็เรียก `/data` อ่าน/เขียนทับข้อมูลทั้งก้อน หรือยิง `/notify` เข้ากลุ่ม LINE ได้
       ต้องแก้ด้วยการทำ auth จริง (ล็อกอินแล้วออก token อายุสั้น) ไม่ใช่แค่เปลี่ยน key
-- [ ] `POST /data` เขียนทับทั้ง array ถ้าสองคนบันทึกพร้อมกัน ของคนที่บันทึกก่อนจะหาย
-      (ตอนนี้กันไว้แค่สำเนา `<type>_data_prev` — ทางแก้จริงคือเขียนทีละรายการ)
-- [ ] `ConfigurationStatusModal.tsx` เขียนไว้แต่ไม่มีหน้าไหนเรียกใช้ (`/status` จึงไม่เคยถูกเรียกจากเว็บ)
-- [ ] `/recipients` ไม่มีหน้าจอไหนเรียกใช้ — ทำหน้าตั้งค่าผู้รับแจ้งเตือนสำหรับแอดมิน
+- [ ] KV เป็น eventually consistent ไม่ใช่ transaction — ระบบเลขรุ่น (X-Data-Version) ลด
+      โอกาสข้อมูลหายลงมาก แต่ถ้าสองคนบันทึกพร้อมกันในวินาทีเดียวจากคนละภูมิภาค
+      ยังตรวจไม่เจอ ทางแก้ที่ปิดช่องได้จริงคือย้ายไป Durable Objects หรือ D1
 - [ ] `reminderSent` ใน `types.ts` ไม่ถูกใช้ที่ไหนเลย (ตั้งใจทำเตือนล่วงหน้าก่อนถึงเวลาจอง แต่ยังไม่ได้ทำ)
+- [ ] `GroupIdFinder.tsx` และ `NotificationSettingsModal.tsx` เป็นไฟล์ว่าง 0 บรรทัด — ลบหรือทำให้เสร็จ
 - [ ] ลบ debug log ใน `index.tsx`
 - [ ] แก้ Date loop bug ใน `handleBookingUpdate` (clone ก่อน iterate)
 - [ ] เปลี่ยน `alert/confirm` เป็น Modal ใน `MyBookingsPage`

@@ -96,6 +96,67 @@ console.log('\n[3] /data — ตรวจข้อมูล + สำเนาก
   check('ไม่มี API key → 401', noKey.status === 401);
 }
 
+// ── 3b) /data — กันข้อมูลหายเมื่อสองคนบันทึกพร้อมกัน ────────────────────────
+console.log('\n[3b] /data — บันทึกชนกัน (X-Data-Version)');
+{
+  const env = baseEnv();
+  const first = await worker.fetch(authed('/data?type=rooms', { method: 'POST', body: JSON.stringify([{ id: 'a' }]) }), env, ctx);
+  const v1 = first.headers.get('X-Data-Version');
+  check('POST คืนเลขรุ่นใหม่', !!v1);
+
+  const get = await worker.fetch(authed('/data?type=rooms'), env, ctx);
+  check('GET คืนเลขรุ่นเดียวกัน', get.headers.get('X-Data-Version') === v1);
+  // ถ้าไม่ประกาศ expose ไว้ เบราว์เซอร์จะอ่าน header นี้ไม่ได้ ระบบกันชนจะเงียบไปเฉย ๆ
+  check('ประกาศ Access-Control-Expose-Headers ให้เบราว์เซอร์อ่านเลขรุ่นได้',
+    (get.headers.get('Access-Control-Expose-Headers') || '').includes('X-Data-Version'));
+  check('อนุญาต header X-Data-Version ขาเข้า',
+    (get.headers.get('Access-Control-Allow-Headers') || '').includes('X-Data-Version'));
+
+  // คน A บันทึกด้วยเลขรุ่นที่ถูกต้อง → ผ่าน
+  const okSave = await worker.fetch(authed('/data?type=rooms', {
+    method: 'POST', headers: { 'X-Data-Version': v1 }, body: JSON.stringify([{ id: 'a' }, { id: 'b' }]),
+  }), env, ctx);
+  check('เลขรุ่นตรง → บันทึกได้', okSave.status === 200);
+  const v2 = okSave.headers.get('X-Data-Version');
+  check('เลขรุ่นเปลี่ยนหลังบันทึก', v2 !== v1);
+
+  // คน B ถือเลขรุ่นเก่า (v1) → ต้องถูกปฏิเสธ พร้อมส่งข้อมูลล่าสุดกลับไปให้รวม
+  const conflict = await worker.fetch(authed('/data?type=rooms', {
+    method: 'POST', headers: { 'X-Data-Version': v1 }, body: JSON.stringify([{ id: 'a' }, { id: 'c' }]),
+  }), env, ctx);
+  check('เลขรุ่นเก่า → 409 ไม่เขียนทับ', conflict.status === 409);
+  const conflictBody = await conflict.json();
+  check('409 ส่งข้อมูลล่าสุดกลับไปด้วย', conflictBody.data.length === 2 && conflictBody.version === v2, JSON.stringify(conflictBody.data));
+  const afterConflict = await (await worker.fetch(authed('/data?type=rooms'), env, ctx)).json();
+  check('ของคน A ยังอยู่ครบ ไม่ถูกทับ', afterConflict.map(r => r.id).join(',') === 'a,b');
+
+  // ไม่แนบเลขรุ่นมาเลย (frontend รุ่นเก่า) → ยังบันทึกได้เหมือนเดิม
+  const legacy = await worker.fetch(authed('/data?type=rooms', { method: 'POST', body: JSON.stringify([{ id: 'z' }]) }), env, ctx);
+  check('ไม่แนบเลขรุ่น → ยังบันทึกได้ (frontend เก่าไม่พัง)', legacy.status === 200);
+}
+
+// ── 3c) /auth/login — จำกัดการเดารหัส ──────────────────────────────────────
+console.log('\n[3c] /auth/login — จำกัดจำนวนครั้ง');
+{
+  const env = baseEnv();
+  const attempt = (password) => worker.fetch(new Request('https://w.dev/auth/login', {
+    method: 'POST', body: JSON.stringify({ password }), headers: { 'CF-Connecting-IP': '1.2.3.4' },
+  }), env, ctx);
+
+  let statuses = [];
+  for (let i = 0; i < 12; i++) statuses.push((await attempt('ผิด')).status);
+  check('10 ครั้งแรกตอบ 401', statuses.slice(0, 10).every(s => s === 401), statuses.join(','));
+  check('ครั้งที่ 11 ขึ้นไปตอบ 429 (ล็อกไว้ 15 นาที)', statuses.slice(10).every(s => s === 429), statuses.join(','));
+  check('ถูกล็อกแล้วรหัสถูกก็ยังเข้าไม่ได้', (await attempt('pw')).status === 429);
+
+  const env2 = baseEnv();
+  const attempt2 = (password) => worker.fetch(new Request('https://w.dev/auth/login', {
+    method: 'POST', body: JSON.stringify({ password }), headers: { 'CF-Connecting-IP': '5.6.7.8' },
+  }), env2, ctx);
+  await attempt2('ผิด');
+  check('เข้าถูกแล้วตัวนับถูกล้าง', (await attempt2('pw')).status === 200 && (await env2.ROOM_BOOKINGS_KV.get('login_attempt:5.6.7.8')) === null);
+}
+
 // ── 4) /notify ──────────────────────────────────────────────────────────────
 console.log('\n[4] /notify — รายงานผลจริงจาก LINE');
 {

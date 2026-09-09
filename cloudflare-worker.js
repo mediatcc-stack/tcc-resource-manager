@@ -148,6 +148,8 @@
  *  PROTECTED (ต้องใส่ Header: X-API-Key):
  *    GET  /data?type=rooms      → ดึงข้อมูลการจองห้องทั้งหมด
  *    GET  /data?type=rooms&version=prev → ดึง "สำเนาก่อนการบันทึกครั้งล่าสุด" (กู้ข้อมูล)
+ *      ↳ GET ส่ง header X-Data-Version กลับไปด้วย, POST ควรแนบกลับมา
+ *        ถ้าเลขไม่ตรง = มีคนบันทึกแทรก → ตอบ 409 { version, data } ให้เอาไปรวมแล้วส่งใหม่
  *    POST /data?type=rooms      → บันทึกข้อมูลการจองห้องทั้งหมด (overwrite)
  *    GET  /data?type=equipment  → ดึงข้อมูลการยืมอุปกรณ์ทั้งหมด
  *    POST /data?type=equipment  → บันทึกข้อมูลการยืมอุปกรณ์ทั้งหมด (overwrite)
@@ -164,6 +166,15 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  *  🛠️  แก้ไขล่าสุด
  * ═══════════════════════════════════════════════════════════════════════════════
+ *  v2.9 (2026-09-09) — กันข้อมูลหายเมื่อหลายคนใช้พร้อมกัน + จำกัดการเดารหัส
+ *                       • /data ใช้ระบบเลขรุ่น (X-Data-Version): GET ส่งเลขรุ่นกลับไป
+ *                         POST แนบกลับมา ถ้าไม่ตรง = มีคนบันทึกแทรก → ตอบ 409 พร้อมข้อมูล
+ *                         ล่าสุด ให้ฝั่งเว็บรวมข้อมูลแล้วส่งใหม่ (เดิม last-write-wins
+ *                         ของคนที่บันทึกก่อนหายทั้งก้อนโดยไม่มีใครรู้)
+ *                         ไม่แนบเลขรุ่นมาก็ยังบันทึกได้ frontend รุ่นเก่าจึงไม่พัง
+ *                       • /auth/login จำกัด 10 ครั้ง/IP/15 นาที (เดิมเดาได้ไม่จำกัด)
+ *                       • เพิ่ม Access-Control-Expose-Headers ไม่งั้นเบราว์เซอร์อ่าน
+ *                         X-Data-Version ไม่ได้ ระบบกันชนจะเงียบไปเฉย ๆ
  *  v2.8 (2026-09-09) — รอบตรวจความน่าเชื่อถือของการแจ้งเตือนและความปลอดภัย
  *                       • /webhook ตรวจลายเซ็น x-line-signature ด้วย CHANNEL_SECRET
  *                         (ปิดช่องที่ใครก็ยิง event "join" ปลอมมาแอบเป็นผู้รับแจ้งเตือนได้)
@@ -219,7 +230,10 @@
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, X-API-Key',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, X-API-Key, X-Data-Version',
+  // เบราว์เซอร์จะไม่ยอมให้ JS อ่าน header ที่ไม่ใช่ header มาตรฐาน ถ้าไม่ประกาศตรงนี้
+  // ถ้าลืมบรรทัดนี้ ฝั่งเว็บจะอ่าน X-Data-Version ไม่ได้ → ระบบกันข้อมูลชนกันจะเงียบไปเฉย ๆ
+  'Access-Control-Expose-Headers': 'X-Data-Version',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -239,6 +253,9 @@ const corsHeaders = {
 //  ให้อัตโนมัติครั้งแรกที่เรียก (ถ้ายังไม่เคย migrate) — ไม่ต้องเพิ่มเพื่อนบอทใหม่
 // ─────────────────────────────────────────────────────────────────────────────
 const RECIPIENT_PREFIX = 'recipient:';
+/** จำกัดการเดารหัสผ่านแอดมิน: กี่ครั้งต่อ IP ภายในกี่วินาที */
+const LOGIN_MAX_ATTEMPTS = 10;
+const LOGIN_WINDOW_SECONDS = 15 * 60;
 /** key ที่บอกว่า migrate ข้อมูลผู้รับแบบเก่า (recipient_ids) มาแล้ว — กันข้อมูลเก่าฟื้นคืนชีพ */
 const LEGACY_MIGRATED_KEY = 'recipient_ids_migrated';
 
@@ -540,11 +557,24 @@ export default {
 
     // ล็อกอิน Admin — ตรวจสอบรหัสผ่านกับ ADMIN_PASSWORD ใน env
     if (path === '/auth/login' && request.method === 'POST') {
+      // จำกัดการเดารหัส: 10 ครั้งต่อ IP ต่อ 15 นาที (เดิมเดาได้ไม่จำกัด)
+      const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const attemptKey = `login_attempt:${clientIp}`;
       try {
+        const attempts = parseInt(await env.ROOM_BOOKINGS_KV.get(attemptKey) || '0', 10);
+        if (attempts >= LOGIN_MAX_ATTEMPTS) {
+          console.warn(`[Auth] Too many failed logins from ${clientIp}`);
+          return json({ success: false, error: 'พยายามเข้าสู่ระบบบ่อยเกินไป กรุณารอ 15 นาที' }, 429);
+        }
+
         const { password } = await request.json();
         if (password && env.ADMIN_PASSWORD && password === env.ADMIN_PASSWORD) {
+          if (attempts > 0) await env.ROOM_BOOKINGS_KV.delete(attemptKey);
           return json({ success: true });
         }
+
+        // นับเฉพาะครั้งที่ผิด และให้ KV ลบ key ทิ้งเองเมื่อครบ 15 นาที
+        await env.ROOM_BOOKINGS_KV.put(attemptKey, String(attempts + 1), { expirationTtl: LOGIN_WINDOW_SECONDS });
         return json({ success: false }, 401);
       } catch (e) {
         return json({ success: false }, 400);
@@ -954,7 +984,13 @@ export default {
           // ?version=prev → อ่านสำเนาก่อนการบันทึกครั้งล่าสุด (ใช้กู้ข้อมูลเวลาเขียนทับพลาด)
           const wantsPrevious = url.searchParams.get('version') === 'prev';
           const data = await KV.get(wantsPrevious ? `${type}_data_prev` : `${type}_data`, 'json') || [];
-          return json(data);
+
+          // ส่งเลขรุ่นของข้อมูลติดไปด้วย — ฝั่งเว็บเก็บไว้แล้วแนบกลับมาตอนบันทึก
+          // เพื่อให้ Worker รู้ว่าเขียนทับของใหม่กว่าอยู่หรือเปล่า (ดูหัวข้อ POST)
+          const version = (await KV.get(`${type}_data_version`)) || '0';
+          const response = json(data);
+          response.headers.set('X-Data-Version', version);
+          return response;
         }
 
         if (request.method === 'POST') {
@@ -970,6 +1006,31 @@ export default {
             console.error(`[Data Guard] Rejected non-array payload for "${type}"`);
             return json({ error: 'ข้อมูลต้องเป็น array เท่านั้น' }, 400);
           }
+
+          // ── กันข้อมูลของคนอื่นหายเพราะบันทึกพร้อมกัน ────────────────────────
+          // endpoint นี้เขียนทับทั้ง array เสมอ ถ้า A กับ B เปิดหน้าเดียวกันแล้วบันทึกไล่กัน
+          // ของ A จะหายไปทั้งก้อนโดยไม่มีใครรู้ (last write wins)
+          // ตอนนี้ฝั่งเว็บแนบ X-Data-Version ที่ได้ตอน GET กลับมาด้วย ถ้าไม่ตรงกับของใน KV
+          // แปลว่ามีคนบันทึกแทรกไปแล้ว → ตอบ 409 พร้อมข้อมูลล่าสุด ให้ฝั่งเว็บรวมแล้วส่งใหม่
+          //
+          // ⚠️ KV เป็น eventually consistent ไม่ใช่ transaction — ถ้าสองคนบันทึกพร้อมกัน
+          //    ในระดับวินาทีเดียวกันจากคนละภูมิภาค อาจตรวจไม่เจอ ทางแก้ที่ปิดช่องได้จริง
+          //    ต้องย้ายไป Durable Objects หรือ D1 (ดู TODO ใน DEVELOPER_GUIDE)
+          const currentVersion = (await KV.get(`${type}_data_version`)) || '0';
+          const clientVersion = request.headers.get('X-Data-Version');
+          if (clientVersion && clientVersion !== currentVersion) {
+            console.warn(`[Data Guard] Conflict on "${type}": client=${clientVersion} current=${currentVersion}`);
+            const current = await KV.get(`${type}_data`, 'json') || [];
+            const conflictResponse = json({
+              error: 'conflict',
+              message: 'มีคนบันทึกข้อมูลแทรกเข้ามาก่อน',
+              version: currentVersion,
+              data: current,
+            }, 409);
+            conflictResponse.headers.set('X-Data-Version', currentVersion);
+            return conflictResponse;
+          }
+          const newVersion = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
           // เก็บสำเนาของเดิมไว้ก่อนเขียนทับ — /data?type=...&version=prev ดึงกลับมาได้
           // (endpoint นี้เขียนทับทั้งก้อนเสมอ ถ้าไม่มีสำเนาไว้ พลาดครั้งเดียวคือข้อมูลหายถาวร)
@@ -988,7 +1049,10 @@ export default {
           }
 
           await KV.put(`${type}_data`, JSON.stringify(incoming));
-          return json({ success: true, count: incoming.length });
+          await KV.put(`${type}_data_version`, newVersion);
+          const okResponse = json({ success: true, count: incoming.length, version: newVersion });
+          okResponse.headers.set('X-Data-Version', newVersion);
+          return okResponse;
         }
       }
 
