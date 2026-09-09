@@ -79,7 +79,7 @@
  *  _redirects                             ← Cloudflare Pages SPA config
  *  .env.example                           ← ตัวอย่าง env variables (สำหรับ dev)
  *  hooks/
- *    useSwipeableTabs.ts                  ← ปัดซ้าย/ขวาบนมือถือเพื่อสลับแท็บในแต่ละระบบ
+ *    useSwipeNavigation.tsx               ← ลำดับหน้าเดียวทั้งแอป + สถานะแท็บของทุกระบบ (ใช้กับการปัด)
  *  services/
  *    apiService.ts                        ← ติดต่อ Worker (fetch/save data)
  *    notificationService.ts               ← ส่ง LINE แจ้งเตือน
@@ -88,7 +88,7 @@
  *    layout/
  *      Navbar.tsx                         ← แถบหัวเรื่อง 2 ชั้น (แบรนด์ + เมนูระบบ)
  *      Breadcrumb.tsx                     ← แถบเส้นทางการใช้งาน
- *      PageTransition.tsx                 ← โมชั่นตอนเปลี่ยนหน้า + เลื่อนจอขึ้นบนสุด
+ *      PageTransition.tsx                 ← ปัดซ้าย/ขวาเปลี่ยนหน้า + โมชั่น + เลื่อนจอขึ้นบนสุด
  *      Footer.tsx                         ← ส่วนท้ายของทุกหน้า
  *    room/
  *      RoomBookingSystem.tsx              ← controller ระบบจองห้อง
@@ -135,6 +135,7 @@ import RepairSystem from './components/repair/RepairSystem';
 import Navbar from './components/layout/Navbar';
 import Breadcrumb from './components/layout/Breadcrumb';
 import PageTransition from './components/layout/PageTransition';
+import { SwipeNavigationProvider } from './hooks/useSwipeNavigation';
 import Footer from './components/layout/Footer';
 import { SystemType, ToastMessage } from './types';
 import ToastContainer from './components/shared/ToastContainer';
@@ -215,72 +216,74 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="app-container flex flex-col min-h-screen bg-surface">
-      <Navbar isAdmin={isAdmin} onAdminToggle={handleAdminToggle} />
+    <SwipeNavigationProvider>
+      <div className="app-container flex flex-col min-h-screen bg-surface">
+        <Navbar isAdmin={isAdmin} onAdminToggle={handleAdminToggle} />
 
-      {/* เว้นที่ใต้ header ตามความสูงจริง (Navbar อัปเดต --header-height ให้เอง) */}
-      <main className="main-content flex-1 w-full pt-[var(--header-height)]">
-        <div className="max-w-content mx-auto px-gutter-mobile md:px-gutter-tablet lg:px-gutter-desktop py-space-md">
-          <Breadcrumb />
-          {/* โมชั่นตอนเปลี่ยนระบบ — เนื้อหาเลื่อนเข้าตามทิศของเมนู */}
-          <PageTransition>
-            <Routes>
-              <Route path="/"          element={<LandingPage onAdminLogin={handleAdminToggle} isAdmin={isAdmin} />} />
-              <Route path="/room"      element={<RoomBookingSystem showToast={showToast} isAdmin={isAdmin} />} />
-              <Route path="/equipment" element={<EquipmentSystem showToast={showToast} isAdmin={isAdmin} />} />
-              <Route path="/repair"    element={<RepairSystem showToast={showToast} isAdmin={isAdmin} />} />
-              <Route path="*"          element={<Navigate to="/" replace />} />
-            </Routes>
-          </PageTransition>
-        </div>
-      </main>
-      <Footer />
-      <ToastContainer messages={toastMessages} onRemove={removeToast} />
+        {/* เว้นที่ใต้ header ตามความสูงจริง (Navbar อัปเดต --header-height ให้เอง) */}
+        <main className="main-content flex-1 w-full pt-[var(--header-height)]">
+          <div className="max-w-content mx-auto px-gutter-mobile md:px-gutter-tablet lg:px-gutter-desktop py-space-md">
+            <Breadcrumb />
+            {/* ปัดซ้าย/ขวาเปลี่ยนหน้าตามลำดับเดียวทั้งแอป + โมชั่นตอนเปลี่ยนหน้า */}
+            <PageTransition>
+              <Routes>
+                <Route path="/"          element={<LandingPage onAdminLogin={handleAdminToggle} isAdmin={isAdmin} />} />
+                <Route path="/room"      element={<RoomBookingSystem showToast={showToast} isAdmin={isAdmin} />} />
+                <Route path="/equipment" element={<EquipmentSystem showToast={showToast} isAdmin={isAdmin} />} />
+                <Route path="/repair"    element={<RepairSystem showToast={showToast} isAdmin={isAdmin} />} />
+                <Route path="*"          element={<Navigate to="/" replace />} />
+              </Routes>
+            </PageTransition>
+          </div>
+        </main>
+        <Footer />
+        <ToastContainer messages={toastMessages} onRemove={removeToast} />
 
-      {/* ── Modal ล็อกอินเจ้าหน้าที่ ── */}
-      <Modal
-        isOpen={isLoginModalOpen}
-        onClose={() => !isSubmitting && setIsLoginModalOpen(false)}
-        title="🔑 เข้าสู่โหมดเจ้าหน้าที่ (Admin)"
-        size="sm"
-      >
-        <form onSubmit={handleLoginSubmit} className="space-y-4">
-          <div>
-            <label className="block font-label text-label-md text-on-surface-variant mb-1.5">
-              รหัสผ่านเจ้าหน้าที่
-            </label>
-            <input
-              type="password"
-              placeholder="กรุณากรอกรหัสผ่าน..."
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              disabled={isSubmitting}
-              className="w-full px-4 py-3 rounded-lg bg-surface-container-low font-body text-body-md text-on-surface placeholder-outline focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary transition-all shadow-inner"
-              autoFocus
-            />
-          </div>
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={isSubmitting}
-              onClick={() => setIsLoginModalOpen(false)}
-            >
-              ยกเลิก
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              size="sm"
-              loading={isSubmitting}
-            >
-              เข้าสู่ระบบ
-            </Button>
-          </div>
-        </form>
-      </Modal>
-    </div>
+        {/* ── Modal ล็อกอินเจ้าหน้าที่ ── */}
+        <Modal
+          isOpen={isLoginModalOpen}
+          onClose={() => !isSubmitting && setIsLoginModalOpen(false)}
+          title="🔑 เข้าสู่โหมดเจ้าหน้าที่ (Admin)"
+          size="sm"
+        >
+          <form onSubmit={handleLoginSubmit} className="space-y-4">
+            <div>
+              <label className="block font-label text-label-md text-on-surface-variant mb-1.5">
+                รหัสผ่านเจ้าหน้าที่
+              </label>
+              <input
+                type="password"
+                placeholder="กรุณากรอกรหัสผ่าน..."
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                disabled={isSubmitting}
+                className="w-full px-4 py-3 rounded-lg bg-surface-container-low font-body text-body-md text-on-surface placeholder-outline focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary transition-all shadow-inner"
+                autoFocus
+              />
+            </div>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={isSubmitting}
+                onClick={() => setIsLoginModalOpen(false)}
+              >
+                ยกเลิก
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                size="sm"
+                loading={isSubmitting}
+              >
+                เข้าสู่ระบบ
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      </div>
+    </SwipeNavigationProvider>
   );
 };
 

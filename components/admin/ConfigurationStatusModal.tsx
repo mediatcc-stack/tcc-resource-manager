@@ -34,6 +34,7 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({ isO
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 animate-fade-in"
+      data-no-swipe
       onClick={onClose}
     >
       <div
