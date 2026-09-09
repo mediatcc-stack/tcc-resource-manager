@@ -135,10 +135,14 @@ h1, h2, h3, h4, h5, h6 {
   animation: swipeFromLeft 0.28s ease-out forwards;
 }
 
-/* ผู้ใช้ที่ตั้งค่าลดการเคลื่อนไหวในระบบปฏิบัติการ */
+/* ผู้ใช้ที่ตั้งค่าลดการเคลื่อนไหวในระบบปฏิบัติการ — ปิดอนิเมชันทั้งหมด
+   (ทุก keyframe จบที่สถานะปกติอยู่แล้ว การปิดจึงไม่ทำให้อะไรหายไป) */
 @media (prefers-reduced-motion: reduce) {
   .animate-swipe-from-right,
-  .animate-swipe-from-left {
+  .animate-swipe-from-left,
+  .animate-fade-in,
+  .animate-zoom-in,
+  .animate-slide-in-right {
     animation: none;
   }
 }

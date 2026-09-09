@@ -409,7 +409,7 @@ const RoomBookingSystem: React.FC<RoomBookingSystemProps> = ({ showToast, isAdmi
   };
   
   return (
-    <div className="animate-fade-in mb-20" {...swipeHandlers}>
+    <div className="mb-20" {...swipeHandlers}>
       <SystemToolbar
         tabs={[
           { key: 'home',       label: 'หน้าแรก',    icon: <Home className="w-4 h-4" /> },

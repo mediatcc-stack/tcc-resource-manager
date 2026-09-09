@@ -249,7 +249,7 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
     };
 
     return (
-        <div className="animate-fade-in mb-20" {...swipeHandlers}>
+        <div className="mb-20" {...swipeHandlers}>
             <SystemToolbar
                 tabs={[
                     { key: 'list',       label: 'รายการแจ้งซ่อมทั้งหมด', icon: <ClipboardList className="w-4 h-4" /> },
