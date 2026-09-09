@@ -95,11 +95,13 @@ curl -H "X-API-Key: [API_SECRET_KEY]" \
 > (`recipient:<id>`) เพื่อแก้บั๊กที่ผู้รับบางคนหายไปเงียบๆ เวลามีหลาย webhook event (join/leave/
 > follow/unfollow) เข้ามาพร้อมกัน — ข้อมูลเก่าจะถูก migrate มาเป็น key แยกให้อัตโนมัติ ไม่ต้องทำอะไรเพิ่ม
 
-### แจ้งเตือนอัตโนมัติ (Cron)
+### แจ้งเตือนอัตโนมัติ (Cron) — ❌ ปิดใช้งานแล้ว
 
-Worker มี `scheduled()` ส่งสรุปการจองทุกเช้า  
-ตั้งค่า Cron: Dashboard → tcc-line-notifier → Settings → Triggers  
-แนะนำ: `0 1 * * *` (01:00 UTC = 08:00 น. ไทย)
+เดิม Worker มี `scheduled()` ส่งสรุปการจองเข้ากลุ่มทุกเช้า ตอนนี้เอาออกแล้ว  
+ถ้ายังมี Cron Trigger ค้างที่ Dashboard → tcc-line-notifier → Settings → Triggers ให้ลบทิ้งได้เลย  
+(`scheduled()` เหลือไว้เป็นตัวเปล่า ๆ เพื่อไม่ให้ trigger ที่ค้างอยู่ error)
+
+ดูรายการจองแทนได้ที่แท็บ **ตารางการจอง** ในเว็บ หรือพิมพ์ `@ชื่อบอท จองวันนี้` ในกลุ่ม
 
 ---
 

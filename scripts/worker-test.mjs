@@ -386,25 +386,18 @@ console.log('\n[7] @mention — เลือกคำสั่งถูกปร
   check('"@bot สวัสดี" → ตอบวิธีใช้ ไม่เงียบใส่', (await mention('@bot สวัสดีครับ')).includes('พิมพ์ @ชื่อบอท'));
 }
 
-// ── 8) scheduled() ──────────────────────────────────────────────────────────
-console.log('\n[8] scheduled() — สรุปประจำวัน');
+// ── 8) scheduled() — ปิดการใช้งานแล้ว ──────────────────────────────────────
+console.log('\n[8] scheduled() — สรุปประจำวันถูกปิดแล้ว');
 {
   const env = baseEnv();
   await env.ROOM_BOOKINGS_KV.put('recipient:Cg1', '1');
   const thaiToday = new Date(Date.now() + 7 * 3600e3).toISOString().split('T')[0];
-  const utcToday = new Date().toISOString().split('T')[0];
   await env.ROOM_BOOKINGS_KV.put('rooms_data', JSON.stringify([
     { roomName: 'ห้อง 1', date: thaiToday, startTime: '09:00', endTime: '12:00', purpose: 'ประชุมครู', bookerName: 'ครูเอ', status: 'จองแล้ว' },
   ]));
   lineCalls = []; lineResponder = () => new Response('{}', { status: 200 });
   await worker.scheduled({}, env, ctx);
-  const sent = lineCalls.find(c => c.url.endsWith('/message/push'));
-  check('ส่งสรุปของ "วันนี้ตามเวลาไทย"', !!sent && sent.body.messages[0].text.includes('ประชุมครู'), `thai=${thaiToday} utc=${utcToday}`);
-
-  lineCalls = [];
-  await env.ROOM_BOOKINGS_KV.put('rooms_data', JSON.stringify([]));
-  await worker.scheduled({}, env, ctx);
-  check('ไม่มีการจอง → ไม่ส่งอะไรเลย (ไม่รบกวนกลุ่ม)', lineCalls.length === 0);
+  check('cron ที่ค้างอยู่ยิงมาก็ไม่ส่งอะไรเข้ากลุ่ม', lineCalls.length === 0, `calls=${lineCalls.length}`);
 }
 
 // ── 9) migrate ผู้รับแบบเก่า ────────────────────────────────────────────────
