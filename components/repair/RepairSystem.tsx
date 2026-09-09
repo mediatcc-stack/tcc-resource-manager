@@ -132,12 +132,10 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
     const handleNotifyAgain = useCallback(async (req: RepairRequest) => {
         const priorityTag = req.priority === 'ด่วนที่สุด' ? '🔥 ด่วนที่สุด! ' : '';
         const msg = `🔔 แจ้งเตือนซ้ำ: งานแจ้งซ่อมค้างดำเนินการ\n\n${priorityTag}👤 ผู้แจ้ง: ${req.requesterName} (${req.department})\n📍 ห้อง/สถานที่: ${req.roomName}\n🔧 ประเภทปัญหา: ${req.problemType}\n📝 ${req.description}\n\n🚩 กรุณาดำเนินการโดยด่วนครับ`;
-        try {
-            await sendLineNotification(msg, 'repair');
-            showToast('ส่งแจ้งเตือน LINE สำเร็จ', 'success');
-        } catch (e) {
-            showToast('ส่งแจ้งเตือนไม่สำเร็จ', 'error');
-        }
+        // ผลลัพธ์มาจาก LINE จริง — ไม่ขึ้น "สำเร็จ" ทั้งที่ไม่มีใครได้รับอีกต่อไป
+        const result = await sendLineNotification(msg, 'repair');
+        if (result.ok) showToast('ส่งแจ้งเตือน LINE สำเร็จ', 'success');
+        else showToast(`ส่งแจ้งเตือนไม่สำเร็จ: ${result.error}`, 'error');
     }, [showToast]);
 
     const handleEditRequest = useCallback((req: RepairRequest) => {
@@ -188,9 +186,11 @@ const RepairSystem: React.FC<RepairSystemProps> = ({ showToast, isAdmin }) => {
             const priorityTag = createdRequest.priority === 'ด่วนที่สุด' ? '🔥 ด่วนที่สุด! ' : '';
             const notifyMessage = `🛠️ แจ้งซ่อมอุปกรณ์ไอที\n${priorityTag}ความเร่งด่วน: ${createdRequest.priority}\n\n👤 ผู้แจ้ง: ${createdRequest.requesterName} (${createdRequest.department})\n📍 ห้อง/สถานที่: ${createdRequest.roomName}\n🔧 ประเภทปัญหา: ${createdRequest.problemType}\n📝 ${createdRequest.description}`;
 
-            await sendLineNotification(notifyMessage, 'repair');
+            const notifyResult = await sendLineNotification(notifyMessage, 'repair');
             setCurrentPage('list');
-            showToast('ส่งแจ้งซ่อมสำเร็จ', 'success');
+            // บันทึกสำเร็จแล้วเสมอ ณ จุดนี้ — แยกให้ชัดว่าที่พลาดคือ "แจ้งเตือน" ไม่ใช่ "ข้อมูล"
+            if (notifyResult.ok) showToast('ส่งแจ้งซ่อมสำเร็จ', 'success');
+            else showToast(`บันทึกแจ้งซ่อมแล้ว แต่แจ้งเตือน LINE ไม่สำเร็จ (${notifyResult.error})`, 'error');
             fetchRepairs(true);
         } catch (error: any) {
             showToast(`บันทึกข้อมูลไม่สำเร็จ: ${error.message}`, 'error');

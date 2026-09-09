@@ -108,8 +108,9 @@ Worker มี `scheduled()` ส่งสรุปการจองทุกเ�
 | `ADMIN_PASSWORD` | รหัสผ่านโหมดเจ้าหน้าที่ |
 | `API_SECRET_KEY` | Key สำหรับ Frontend เรียก API (ต้องตรงกับ Pages) |
 | `CHANNEL_ACCESS_TOKEN` | LINE Bot Long-lived Token |
-| `CHANNEL_SECRET` | LINE Channel Secret |
-| `RECIPIENT_ID` | LINE User ID สำรอง |
+| `CHANNEL_SECRET` | LINE Channel Secret — ใช้ตรวจลายเซ็น `/webhook` ⚠️ **ต้องตั้ง** ไม่งั้นใครก็ยิง event ปลอมมาแอบเพิ่มกลุ่มตัวเองเป็นผู้รับแจ้งเตือนได้ |
+| `RECIPIENT_ID` | LINE User ID สำรอง (ใช้เมื่อยังไม่มีผู้รับใน KV) |
+| `REPAIR_GROUP_ID` | LINE Group ID ของกลุ่มแจ้งซ่อม (`/notify` target=repair ส่งเข้ากลุ่มนี้เท่านั้น) |
 
 ### Cloudflare Pages Settings
 
@@ -167,13 +168,26 @@ npm run build      # สร้างไฟล์ใน dist/
 | POST | `/auth/login` | ไม่ต้อง | ล็อกอิน Admin |
 | POST | `/webhook` | ไม่ต้อง | LINE Webhook |
 | GET | `/data?type=rooms` | X-API-Key | ดึงข้อมูลการจอง |
+| GET | `/data?type=rooms&version=prev` | X-API-Key | สำเนาก่อนการบันทึกครั้งล่าสุด (ใช้กู้ข้อมูล) |
 | POST | `/data?type=rooms` | X-API-Key | บันทึกข้อมูลการจอง |
 | GET | `/data?type=equipment` | X-API-Key | ดึงข้อมูลการยืม |
 | POST | `/data?type=equipment` | X-API-Key | บันทึกข้อมูลการยืม |
 | GET | `/data?type=repairs` | X-API-Key | ดึงข้อมูลการแจ้งซ่อม |
 | POST | `/data?type=repairs` | X-API-Key | บันทึกข้อมูลการแจ้งซ่อม |
-| POST | `/notify` | X-API-Key | ส่ง LINE แจ้งเตือน |
+| POST | `/notify` | X-API-Key | ส่ง LINE แจ้งเตือน — ตอบ `{ success, sent, failed, total }` (`success:false` = ไม่ถึงสักปลายทาง) |
 | GET | `/recipients` | X-API-Key | ดู LINE recipients |
+
+---
+
+## 🧪 ทดสอบ Worker ก่อน Deploy
+
+Worker deploy ด้วยมือผ่าน Dashboard ถ้าโค้ดพังจะรู้ตอนของจริงพังแล้ว — ก่อน deploy ให้รัน
+
+```bash
+node scripts/worker-test.mjs     # ต้องได้ "ล้มเหลว 0"
+```
+
+จำลอง KV และ LINE API ไว้ในหน่วยความจำ ไม่ยิงเข้า LINE จริงและไม่แตะข้อมูลใน Cloudflare
 
 ---
 
@@ -183,6 +197,14 @@ npm run build      # สร้างไฟล์ใน dist/
 - [ ] เพิ่ม `sessionStorage` เก็บ admin state ไว้เมื่อ refresh
 - [ ] รวม `ROOM_METADATA` ใน `HomePage.tsx` กลับมาที่ `constants.ts`
 - [ ] ลบ `console.log(API Key)` ใน `apiService.ts` (security)
+- [ ] `VITE_API_SECRET_KEY` ถูกฝังอยู่ในไฟล์ JS ที่ส่งให้เบราว์เซอร์ ใครเปิด DevTools ก็อ่านได้
+      → ใครก็เรียก `/data` อ่าน/เขียนทับข้อมูลทั้งก้อน หรือยิง `/notify` เข้ากลุ่ม LINE ได้
+      ต้องแก้ด้วยการทำ auth จริง (ล็อกอินแล้วออก token อายุสั้น) ไม่ใช่แค่เปลี่ยน key
+- [ ] `POST /data` เขียนทับทั้ง array ถ้าสองคนบันทึกพร้อมกัน ของคนที่บันทึกก่อนจะหาย
+      (ตอนนี้กันไว้แค่สำเนา `<type>_data_prev` — ทางแก้จริงคือเขียนทีละรายการ)
+- [ ] `ConfigurationStatusModal.tsx` เขียนไว้แต่ไม่มีหน้าไหนเรียกใช้ (`/status` จึงไม่เคยถูกเรียกจากเว็บ)
+- [ ] `/recipients` ไม่มีหน้าจอไหนเรียกใช้ — ทำหน้าตั้งค่าผู้รับแจ้งเตือนสำหรับแอดมิน
+- [ ] `reminderSent` ใน `types.ts` ไม่ถูกใช้ที่ไหนเลย (ตั้งใจทำเตือนล่วงหน้าก่อนถึงเวลาจอง แต่ยังไม่ได้ทำ)
 - [ ] ลบ debug log ใน `index.tsx`
 - [ ] แก้ Date loop bug ใน `handleBookingUpdate` (clone ก่อน iterate)
 - [ ] เปลี่ยน `alert/confirm` เป็น Modal ใน `MyBookingsPage`
