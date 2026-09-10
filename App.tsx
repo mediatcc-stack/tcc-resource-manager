@@ -126,7 +126,7 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { WORKER_BASE_URL } from './constants';
 import LandingPage from './components/landing/LandingPage';
@@ -141,7 +141,7 @@ import Footer from './components/layout/Footer';
 import { SystemType, ToastMessage } from './types';
 import ToastContainer from './components/shared/ToastContainer';
 import ConfigurationStatusModal from './components/admin/ConfigurationStatusModal';
-import { fetchWorkerStatus, fetchRecipients, updateRecipientTopics, deleteRecipient, WorkerStatus, NotificationRecipient, NotificationTopic } from './services/apiService';
+import { fetchWorkerStatus, fetchRecipients, updateRecipientTopics, deleteRecipient, getAdminToken, storeAdminToken, clearAdminToken, WorkerStatus, NotificationRecipient, NotificationTopic } from './services/apiService';
 import Modal from './components/shared/Modal';
 import Button from './components/shared/Button';
 
@@ -149,14 +149,29 @@ import Button from './components/shared/Button';
 const App: React.FC = () => {
   const [toastMessages, setToastMessages] = useState<ToastMessage[]>([]);
   
-  // โหลดสถานะ admin จาก localStorage เพื่อไม่ให้หลุดเมื่อรีเฟรชหรือเปิดจากไลน์ใหม่
-  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
-    return localStorage.getItem('isAdmin') === 'true';
-  });
+  // ── สถานะแอดมิน ────────────────────────────────────────────────────────────
+  // ⚠️ เดิมเก็บเป็น localStorage.isAdmin = 'true' ซึ่งใครพิมพ์เองใน DevTools ก็ได้
+  //    ตอนนี้ยึดจาก "ตั๋ว" ที่ Worker เซ็นให้ตอนล็อกอินสำเร็จ (หมดอายุใน 12 ชม.)
+  //    ค่านี้ยังใช้แค่ตัดสินว่าจะโชว์ปุ่มไหนในหน้าเว็บ — ตัวที่กันจริงคือฝั่ง Worker
+  //    ที่ตรวจตั๋วทุกครั้ง ต่อให้แก้ state ตรงนี้เป็น true เองก็สั่งอะไรไม่ได้
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => getAdminToken() !== null);
   
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ตั๋วแอดมินหมดอายุใน 12 ชม. — คอยเช็คเพื่อไม่ให้หน้าจอยังโชว์ปุ่มของแอดมิน
+  // ทั้งที่ Worker ปฏิเสธไปแล้ว (ผู้ใช้จะได้รู้ว่าต้องล็อกอินใหม่ ไม่ใช่กดแล้วเงียบ)
+  useEffect(() => {
+    if (!isAdmin) return;
+    const interval = setInterval(() => {
+      if (getAdminToken() === null) {
+        setIsAdmin(false);
+        showToast('หมดเวลาโหมดเจ้าหน้าที่ กรุณาเข้าสู่ระบบใหม่', 'error');
+      }
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, [isAdmin]);
 
   // ── หน้าตรวจสอบสุขภาพระบบ (เฉพาะเจ้าหน้าที่) ──
   // ใช้เช็คหลัง deploy Worker ว่า LINE/KV/ลายเซ็น webhook พร้อมไหม
@@ -232,7 +247,7 @@ const App: React.FC = () => {
   const handleAdminToggle = () => {
     if (isAdmin) {
       setIsAdmin(false);
-      localStorage.removeItem('isAdmin');
+      clearAdminToken();
       showToast('ออกจากโหมดเจ้าหน้าที่', 'success');
       return;
     }
@@ -256,14 +271,16 @@ const App: React.FC = () => {
       });
       if (response.ok) {
         const data = await response.json();
-        if (data.success) {
+        if (data.success && data.token) {
+          storeAdminToken(data.token, data.expiresAt);
           setIsAdmin(true);
-          localStorage.setItem('isAdmin', 'true');
           setIsLoginModalOpen(false);
           showToast('เข้าสู่โหมดเจ้าหน้าที่สำเร็จ', 'success');
         } else {
           showToast('รหัสผ่านไม่ถูกต้อง', 'error');
         }
+      } else if (response.status === 429) {
+        showToast('พยายามเข้าสู่ระบบบ่อยเกินไป กรุณารอ 15 นาที', 'error');
       } else {
         showToast('รหัสผ่านไม่ถูกต้อง', 'error');
       }
