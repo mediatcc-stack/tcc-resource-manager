@@ -35,8 +35,25 @@ const baseEnv = () => ({
   ROOM_BOOKINGS_KV: makeKV(), EQUIPMENT_BORROWINGS_KV: makeKV(), REPAIR_REQUESTS_KV: makeKV(),
 });
 const ctx = { waitUntil: p => p };
-const req = (path, opts = {}) => new Request(`https://w.dev${path}`, opts);
+
+// Cloudflare ใส่ CF-Connecting-IP ให้ทุก request ที่ผ่านขอบเสมอ (ปลอมไม่ได้ CF เขียนทับให้)
+// Worker ใช้ header นี้จำกัดจำนวนครั้งการเดารหัสผ่าน จึงต้องมีในทุก request จำลองด้วย
+const req = (path, opts = {}) =>
+  new Request(`https://w.dev${path}`, { ...opts, headers: { 'CF-Connecting-IP': '1.1.1.1', ...(opts.headers || {}) } });
 const authed = (path, opts = {}) => req(path, { ...opts, headers: { 'X-API-Key': 'key', 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+
+/** ขอตั๋วแอดมินจริงจาก /auth/login — งานของแอดมินต้องแนบตั๋วนี้ทุกครั้ง */
+const adminToken = async (env) => {
+  const res = await worker.fetch(
+    req('/auth/login', { method: 'POST', headers: { 'CF-Connecting-IP': '9.9.9.9' }, body: JSON.stringify({ password: 'pw' }) }),
+    env, ctx
+  );
+  return (await res.json()).token;
+};
+
+/** request ที่มีทั้ง API Key และตั๋วแอดมิน */
+const asAdmin = async (env, path, opts = {}) =>
+  authed(path, { ...opts, headers: { 'X-Admin-Token': await adminToken(env), ...(opts.headers || {}) } });
 
 let lineCalls = [];
 let lineResponder = () => new Response('{}', { status: 200 });
@@ -53,7 +70,7 @@ const recipientState = async (env, id) => {
   return raw === null ? null : JSON.parse(raw);
 };
 
-const getStatus = async (env) => (await worker.fetch(req('/status'), env, ctx)).json();
+const getStatus = async (env) => (await worker.fetch(await asAdmin(env, '/status'), env, ctx)).json();
 
 let pass = 0, fail = 0;
 const check = (name, cond, extra = '') => { if (cond) { pass++; console.log(`  ✓ ${name}`); } else { fail++; console.log(`  ✗ ${name} ${extra}`); } };
@@ -63,10 +80,14 @@ console.log('\n[1] /status');
 {
   const env = baseEnv();
   await env.ROOM_BOOKINGS_KV.put('recipient:Cgroup1', '1');
-  const res = await worker.fetch(req('/status'), env, ctx);
+  const res = await worker.fetch(await asAdmin(env, '/status'), env, ctx);
   const body = await res.json();
   check('มี channelSecretSet', body.channelSecretSet === true);
   check('นับผู้รับได้', body.recipientCount === 1, JSON.stringify(body));
+
+  // สถานะการตั้งค่าเป็นข้อมูลที่ช่วยคนที่จะโจมตีเลือกช่องทาง — ต้องไม่เปิดสาธารณะ
+  const anon = await worker.fetch(req('/status'), env, ctx);
+  check('ไม่มีตั๋วแอดมิน → 401', anon.status === 401);
 }
 
 // ── 2) /auth/login ──────────────────────────────────────────────────────────
@@ -245,10 +266,14 @@ console.log('\n[6] /webhook — ตรวจลายเซ็น');
   check('leave → หยุดรับแจ้งเตือน (แต่ยังเก็บ Group ID ไว้)',
     String((await recipientState(env, 'Cforged'))?.left).startsWith('left:'));
 
-  // ยังไม่ตั้ง CHANNEL_SECRET → ยังทำงานได้ (แต่มี warning) เพื่อไม่ให้ระบบเดิมพังทันที
+  // ยังไม่ตั้ง CHANNEL_SECRET → ต้องปฏิเสธทุก event (fail-closed)
+  // เดิมข้ามการตรวจลายเซ็นให้ ทำให้ตอนตั้งค่าไม่ครบกลายเป็นตอนที่ไม่มีการป้องกันเลย
+  // ใครรู้ URL ก็ยิง join ปลอมเพื่อเอากลุ่มตัวเองไปรับข้อมูลการจอง/แจ้งซ่อมได้
   const envNoSecret = { ...baseEnv(), CHANNEL_SECRET: undefined };
-  const legacy = await worker.fetch(req('/webhook', { method: 'POST', body }), envNoSecret, ctx);
-  check('ไม่ตั้ง CHANNEL_SECRET → ยังรับ event ได้ (ของเดิมไม่พัง)', legacy.status === 200);
+  const noSecret = await worker.fetch(req('/webhook', { method: 'POST', body }), envNoSecret, ctx);
+  check('ไม่ตั้ง CHANNEL_SECRET → ปฏิเสธ event (503)', noSecret.status === 503);
+  check('ไม่ตั้ง CHANNEL_SECRET → ไม่เพิ่มกลุ่มปลอมเข้า KV',
+    (await recipientState(envNoSecret, 'Cforged')) === null);
 }
 
 // ── 6b) บอทออกจากกลุ่ม — ต้องเก็บ Group ID ไว้ ไม่ลบ key ทิ้ง ─────────────────
@@ -280,7 +305,7 @@ console.log('\n[6b] บอทออกจากกลุ่ม — เก็บ 
   // ออกจากกลุ่มอีกครั้ง แล้ว /recipients ต้องยังเห็น เพื่อก็อป Group ID ไปใช้ต่อ
   await worker.fetch(req('/webhook', { method: 'POST', body: leave, headers: { 'x-line-signature': await sign(leave) } }), env, ctx);
   lineResponder = () => new Response(JSON.stringify({ groupName: 'กลุ่มแจ้งซ่อม' }), { status: 200 });
-  const listed = await (await worker.fetch(authed('/recipients'), env, ctx)).json();
+  const listed = await (await worker.fetch(await asAdmin(env, '/recipients'), env, ctx)).json();
   const gone = listed.find(r => r.id === 'Cgroup9');
   check('/recipients ยังคืนกลุ่มที่บอทออกไปแล้ว พร้อม active:false', gone && gone.active === false, JSON.stringify(listed));
 }
@@ -289,7 +314,7 @@ console.log('\n[6b] บอทออกจากกลุ่ม — เก็บ 
 console.log('\n[6c] แต่ละกลุ่มเลือกรับเฉพาะหัวข้อที่ติ๊กไว้');
 {
   const env = baseEnv();
-  const setTopics = (id, topics) => worker.fetch(authed('/recipients', { method: 'POST', body: JSON.stringify({ id, topics }) }), env, ctx);
+  const setTopics = async (id, topics) => worker.fetch(await asAdmin(env, '/recipients', { method: 'POST', body: JSON.stringify({ id, topics }) }), env, ctx);
   const notify = async (target) => {
     lineCalls = []; lineResponder = () => new Response('{}', { status: 200 });
     const body = await (await worker.fetch(authed('/notify', { method: 'POST', body: JSON.stringify({ message: 'x', target }) }), env, ctx)).json();
@@ -325,18 +350,18 @@ console.log('\n[6c] แต่ละกลุ่มเลือกรับเฉ
   check('เชิญกลับ → ไม่ถูกรีเซ็ตเป็นรับจองห้อง', !roomsAfterBack.to.includes('Cซ่อม'), roomsAfterBack.to.join(','));
 
   // ลบกลุ่มออกจากรายการถาวร
-  const del = (id) => worker.fetch(authed(`/recipients?id=${encodeURIComponent(id)}`, { method: 'DELETE' }), env, ctx);
+  const del = async (id) => worker.fetch(await asAdmin(env, `/recipients?id=${encodeURIComponent(id)}`, { method: 'DELETE' }), env, ctx);
   check('ลบกลุ่มออกจากรายการได้', (await del('Cห้อง')).status === 200);
   check('ลบแล้ว key หายจริง', (await env.ROOM_BOOKINGS_KV.get('recipient:Cห้อง')) === null);
   const delRepairEnv = await (await del('Crepair')).json();
   check('ลบกลุ่มที่ตั้งไว้ใน REPAIR_GROUP_ID → เตือนว่ามันจะกลับมา',
     String(delRepairEnv.warning).includes('REPAIR_GROUP_ID'), JSON.stringify(delRepairEnv));
-  check('ลบโดยไม่ส่ง id → 400', (await worker.fetch(authed('/recipients', { method: 'DELETE' }), env, ctx)).status === 400);
+  check('ลบโดยไม่ส่ง id → 400', (await worker.fetch(await asAdmin(env, '/recipients', { method: 'DELETE' }), env, ctx)).status === 400);
 
   // ข้อมูลเข้าไม่ถูกรูปแบบ
-  const badTopic = await worker.fetch(authed('/recipients', { method: 'POST', body: JSON.stringify({ id: 'C1', topics: ['ทุกอย่าง'] }) }), env, ctx);
+  const badTopic = await worker.fetch(await asAdmin(env, '/recipients', { method: 'POST', body: JSON.stringify({ id: 'C1', topics: ['ทุกอย่าง'] }) }), env, ctx);
   check('หัวข้อที่ไม่รู้จัก → 400', badTopic.status === 400);
-  const noId = await worker.fetch(authed('/recipients', { method: 'POST', body: JSON.stringify({ topics: [] }) }), env, ctx);
+  const noId = await worker.fetch(await asAdmin(env, '/recipients', { method: 'POST', body: JSON.stringify({ topics: [] }) }), env, ctx);
   check('ไม่ส่ง id → 400', noId.status === 400);
 }
 
@@ -356,7 +381,7 @@ console.log('\n[6d] เข้ากันได้กับของเดิม
 
   // /recipients ดึงกลุ่มจาก REPAIR_GROUP_ID เข้ามาให้ติ๊กได้ในหน้าเว็บ
   lineResponder = () => new Response(JSON.stringify({ groupName: 'กลุ่มแจ้งซ่อม' }), { status: 200 });
-  const listed = await (await worker.fetch(authed('/recipients'), env, ctx)).json();
+  const listed = await (await worker.fetch(await asAdmin(env, '/recipients'), env, ctx)).json();
   const repairEntry = listed.find(r => r.id === 'Crepair');
   check('/recipients ดึงกลุ่มจาก REPAIR_GROUP_ID มาให้จัดการในหน้าเว็บ', !!repairEntry, JSON.stringify(listed.map(r => r.id)));
   check('กลุ่มนั้นถูกติ๊ก "แจ้งซ่อม" ไว้ให้แล้ว', repairEntry?.topics.join(',') === 'repairs', JSON.stringify(repairEntry));
@@ -405,13 +430,114 @@ console.log('\n[9] ผู้รับแบบเก่า (recipient_ids)');
 {
   const env = baseEnv();
   await env.ROOM_BOOKINGS_KV.put('recipient_ids', JSON.stringify(['Cold1', 'Cold2']));
-  const first = await (await worker.fetch(req('/status'), env, ctx)).json();
+  const first = await (await worker.fetch(await asAdmin(env, '/status'), env, ctx)).json();
   check('migrate ของเก่ามาเป็น key แยก', first.recipientCount === 2, JSON.stringify(first));
 
   await env.ROOM_BOOKINGS_KV.delete('recipient:Cold1');
   await env.ROOM_BOOKINGS_KV.delete('recipient:Cold2');
-  const second = await (await worker.fetch(req('/status'), env, ctx)).json();
+  const second = await (await worker.fetch(await asAdmin(env, '/status'), env, ctx)).json();
   check('ลบผู้รับหมดแล้วของเก่าไม่ฟื้นคืนชีพ', second.recipientCount === 0, JSON.stringify(second));
+}
+
+// ── 10) ความปลอดภัย — ตั๋วแอดมิน, CORS, การลบยกชุด, ลิงก์ไฟล์แนบ ─────────────
+console.log('\n[10] ความปลอดภัย');
+{
+  const env = baseEnv();
+
+  // ── ตั๋วแอดมินปลอมเองไม่ได้ ────────────────────────────────────────────────
+  const forged = authed('/recipients', { headers: { 'X-Admin-Token': `${Date.now() + 60000}.abc.not-a-real-signature` } });
+  check('ตั๋วแอดมินที่เซ็นเองไม่ผ่าน', (await worker.fetch(forged, env, ctx)).status === 403);
+
+  const expired = authed('/recipients', { headers: { 'X-Admin-Token': `${Date.now() - 1000}.abc.sig` } });
+  check('ตั๋วหมดอายุแล้วไม่ผ่าน', (await worker.fetch(expired, env, ctx)).status === 403);
+
+  // เปลี่ยนรหัสผ่านแอดมิน = ตั๋วเก่าทุกใบใช้ไม่ได้ทันที
+  const token = await adminToken(env);
+  const rotated = { ...env, ADMIN_PASSWORD: 'รหัสใหม่' };
+  const afterRotate = authed('/recipients', { headers: { 'X-Admin-Token': token } });
+  check('เปลี่ยนรหัสผ่าน → ตั๋วเก่าใช้ไม่ได้', (await worker.fetch(afterRotate, rotated, ctx)).status === 403);
+
+  // ── CORS จำกัดเฉพาะ Origin ของเรา ─────────────────────────────────────────
+  const evil = await worker.fetch(req('/status', { headers: { Origin: 'https://evil.example' } }), env, ctx);
+  check('Origin แปลกปลอม → ไม่ได้ Access-Control-Allow-Origin',
+    evil.headers.get('Access-Control-Allow-Origin') === null);
+
+  const ours = await worker.fetch(req('/status', { headers: { Origin: 'https://tcc-media-booking.pages.dev' } }), env, ctx);
+  check('Origin ของเรา → ได้ Access-Control-Allow-Origin',
+    ours.headers.get('Access-Control-Allow-Origin') === 'https://tcc-media-booking.pages.dev');
+
+  const preview = await worker.fetch(req('/status', { headers: { Origin: 'https://abc123.tcc-media-booking.pages.dev' } }), env, ctx);
+  check('preview ของ Pages ใช้ได้', preview.headers.get('Access-Control-Allow-Origin') !== null);
+
+  const extraOrigin = { ...env, ALLOWED_ORIGINS: 'https://booking.tcc.ac.th' };
+  const custom = await worker.fetch(req('/status', { headers: { Origin: 'https://booking.tcc.ac.th' } }), extraOrigin, ctx);
+  check('เพิ่ม Origin ผ่าน ALLOWED_ORIGINS ได้โดยไม่ต้องแก้โค้ด',
+    custom.headers.get('Access-Control-Allow-Origin') === 'https://booking.tcc.ac.th');
+}
+
+// ── การลบข้อมูลยกชุดต้องเป็นแอดมินเท่านั้น ──────────────────────────────────
+{
+  const env = baseEnv();
+  const many = Array.from({ length: 20 }, (_, i) => ({ id: `b${i}`, bookerName: 'ก' }));
+  await worker.fetch(authed('/data?type=rooms', { method: 'POST', body: JSON.stringify(many) }), env, ctx);
+
+  const wipe = await worker.fetch(authed('/data?type=rooms', { method: 'POST', body: JSON.stringify([]) }), env, ctx);
+  check('ลบยกชุดโดยไม่มีตั๋วแอดมิน → 403', wipe.status === 403);
+  check('ข้อมูลยังอยู่ครบหลังถูกปฏิเสธ',
+    (await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json')).length === 20);
+
+  const wipeAsAdmin = await worker.fetch(
+    await asAdmin(env, '/data?type=rooms', { method: 'POST', body: JSON.stringify([]) }), env, ctx);
+  check('แอดมินลบยกชุดได้', wipeAsAdmin.status === 200);
+
+  // ผู้ใช้ทั่วไปยัง "เพิ่ม/แก้" ได้ตามปกติ — ต้องไม่ไปขวางการใช้งานจริง
+  const normal = await worker.fetch(authed('/data?type=rooms', { method: 'POST', body: JSON.stringify([{ id: 'x1' }]) }), env, ctx);
+  check('ผู้ใช้ทั่วไปเพิ่มรายการได้ตามปกติ', normal.status === 200);
+}
+
+// ── รูปร่างข้อมูลและลิงก์ไฟล์แนบ ─────────────────────────────────────────────
+{
+  const env = baseEnv();
+  const post = (payload) => worker.fetch(authed('/data?type=rooms', { method: 'POST', body: JSON.stringify(payload) }), env, ctx);
+
+  check('รายการที่ไม่มี id → 400', (await post([{ bookerName: 'ไม่มี id' }])).status === 400);
+  check('รายการที่ไม่ใช่ object → 400', (await post(['ข้อความเปล่า'])).status === 400);
+  check('เกินจำนวนรายการสูงสุด → 413',
+    (await post(Array.from({ length: 5001 }, (_, i) => ({ id: `b${i}` })))).status === 413);
+
+  // javascript: ในลิงก์ไฟล์แนบ = XSS ตอนเจ้าหน้าที่กดลิงก์ในรายการจอง
+  await post([{ id: 'x', attachmentUrl: 'javascript:alert(document.cookie)' }]);
+  const saved = await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json');
+  check('ลิงก์ javascript: ถูกล้างทิ้ง', saved[0].attachmentUrl === '', JSON.stringify(saved));
+
+  await post([{ id: 'y', attachmentUrl: 'https://docs.google.com/d/1' }]);
+  check('ลิงก์ https ปกติเก็บไว้เหมือนเดิม',
+    (await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json'))[0].attachmentUrl === 'https://docs.google.com/d/1');
+
+  await post([{ id: 'z', attachmentUrl: 'docs.google.com/d/2' }]);
+  check('ลิงก์ที่ไม่ใส่ https:// ให้เติมให้เอง',
+    (await env.ROOM_BOOKINGS_KV.get('rooms_data', 'json'))[0].attachmentUrl.startsWith('https://'));
+}
+
+// ── /notify — จำกัดความยาวและความถี่ ────────────────────────────────────────
+{
+  const env = baseEnv();
+  await env.ROOM_BOOKINGS_KV.put('recipient:Cg1', '1');
+  lineCalls = []; lineResponder = () => new Response('{}', { status: 200 });
+
+  const tooLong = await worker.fetch(
+    authed('/notify', { method: 'POST', body: JSON.stringify({ message: 'ก'.repeat(30000) }) }), env, ctx);
+  check('ข้อความยาวเกินที่ส่งได้จริง → 413', tooLong.status === 413);
+
+  for (let i = 0; i < 20; i++) {
+    await worker.fetch(authed('/notify', { method: 'POST', body: JSON.stringify({ message: 'ทดสอบ' }) }), env, ctx);
+  }
+  const throttled = await worker.fetch(authed('/notify', { method: 'POST', body: JSON.stringify({ message: 'ทดสอบ' }) }), env, ctx);
+  check('ยิงแจ้งเตือนถี่เกินไป → 429', throttled.status === 429);
+
+  const adminBypass = await worker.fetch(
+    await asAdmin(env, '/notify', { method: 'POST', body: JSON.stringify({ message: 'แอดมินส่งซ้ำ' }) }), env, ctx);
+  check('แอดมินส่งซ้ำได้ไม่ติดลิมิต', adminBypass.status === 200);
 }
 
 console.log(`\n──────────────\nผ่าน ${pass} / ล้มเหลว ${fail}`);

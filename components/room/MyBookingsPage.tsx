@@ -28,7 +28,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Booking } from '../../types';
 import Button from '../shared/Button';
-import { ROOMS } from '../../constants';
+import { ROOMS, safeHref } from '../../constants';
 import Modal from '../shared/Modal';
 import {
   Target, Users, Monitor, Package, Paperclip, Building2, Calendar, ClipboardList,
@@ -319,9 +319,11 @@ const BookingCard: React.FC<{
                   <DetailItem icon={<Users className="w-4 h-4 text-outline" />} >{booking.participants} คน</DetailItem>
                   <DetailItem icon={<Monitor className="w-4 h-4 text-outline" />} >{Array.isArray(booking.meetingType) ? booking.meetingType.join(', ') : booking.meetingType}</DetailItem>
                   {booking.equipment && <DetailItem icon={<Package className="w-4 h-4 text-outline" />} >{booking.equipment}</DetailItem>}
-                  {booking.attachmentUrl && (
+                  {/* กรองลิงก์ก่อนแสดงเสมอ — ลิงก์นี้ผู้ใช้พิมพ์เอง ถ้าเป็น javascript:
+                      แล้วเจ้าหน้าที่กด จะกลายเป็นสคริปต์ที่รันแทนเจ้าหน้าที่ (ดู safeHref) */}
+                  {safeHref(booking.attachmentUrl) && (
                       <DetailItem icon={<Paperclip className="w-4 h-4 text-outline" />} >
-                          <a href={booking.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 font-bold hover:underline truncate">
+                          <a href={safeHref(booking.attachmentUrl)} target="_blank" rel="noopener noreferrer" className="text-blue-600 font-bold hover:underline truncate">
                               คลิกเพื่อเปิดไฟล์แนบ
                           </a>
                       </DetailItem>

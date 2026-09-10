@@ -134,3 +134,34 @@ export const PROBLEM_TYPES = [
 ];
 
 export const PRIORITY_LEVELS: RepairPriority[] = ["ปกติ", "ด่วน", "ด่วนที่สุด"];
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  safeHref(url) — กรองลิงก์ก่อนเอาไปใส่ใน <a href>
+// ─────────────────────────────────────────────────────────────────────────────
+//  ⚠️  ช่อง "ลิงก์ไฟล์แนบ" ในฟอร์มจองห้องเป็นข้อความที่ผู้ใช้พิมพ์เอง แล้วถูกนำไป
+//      แสดงเป็นลิงก์ให้เจ้าหน้าที่กด — React ไม่ได้กรองค่าใน href ให้เหมือนที่กรอง
+//      ข้อความทั่วไป ถ้าใครกรอก javascript:... ไว้ พอมีคนกดลิงก์นั้น สคริปต์จะรัน
+//      ในหน้าเว็บด้วยสิทธิ์ของคนกด (stored XSS) — อ่านตั๋วแอดมินใน localStorage
+//      หรือสั่งงานแทนเจ้าหน้าที่ได้
+//
+//      ฝั่ง Worker กรองตอนบันทึกอยู่แล้ว (sanitizeUrl) แต่ต้องกรองตอนแสดงผลด้วย
+//      เพราะข้อมูลที่บันทึกไว้ก่อนหน้านี้ยังอยู่ใน KV และยังไม่เคยผ่านการกรอง
+//
+//  คืน undefined เมื่อลิงก์ใช้ไม่ได้ — เอาไปใส่ href แล้วเบราว์เซอร์จะไม่ทำอะไรเลย
+// ─────────────────────────────────────────────────────────────────────────────
+export const safeHref = (url?: string): string | undefined => {
+    if (!url) return undefined;
+    const trimmed = url.trim();
+    if (trimmed === '') return undefined;
+    try {
+        const { protocol } = new URL(trimmed);
+        return protocol === 'http:' || protocol === 'https:' ? trimmed : undefined;
+    } catch {
+        // ผู้ใช้พิมพ์แบบไม่ใส่ scheme เช่น "docs.google.com/..." — เติม https:// ให้
+        try {
+            return new URL(`https://${trimmed}`).href;
+        } catch {
+            return undefined;
+        }
+    }
+};

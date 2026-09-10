@@ -18,20 +18,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet">
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.0.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.0.0/",
-    "react/": "https://esm.sh/react@^19.0.0/",
-    "uuid": "https://esm.sh/uuid@^9.0.1",
-    "xlsx": "https://esm.sh/xlsx@^0.18.5",
-    "vite": "https://esm.sh/vite@^7.3.1",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "react-dom": "https://esm.sh/react-dom@^19.2.4"
-  }
-}
-</script>
+<!--
+      หมายเหตุด้านความปลอดภัย: เอา importmap ที่ชี้ไป https://esm.sh ออกแล้ว
+
+      เดิมมี importmap ที่ map react / react-dom / xlsx / vite ไปโหลดจาก esm.sh
+      ซึ่งเป็น CDN ของบุคคลที่สาม (ไม่มี integrity hash กำกับด้วย) แปลว่าถ้า CDN นั้น
+      ถูกแฮ็กหรือโดเมนหลุดมือ โค้ดที่รันในหน้าเว็บของเราจะถูกเปลี่ยนได้ทันที
+      ทั้งที่ Vite bundle ไลบรารีเหล่านี้ลงไฟล์ของเราให้อยู่แล้ว จึงไม่ได้ใช้งานจริง
+      (ถ้าต้องเพิ่มไลบรารีใหม่ ให้ npm install แล้ว import ตามปกติ)
+-->
 </head>
   <body>
     <div id="root"></div>

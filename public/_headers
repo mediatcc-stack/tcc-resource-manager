@@ -1,0 +1,56 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  _headers — HTTP Security Headers สำหรับ Cloudflare Pages
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+#  Cloudflare Pages อ่านไฟล์นี้จาก root ของผลลัพธ์ build (dist/) โดยอัตโนมัติ
+#  ไฟล์ใน public/ ถูกก็อปไป dist/ ตอน build จึงวางไว้ที่นี่
+#
+#  ⚠️  เดิมเว็บนี้ไม่มี security header ใดเลย แปลว่า:
+#      - ถ้ามีช่องโหว่ XSS สักจุด สคริปต์จะโหลดจากที่ไหนก็ได้ ส่งข้อมูลออกไปที่ไหนก็ได้
+#      - เว็บอื่นเอาหน้านี้ไปใส่ iframe ซ้อนแล้วหลอกให้คนกดปุ่มได้ (clickjacking)
+#      - เบราว์เซอร์เดาชนิดไฟล์เองได้ ซึ่งเปลี่ยนไฟล์ธรรมดาให้กลายเป็นสคริปต์ได้
+#
+#  ตรวจผลได้ที่ https://securityheaders.com หลัง deploy
+# ═══════════════════════════════════════════════════════════════════════════════
+
+/*
+  # ── Content-Security-Policy — จำกัดว่าหน้านี้โหลด/ส่งอะไรไปไหนได้บ้าง ──────
+  #
+  # เป็นด่านสุดท้ายเวลามีช่องโหว่ XSS หลุดมา: ต่อให้ผู้โจมตีแทรกสคริปต์เข้ามาได้
+  # เบราว์เซอร์ก็จะไม่ยอมโหลดสคริปต์จากโดเมนอื่น และไม่ยอมส่งข้อมูลออกนอกรายการนี้
+  #
+  #   script-src 'self'      = รันได้เฉพาะไฟล์ JS ของเราเอง ไม่มี 'unsafe-inline'
+  #                            (Vite bundle ทุกอย่างเป็นไฟล์ ไม่มี inline script เลย
+  #                             — ถ้าวันหลังเพิ่ม inline script หน้าเว็บจะพังทันที
+  #                             ให้ย้ายไปไฟล์แยกแทนการเติม 'unsafe-inline' ตรงนี้)
+  #   style-src 'unsafe-inline' = จำเป็น เพราะ React ใส่ style ผ่าน attribute
+  #                            (เช่น Navbar ตั้งค่า --header-height ตามความสูงจริง)
+  #   connect-src            = ยิง API ได้เฉพาะ Worker ของเรา — ถ้ามี XSS ก็ส่ง
+  #                            ข้อมูลการจอง/เบอร์โทรออกไปเซิร์ฟเวอร์อื่นไม่ได้
+  #   frame-ancestors 'none' = ห้ามเว็บอื่นเอาหน้านี้ไปใส่ iframe (กัน clickjacking)
+  #   form-action 'self'     = ฟอร์มส่งออกไปโดเมนอื่นไม่ได้
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://tcc-line-notifier.media-tcc.workers.dev; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+
+  # ห้ามเว็บอื่นเอาหน้านี้ไปซ้อนใน iframe (สำหรับเบราว์เซอร์เก่าที่ยังไม่รู้จัก frame-ancestors)
+  X-Frame-Options: DENY
+
+  # ห้ามเบราว์เซอร์เดาชนิดไฟล์เอง — ไฟล์ที่ประกาศว่าเป็นข้อความต้องไม่ถูกรันเป็นสคริปต์
+  X-Content-Type-Options: nosniff
+
+  # ส่ง Referer แค่ชื่อโดเมนเวลาไปเว็บอื่น ไม่ติดพารามิเตอร์ใน URL ออกไปด้วย
+  Referrer-Policy: strict-origin-when-cross-origin
+
+  # ปิดสิทธิ์อุปกรณ์ที่ระบบนี้ไม่ได้ใช้เลย — เผื่อมีสคริปต์แปลกปลอมเข้ามาขอ
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), interest-cohort=()
+
+  # บังคับให้เบราว์เซอร์เข้าผ่าน HTTPS เท่านั้นเป็นเวลา 2 ปี
+  # ⚠️ ถ้าจะย้ายไปโดเมนของวิทยาลัยเอง ต้องแน่ใจว่ามี HTTPS ครบทุก subdomain ก่อน
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+
+# ── ไฟล์ที่มี hash อยู่ในชื่อ — แคชได้ยาว เพราะชื่อเปลี่ยนทุกครั้งที่เนื้อหาเปลี่ยน ──
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# ── Service Worker ต้องไม่ถูกแคช ไม่งั้นผู้ใช้จะติดอยู่กับเวอร์ชันเก่า ──────────
+/sw.js
+  Cache-Control: no-cache

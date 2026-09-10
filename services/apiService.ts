@@ -125,18 +125,70 @@ export interface NotificationRecipient {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  ตั๋วแอดมิน (Admin Token) — เก็บไว้ที่เครื่อง แล้วแนบไปกับงานของเจ้าหน้าที่
+// ─────────────────────────────────────────────────────────────────────────────
+//  ⚠️  เดิมหน้าเว็บจำสถานะแอดมินด้วย localStorage.isAdmin = 'true' เฉย ๆ
+//      ใครเปิด DevTools พิมพ์บรรทัดนั้นเองก็เป็นแอดมินได้ทันที เพราะ Worker
+//      ไม่เคยตรวจว่าคนเรียกเป็นแอดมินจริงไหม
+//
+//      ตอนนี้ /auth/login ตอบ "ตั๋ว" ที่ Worker เซ็นด้วย HMAC กลับมา หน้าเว็บเก็บ
+//      ตั๋วไว้แล้วแนบไปทุกครั้งที่เรียกงานของแอดมิน — พิมพ์เองไม่ได้เพราะไม่รู้กุญแจ
+//      ตัวปุ่ม/เมนูในหน้าเว็บยังซ่อนตามสถานะเหมือนเดิม แต่ตัวที่กันจริงคือฝั่ง Worker
+// ─────────────────────────────────────────────────────────────────────────────
+const ADMIN_TOKEN_KEY = 'adminToken';
+const ADMIN_TOKEN_EXPIRY_KEY = 'adminTokenExpiresAt';
+
+/** ตั๋วที่ยังไม่หมดอายุ — คืน null ถ้าไม่มีหรือหมดอายุแล้ว (พร้อมล้างของเก่าทิ้ง) */
+export const getAdminToken = (): string | null => {
+    try {
+        const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+        const expiresAt = Number(localStorage.getItem(ADMIN_TOKEN_EXPIRY_KEY));
+        if (!token || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+            if (token) clearAdminToken();
+            return null;
+        }
+        return token;
+    } catch (e) {
+        // localStorage ใช้ไม่ได้ (เช่น โหมด Private Browsing) — ถือว่ายังไม่ได้ล็อกอิน
+        return null;
+    }
+};
+
+export const storeAdminToken = (token: string, expiresAt: number): void => {
+    try {
+        localStorage.setItem(ADMIN_TOKEN_KEY, token);
+        localStorage.setItem(ADMIN_TOKEN_EXPIRY_KEY, String(expiresAt));
+    } catch (e) { /* เก็บไม่ได้ก็ใช้ได้แค่รอบนี้ ไม่ต้อง throw */ }
+};
+
+export const clearAdminToken = (): void => {
+    try {
+        localStorage.removeItem(ADMIN_TOKEN_KEY);
+        localStorage.removeItem(ADMIN_TOKEN_EXPIRY_KEY);
+        localStorage.removeItem('isAdmin');   // ค่าเดิมจากเวอร์ชันก่อน — ล้างทิ้งด้วย
+    } catch (e) { /* ไม่มีอะไรต้องทำ */ }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  getApiHeaders() — สร้าง HTTP Headers สำหรับ request ที่ต้องการ Authentication
 //  API Key อ่านมาจาก environment variable VITE_API_SECRET_KEY
 //  (ตั้งค่าใน Cloudflare Pages Settings หรือไฟล์ .env.local สำหรับ dev)
+//
+//  ⚠️  API Key นี้ไม่ใช่ความลับ — Vite แทนค่า import.meta.env.VITE_* ลงในไฟล์ JS
+//      ตอน build ใครเปิด DevTools ก็อ่านได้ มันกันได้แค่การเรียกแบบสุ่มจากภายนอก
+//      ตัวที่กันงานของเจ้าหน้าที่จริง ๆ คือ X-Admin-Token ด้านล่าง
 // ─────────────────────────────────────────────────────────────────────────────
-const getApiHeaders = () => {
+const getApiHeaders = (): Record<string, string> => {
     // ⚠️  ลบ console.log ของ API Key ออกแล้ว (security fix)
     //     ไม่ควร log ค่า secret ออก console แม้ในโหมด dev
-    return {
+    const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         'X-API-Key': import.meta.env.VITE_API_SECRET_KEY,
     };
+    const adminToken = getAdminToken();
+    if (adminToken) headers['X-Admin-Token'] = adminToken;
+    return headers;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -162,7 +214,8 @@ const handleResponse = async (response: Response, errorMessagePrefix: string): P
 // ─────────────────────────────────────────────────────────────────────────────
 export const fetchWorkerStatus = async (): Promise<WorkerStatus> => {
     try {
-        const response = await fetch(`${WORKER_BASE_URL}/status`);
+        // /status ต้องเป็นแอดมินแล้ว — สถานะการตั้งค่าเป็นข้อมูลที่ไม่ควรเปิดสาธารณะ
+        const response = await fetch(`${WORKER_BASE_URL}/status`, { headers: getApiHeaders() });
         return await handleResponse(response, `ตรวจสอบสถานะ Worker ล้มเหลว`);
     } catch (error: any) {
         console.error(`[API] Fetch worker status error:`, error);

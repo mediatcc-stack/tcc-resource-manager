@@ -3,13 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
-import { WORKER_BASE_URL } from './constants';
 import './index.css';
-
-// --- DEBUG CODE ---
-console.log("--- TCC App Bootloader v1.1 ---");
-console.log("Connecting to Worker at this URL:", WORKER_BASE_URL);
-// --- END DEBUG CODE ---
 
 const rootElement = document.getElementById('root');
 
@@ -25,7 +19,6 @@ if (!rootElement) {
         </BrowserRouter>
       </React.StrictMode>
     );
-    console.log("TCC Resource Manager successfully initialized.");
 
     // ลงทะเบียน Service Worker เพื่อให้เพิ่มเว็บลงหน้าจอหลักของโทรศัพท์ได้
     // (ตัว SW ไม่แคชอะไรเลย — ดูคำอธิบายใน public/sw.js)

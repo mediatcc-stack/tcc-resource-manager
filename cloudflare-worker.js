@@ -108,17 +108,29 @@
  *  │                          │  ต้องตรงกับ VITE_API_SECRET_KEY ใน Pages     │
  *  │  CHANNEL_ACCESS_TOKEN    │  LINE Bot Long-lived Token (ส่ง Push message) │
  *  │  CHANNEL_SECRET          │  LINE Channel Secret — ใช้ตรวจลายเซ็น         │
- *  │                          │  /webhook (⚠️ ต้องตั้ง! ถ้าไม่ตั้ง ใครก็ยิง     │
- *  │                          │  event ปลอมมาแอบเพิ่มกลุ่มตัวเองเป็นผู้รับ     │
- *  │                          │  แจ้งเตือนได้ — ดูที่ verifyLineSignature)     │
+ *  │                          │  /webhook (⚠️ ต้องตั้ง! ถ้าไม่ตั้ง Worker      │
+ *  │                          │  จะปฏิเสธทุก event ที่เข้ามา (503) —          │
+ *  │                          │  ดูที่ verifyLineSignature)                    │
  *  │  RECIPIENT_ID            │  LINE User ID สำรอง (ถ้า KV ว่าง)            │
  *  │  REPAIR_GROUP_ID         │  LINE Group ID เฉพาะสำหรับแจ้งซ่อม           │
  *  │                          │  (แจ้งเตือน /notify?target=repair จะส่ง      │
  *  │                          │  เข้ากลุ่มนี้เท่านั้น ไม่ส่งเข้า recipient ทั่วไป)│
+ *  ├──────────────────────────┼────────────────────────────────────────────────┤
+ *  │  ── ไม่บังคับ (มีค่าเริ่มต้นให้อยู่แล้ว) ──                                │
+ *  │  ALLOWED_ORIGINS         │  Origin ที่เรียก API ได้ คั่นด้วย comma       │
+ *  │                          │  (ค่าเริ่มต้นครอบคลุม pages.dev + localhost)  │
+ *  │                          │  ใส่เพิ่มเมื่อย้ายไปโดเมนของวิทยาลัยเอง        │
+ *  │  ADMIN_TOKEN_SECRET      │  กุญแจเซ็นตั๋วแอดมิน — ถ้าไม่ตั้ง จะใช้       │
+ *  │                          │  ADMIN_PASSWORD เซ็นแทน (ตั้งไว้ดีกว่า       │
+ *  │                          │  เพราะเปลี่ยนรหัสผ่านแล้วคนที่ล็อกอินค้างอยู่  │
+ *  │                          │  จะไม่หลุดออกทั้งหมด)                         │
  *  └──────────────────────────┴────────────────────────────────────────────────┘
  *
  *  ถ้าต้องการเปลี่ยนรหัสผ่าน Admin:
  *    Dashboard → Settings → Edit → ADMIN_PASSWORD → บันทึก → Deploy ใหม่
+ *    ⚠️ ถ้าไม่ได้ตั้ง ADMIN_TOKEN_SECRET ไว้ การเปลี่ยนรหัสผ่านจะทำให้ตั๋วแอดมิน
+ *       ทุกใบใช้ไม่ได้ทันที (ทุกคนต้องล็อกอินใหม่) — ซึ่งเป็นสิ่งที่ต้องการเวลา
+ *       รหัสผ่านหลุด แต่ถ้าแค่เปลี่ยนตามรอบ ให้ตั้ง ADMIN_TOKEN_SECRET แยกไว้
  *
  * ═══════════════════════════════════════════════════════════════════════════════
  *  🚀  การ Deploy Worker
@@ -132,23 +144,32 @@
  *    wrangler login
  *    wrangler deploy cloudflare-worker.js --name tcc-line-notifier
  *
- *  ⚠️  หลัง deploy ต้องทดสอบทันที:
- *    GET https://tcc-line-notifier.media-tcc.workers.dev/status
- *    ต้องได้ { lineApiToken: true, roomKvBinding: true, ... }
+ *  ⚠️  หลัง deploy ต้องทดสอบทันที — เปิดหน้าเว็บ เข้าโหมดเจ้าหน้าที่
+ *      แล้วกด "ตรวจสอบระบบ" ต้องได้ { lineApiToken: true, roomKvBinding: true, ... }
+ *      (/status ไม่เปิดสาธารณะแล้ว เรียกจาก URL ตรง ๆ จะได้ 401)
+ *
+ *  ⚠️  ก่อน deploy ให้รันชุดทดสอบก่อนเสมอ:  node scripts/worker-test.mjs
  *
  * ═══════════════════════════════════════════════════════════════════════════════
  *  📡  API Endpoints ทั้งหมด
  * ═══════════════════════════════════════════════════════════════════════════════
  *
+ *  ⚠️  ทุก route ตอบเฉพาะ Origin ที่อยู่ในรายการ (ดู corsHeadersFor) และแบ่งเป็น
+ *      3 ชั้น: สาธารณะ → ต้องมี X-API-Key → ต้องมี X-Admin-Token ด้วย
+ *
  *  PUBLIC (ไม่ต้องใช้ API Key):
- *    GET  /status          → ตรวจสอบว่า Worker พร้อมทำงานหรือไม่
- *    POST /auth/login      → Body: { password } → ตรวจสอบรหัส Admin
+ *    POST /auth/login      → Body: { password }
+ *                            สำเร็จ → { success: true, token, expiresAt }
+ *                            token = ตั๋วแอดมิน แนบใน Header X-Admin-Token
+ *                            (จำกัด 10 ครั้ง/IP/15 นาที, ตั๋วอายุ 12 ชม.)
  *    POST /webhook         → รับ event จาก LINE (เพิ่ม recipient อัตโนมัติ +
  *                            @Mention Handler: ตอบรายงานผ่าน Reply Token ไม่กิน Push
  *                            quota — พิมพ์ "@Bot ยืม" (อุปกรณ์ค้างคืน), "@Bot ซ่อม"
  *                            (แจ้งซ่อมค้าง), "@Bot รายงาน/จอง..." (จองห้อง) ในกลุ่ม)
  *
  *  PROTECTED (ต้องใส่ Header: X-API-Key):
+ *    ⚠️  API Key ถูกฝังอยู่ในไฟล์ JS ของหน้าเว็บ (Vite แทนค่าตอน build) ใครเปิด
+ *        DevTools ก็อ่านได้ — ชั้นนี้กันได้แค่การเรียกแบบสุ่ม ไม่ใช่ความลับจริง
  *    GET  /data?type=rooms      → ดึงข้อมูลการจองห้องทั้งหมด
  *    GET  /data?type=rooms&version=prev → ดึง "สำเนาก่อนการบันทึกครั้งล่าสุด" (กู้ข้อมูล)
  *      ↳ GET ส่ง header X-Data-Version กลับไปด้วย, POST ควรแนบกลับมา
@@ -174,12 +195,36 @@
  *    DELETE /recipients?id=C...  → เอากลุ่มออกจากรายการถาวร (ใช้กับกลุ่มที่บอท
  *                                  ไม่ได้อยู่แล้ว) — ปกติแค่เอาติ๊กออกก็พอ
  *
+ *  ADMIN ONLY (ต้องใส่ทั้ง X-API-Key และ X-Admin-Token):
+ *    GET  /status               → สถานะการตั้งค่าของ Worker
+ *    GET/POST/DELETE /recipients → จัดการกลุ่มที่รับแจ้งเตือน
+ *    POST /data                 → เฉพาะกรณีที่รายการหายไปเกินครึ่ง (ลบยกชุด)
+ *                                 การเพิ่ม/แก้ตามปกติไม่ต้องใช้ตั๋ว
+ *
  * ═══════════════════════════════════════════════════════════════════════════════
  *  🛠️  แก้ไขล่าสุด
  * ═══════════════════════════════════════════════════════════════════════════════
  *  v2.13 (2026-09-09) — ปิดสรุปการจองประจำวันตอนเช้า (scheduled) ตามที่ผู้ใช้ขอ
  *                       เหลือ scheduled() ไว้เป็นตัวเปล่า เผื่อ Cron Trigger ค้างอยู่
  *                       จะได้ไม่ error — ลบ trigger ที่ Dashboard ได้เลย
+ *  v3.0 (2026-09-10) — รอบตรวจความปลอดภัยทั้งระบบ (มีการเปลี่ยนพฤติกรรม)
+ *                       • ⚠️ BREAKING: /status และ /recipients ต้องมีตั๋วแอดมิน
+ *                         (X-Admin-Token) แล้ว — ต้อง deploy หน้าเว็บรุ่นใหม่คู่กัน
+ *                       • ⚠️ BREAKING: /webhook ปฏิเสธทุก event ถ้าไม่ได้ตั้ง
+ *                         CHANNEL_SECRET (503) เดิมข้ามการตรวจลายเซ็นให้ ซึ่งทำให้
+ *                         ตอนตั้งค่าไม่ครบกลายเป็นตอนที่ไม่มีการป้องกันเลย
+ *                       • /auth/login ออกตั๋วที่เซ็นด้วย HMAC-SHA256 (อายุ 12 ชม.)
+ *                         แทนการตอบแค่ { success: true } — เดิมหน้าเว็บจำสถานะ
+ *                         แอดมินไว้ที่ localStorage.isAdmin เอง ใครพิมพ์เองก็ได้สิทธิ์
+ *                       • CORS จำกัดเฉพาะ Origin ของเรา (เดิมเปิด '*' ให้ทุกเว็บ)
+ *                         เพิ่มโดเมนได้ที่ตัวแปร ALLOWED_ORIGINS
+ *                       • POST /data ตรวจรูปร่างข้อมูล จำกัดขนาด และ "ลบยกชุด"
+ *                         (รายการหายเกินครึ่ง) ต้องเป็นแอดมินเท่านั้น
+ *                       • ล้างลิงก์ไฟล์แนบให้เหลือแต่ http/https — กัน javascript:
+ *                         ที่กลายเป็นสคริปต์รันแทนเจ้าหน้าที่ตอนกดลิงก์ (stored XSS)
+ *                       • /notify จำกัดความยาวข้อความและความถี่ต่อ IP
+ *                       • เทียบรหัสผ่าน/ลายเซ็นแบบเวลาคงที่ และนับครั้งที่เดารหัส
+ *                         ก่อนตรวจ (เดิมนับหลังตรวจ ซึ่งยิงพร้อมกันหลายเส้นแล้วรอด)
  *  v2.12 (2026-09-09) — DELETE /recipients?id=... เอากลุ่มที่บอทไม่ได้อยู่แล้ว
  *                       ออกจากรายการได้จากหน้าแอดมิน
  *  v2.11 (2026-09-09) — เลือกได้ว่าแต่ละกลุ่มรับแจ้งเตือน "เรื่องอะไร" (topics)
@@ -256,17 +301,56 @@
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  CORS Headers — อนุญาตให้ Frontend (Cloudflare Pages) เรียก API ได้
-//  ถ้าต้องการจำกัดให้เรียกได้แค่จาก domain ของเราเท่านั้น ให้เปลี่ยน '*'
-//  เป็น 'https://tcc-media-booking.pages.dev'
+//  CORS — อนุญาตเฉพาะ Origin ของเราเท่านั้น (เดิมเปิดกว้าง '*')
 // ─────────────────────────────────────────────────────────────────────────────
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, X-API-Key, X-Data-Version',
-  // เบราว์เซอร์จะไม่ยอมให้ JS อ่าน header ที่ไม่ใช่ header มาตรฐาน ถ้าไม่ประกาศตรงนี้
-  // ถ้าลืมบรรทัดนี้ ฝั่งเว็บจะอ่าน X-Data-Version ไม่ได้ → ระบบกันข้อมูลชนกันจะเงียบไปเฉย ๆ
-  'Access-Control-Expose-Headers': 'X-Data-Version',
+//  ทำไมต้องจำกัด: API_SECRET_KEY ถูกฝังอยู่ในไฟล์ JS ของหน้าเว็บ (Vite แทนค่า
+//  import.meta.env.VITE_* ตอน build) ใครเปิด DevTools ก็ก็อปคีย์ไปได้ คีย์นี้จึง
+//  "ไม่ใช่ความลับ" กัน cross-origin ไว้อย่างน้อยเว็บอื่นจะยิง API แทนผู้ใช้ไม่ได้
+//
+//  เพิ่ม Origin ใหม่ได้ 2 ทาง (ไม่ต้องแก้โค้ด):
+//    - ตั้ง ALLOWED_ORIGINS ใน Worker Settings เป็นรายการคั่นด้วย comma
+//    - preview deployment ของ Cloudflare Pages (*.pages.dev) ผ่านให้อัตโนมัติ
+// ─────────────────────────────────────────────────────────────────────────────
+const DEFAULT_ALLOWED_ORIGINS = [
+  'https://tcc-media-booking.pages.dev',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+];
+
+/** Origin ของ Cloudflare Pages preview เช่น https://abc1234.tcc-media-booking.pages.dev */
+const PAGES_PREVIEW_ORIGIN = /^https:\/\/[a-z0-9-]+\.tcc-media-booking\.pages\.dev$/;
+
+const isAllowedOrigin = (origin, env) => {
+  if (!origin) return false;
+  const extra = (env?.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(o => o.trim())
+    .filter(Boolean);
+  if (DEFAULT_ALLOWED_ORIGINS.includes(origin) || extra.includes(origin)) return true;
+  return PAGES_PREVIEW_ORIGIN.test(origin);
+};
+
+/**
+ * Header CORS สำหรับ request หนึ่ง ๆ
+ * ถ้า Origin ไม่อยู่ในรายการ จะไม่ใส่ Access-Control-Allow-Origin เลย
+ * เบราว์เซอร์จึงบล็อกไม่ให้เว็บนั้นอ่านผลลัพธ์
+ * (request ที่ไม่มี Origin เช่น curl / LINE webhook ไม่ได้ถูกบล็อก — CORS เป็น
+ *  กลไกของเบราว์เซอร์เท่านั้น ตัวกันจริงคือ API Key + Admin Token ด้านล่าง)
+ */
+const corsHeadersFor = (request, env) => {
+  const headers = {
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Accept, X-API-Key, X-Data-Version, X-Admin-Token',
+    // เบราว์เซอร์จะไม่ยอมให้ JS อ่าน header ที่ไม่ใช่ header มาตรฐาน ถ้าไม่ประกาศตรงนี้
+    // ถ้าลืมบรรทัดนี้ ฝั่งเว็บจะอ่าน X-Data-Version ไม่ได้ → ระบบกันข้อมูลชนกันจะเงียบไปเฉย ๆ
+    'Access-Control-Expose-Headers': 'X-Data-Version',
+    'Access-Control-Max-Age': '86400',
+    // ตอบต่าง ๆ กันตาม Origin — บอก cache ไม่ให้เอาคำตอบของ Origin หนึ่งไปให้อีก Origin
+    'Vary': 'Origin',
+  };
+  const origin = request.headers.get('Origin');
+  if (isAllowedOrigin(origin, env)) headers['Access-Control-Allow-Origin'] = origin;
+  return headers;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -298,6 +382,24 @@ const RECIPIENT_PREFIX = 'recipient:';
 /** จำกัดการเดารหัสผ่านแอดมิน: กี่ครั้งต่อ IP ภายในกี่วินาที */
 const LOGIN_MAX_ATTEMPTS = 10;
 const LOGIN_WINDOW_SECONDS = 15 * 60;
+
+// ── ลิมิตของข้อมูลที่รับเข้ามาได้ ───────────────────────────────────────────
+// endpoint /data เขียนทับทั้งก้อนเสมอ ถ้าไม่มีลิมิต ใครก็ยัดของใหญ่ ๆ เข้ามา
+// ถมพื้นที่ KV จนระบบใช้งานไม่ได้ (ค่าจริงของระบบนี้อยู่หลักร้อยรายการ)
+const MAX_RECORDS_PER_TYPE = 5000;
+/** KV รับได้ 25 MB ต่อค่า — ตั้งไว้ต่ำกว่ามาก เพราะข้อมูลจริงเป็นข้อความล้วน */
+const MAX_PAYLOAD_BYTES = 2 * 1024 * 1024;
+/** ถ้ามีของอยู่เกินจำนวนนี้แล้วหายไปเกินครึ่ง ถือว่าเป็นการลบยกชุด (ต้องเป็นแอดมิน) */
+const BULK_DELETE_MIN_RECORDS = 10;
+/**
+ * ข้อความแจ้งเตือน LINE ยาวสุดที่รับจากหน้าเว็บ
+ * ตั้งให้พอดีกับที่ splitMessage() ส่งได้จริง (5 ข้อความ × 4,800 ตัวอักษร)
+ * ยาวกว่านี้ก็ถูกตัดทิ้งอยู่ดี — ปฏิเสธไปเลยดีกว่ารับมาแล้วส่งไม่ครบเงียบ ๆ
+ */
+const MAX_NOTIFY_LENGTH = 5 * 4800;
+/** จำกัดการยิง /notify: กี่ครั้งต่อ IP ภายในกี่วินาที — กันเอาบอทไปสแปมกลุ่ม LINE */
+const NOTIFY_MAX_PER_WINDOW = 20;
+const NOTIFY_WINDOW_SECONDS = 10 * 60;
 /** key ที่บอกว่า migrate ข้อมูลผู้รับแบบเก่า (recipient_ids) มาแล้ว — กันข้อมูลเก่าฟื้นคืนชีพ */
 const LEGACY_MIGRATED_KEY = 'recipient_ids_migrated';
 
@@ -305,11 +407,20 @@ const LEGACY_MIGRATED_KEY = 'recipient_ids_migrated';
 //  Helper รวม — ใช้ซ้ำทั้งไฟล์
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** สร้าง JSON Response พร้อม CORS header (ใช้แทนการเขียนซ้ำทุกจุด) */
+/**
+ * สร้าง JSON Response (ใช้แทนการเขียนซ้ำทุกจุด)
+ * header CORS ไม่ได้ใส่ตรงนี้ — ตัว fetch() จะเติมให้ทีเดียวตอนท้าย
+ * ตาม Origin ของ request นั้น ๆ จึงไม่มีทางลืมใส่/ใส่ผิดเส้นทางไหน
+ */
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      // ข้อมูลการจอง/แจ้งซ่อมมีชื่อและเบอร์โทร — ห้าม proxy หรือเบราว์เซอร์เก็บแคชไว้
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+    },
   });
 
 /**
@@ -344,6 +455,108 @@ const splitMessage = (text, maxLength = 4800) => {
 };
 
 /**
+ * ปล่อยผ่านเฉพาะลิงก์ http/https — คืนค่าว่างถ้าเป็นอย่างอื่น
+ *
+ * ⚠️  ทำไมต้องมี: ช่อง "ลิงก์ไฟล์แนบ" ในหน้าจองห้องเป็นข้อความที่ผู้ใช้พิมพ์เอง
+ *     แล้วหน้าเว็บเอาไปใส่ใน <a href={...}> ตรง ๆ React ไม่ได้กรอง href ให้
+ *     ถ้าใครกรอก javascript:... ไว้ พอเจ้าหน้าที่กดลิงก์นั้นในรายการจอง
+ *     สคริปต์จะรันในหน้าเว็บด้วยสิทธิ์ของคนกด (stored XSS)
+ *     กรองทั้งฝั่ง Worker (ตรงนี้) และฝั่งหน้าเว็บ (safeHref ใน constants.ts)
+ *     เพราะข้อมูลเก่าที่บันทึกไว้ก่อนหน้านี้ยังอยู่ใน KV
+ */
+const sanitizeUrl = (value) => {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (trimmed === '') return '';
+  try {
+    const scheme = new URL(trimmed).protocol;
+    return scheme === 'http:' || scheme === 'https:' ? trimmed : '';
+  } catch (e) {
+    // ไม่ใช่ URL เต็มรูป เช่น "docs.google.com/..." ที่ผู้ใช้พิมพ์โดยไม่ใส่ https://
+    // เติมให้เอง แล้วตรวจซ้ำ — ถ้ายังไม่ผ่านก็ทิ้ง
+    try {
+      const withScheme = new URL(`https://${trimmed}`);
+      return withScheme.href;
+    } catch (e2) {
+      return '';
+    }
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Admin Session Token — พิสูจน์ว่า "คนที่เรียกเป็นแอดมินจริง"
+// ─────────────────────────────────────────────────────────────────────────────
+//  ⚠️  ปัญหาเดิม: หน้าเว็บเก็บสถานะแอดมินไว้ที่ localStorage.isAdmin = 'true'
+//      เท่านั้น ใครเปิด DevTools แล้วพิมพ์ค่านั้นเองก็เป็นแอดมินได้ทันที
+//      เพราะ Worker ไม่เคยตรวจว่าคนเรียกเป็นแอดมินจริงไหม — /auth/login แค่ตอบ
+//      { success: true } กลับไปเฉย ๆ ไม่ได้ออกอะไรที่ตรวจสอบย้อนได้เลย
+//
+//  ตอนนี้ /auth/login จะออก "ตั๋ว" ที่เซ็นด้วย HMAC-SHA256 ฝั่ง Worker
+//  หน้าเว็บแนบตั๋วกลับมาใน Header: X-Admin-Token ทุกครั้งที่เรียกงานของแอดมิน
+//  ปลอมเองไม่ได้เพราะไม่รู้กุญแจ และหมดอายุเองใน 12 ชั่วโมง
+//
+//  กุญแจที่ใช้เซ็น: ADMIN_TOKEN_SECRET ถ้าตั้งไว้ ไม่งั้นใช้ ADMIN_PASSWORD
+//  (ผลพลอยได้: พอเปลี่ยนรหัสผ่านแอดมิน ตั๋วเก่าทุกใบใช้ไม่ได้ทันที)
+// ─────────────────────────────────────────────────────────────────────────────
+const ADMIN_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
+
+const adminSigningKey = (env) => env.ADMIN_TOKEN_SECRET || env.ADMIN_PASSWORD || '';
+
+/** base64url — ใช้ได้ใน HTTP header โดยไม่ต้อง encode ซ้ำ */
+const b64url = (bytes) =>
+  btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+async function hmacSha256(secret, message) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  return crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
+}
+
+/** เทียบสตริงแบบเวลาคงที่ — กันการเดาทีละตัวอักษรจากเวลาที่ใช้เปรียบเทียบ */
+const timingSafeEqual = (a, b) => {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+};
+
+/** ออกตั๋วแอดมินใบใหม่ — รูปแบบ "<หมดอายุ(ms)>.<ค่าสุ่ม>.<ลายเซ็น>" */
+async function issueAdminToken(env) {
+  const secret = adminSigningKey(env);
+  if (!secret) return null;
+  const expiresAt = Date.now() + ADMIN_TOKEN_TTL_MS;
+  const nonce = b64url(crypto.getRandomValues(new Uint8Array(12)));
+  const payload = `${expiresAt}.${nonce}`;
+  const signature = b64url(await hmacSha256(secret, payload));
+  return { token: `${payload}.${signature}`, expiresAt };
+}
+
+/** ตั๋วใบนี้ของจริงและยังไม่หมดอายุหรือไม่ */
+async function isValidAdminToken(env, token) {
+  const secret = adminSigningKey(env);
+  if (!secret || typeof token !== 'string') return false;
+
+  const parts = token.split('.');
+  if (parts.length !== 3) return false;
+
+  const [expiresAt, nonce, signature] = parts;
+  const expiry = Number(expiresAt);
+  if (!Number.isFinite(expiry) || expiry <= Date.now()) return false;
+
+  const expected = b64url(await hmacSha256(secret, `${expiresAt}.${nonce}`));
+  return timingSafeEqual(expected, signature);
+}
+
+/** true = request นี้มาพร้อมตั๋วแอดมินที่ใช้ได้ */
+const isAdminRequest = (request, env) =>
+  isValidAdminToken(env, request.headers.get('X-Admin-Token'));
+
+/**
  * ตรวจลายเซ็นของ Webhook จาก LINE (HMAC-SHA256 ของ body ดิบ ด้วย CHANNEL_SECRET)
  *
  * ⚠️  สำคัญมาก: ถ้าไม่ตรวจ ใครก็ตามที่รู้ URL ของ /webhook สามารถยิง event ปลอม
@@ -352,22 +565,12 @@ const splitMessage = (text, maxLength = 4800) => {
  *     ทั้งหมดของหน่วยงานไปเรื่อย ๆ โดยไม่มีใครรู้
  */
 async function verifyLineSignature(rawBody, signature, channelSecret) {
-  if (!signature) return false;
+  if (!signature || !channelSecret) return false;
   try {
-    const key = await crypto.subtle.importKey(
-      'raw',
-      new TextEncoder().encode(channelSecret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
-    );
-    const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody));
+    const mac = await hmacSha256(channelSecret, rawBody);
+    // LINE ส่งลายเซ็นมาเป็น base64 มาตรฐาน (ไม่ใช่ base64url) จึงไม่ใช้ b64url() ตรงนี้
     const expected = btoa(String.fromCharCode(...new Uint8Array(mac)));
-    if (expected.length !== signature.length) return false;
-    // เทียบแบบเวลาคงที่ กันการเดาลายเซ็นจากเวลาที่ใช้เปรียบเทียบ
-    let diff = 0;
-    for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
-    return diff === 0;
+    return timingSafeEqual(expected, signature);
   } catch (e) {
     console.error(`[Webhook] Signature verification error: ${e.message}`);
     return false;
@@ -646,21 +849,67 @@ export default {
   // ───────────────────────────────────────────────────────────────────────────
   //  fetch(request, env, ctx)
   //  Handler หลักที่รับทุก HTTP Request
+  //
+  //  หน้าที่เดียวของมันคือเติม header CORS ให้ทุกคำตอบที่ handleRequest() คืนมา
+  //  รวมถึงตอนโยน error ด้วย — เดิม header ผูกอยู่กับ json() ทำให้เส้นทางที่ตอบ
+  //  ด้วย new Response() ตรง ๆ (เช่น /webhook) ไม่มี CORS ติดไปเลย
   // ───────────────────────────────────────────────────────────────────────────
   async fetch(request, env, ctx) {
+    const cors = corsHeadersFor(request, env);
 
     // Preflight CORS request — browser ส่งมาก่อน cross-origin request จริง
     if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 200, headers: corsHeaders });
+      return new Response(null, { status: 204, headers: cors });
     }
 
+    let response;
+    try {
+      response = await handleRequest(request, env, ctx);
+    } catch (e) {
+      console.error(`[Worker Error] ${e.message}\n${e.stack}`);
+      response = json({ error: 'Worker internal error' }, 500);
+    }
+
+    // Response ที่ handleRequest คืนมาอาจ immutable — ก็อปก่อนแล้วค่อยเติม header
+    const withCors = new Response(response.body, response);
+    for (const [key, value] of Object.entries(cors)) withCors.headers.set(key, value);
+    return withCors;
+  },
+
+  // ───────────────────────────────────────────────────────────────────────────
+  //  scheduled(event, env, ctx) — ปิดการใช้งานแล้ว (ตามที่ผู้ใช้ระบบขอ)
+  //
+  //  เดิมส่งสรุปการจองห้องของวันนี้เข้ากลุ่ม LINE ทุกเช้า ตอนนี้เอาออกแล้ว
+  //  เพราะดูจากในเว็บ (แท็บ "ตารางการจอง") หรือพิมพ์ @ชื่อบอท จองวันนี้ ในกลุ่มก็ได้
+  //
+  //  ⚠️ ถ้ายังตั้ง Cron Trigger ค้างไว้ที่ Dashboard → Settings → Triggers
+  //     ให้ลบทิ้งด้วย ฟังก์ชันนี้เหลือไว้เฉย ๆ เพื่อไม่ให้ trigger ที่ค้างอยู่ error
+  // ───────────────────────────────────────────────────────────────────────────
+  async scheduled(event, env, ctx) {
+    console.log('[Scheduled] สรุปประจำวันถูกปิดการใช้งานแล้ว — ลบ Cron Trigger ใน Worker Settings ได้เลย');
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  handleRequest(request, env, ctx) — เนื้อหาการจัดการ route ทั้งหมด
+// ─────────────────────────────────────────────────────────────────────────────
+async function handleRequest(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
 
     // ── PUBLIC ROUTES (ไม่ต้องการ API Key) ──────────────────────────────────
 
-    // ตรวจสอบสถานะ Worker — Frontend เรียกตอนโหลดหน้าแรก
+    // ตรวจสอบสถานะ Worker — หน้า "ตรวจสอบระบบ" ของแอดมินเรียกใช้
+    //
+    // ⚠️ เดิม endpoint นี้เปิดสาธารณะ ใครก็เปิดดูได้ว่า Worker ตั้งค่าอะไรไว้บ้าง
+    //    (ตั้ง CHANNEL_SECRET แล้วหรือยัง / มีกลุ่มรับแจ้งเตือนกี่กลุ่ม) ซึ่งเป็น
+    //    ข้อมูลที่ช่วยคนที่จะโจมตีเลือกช่องทางได้ เช่น เห็นว่า channelSecretSet
+    //    เป็น false ก็รู้ทันทีว่ายิง /webhook ปลอมเข้ามาได้ — ตอนนี้ต้องเป็นแอดมิน
     if (path === '/status') {
+      if (!(await isAdminRequest(request, env))) {
+        return json({ error: 'Unauthorized' }, 401);
+      }
+
       // นับผู้รับแจ้งเตือนจริงใน KV ด้วย — ถ้าเป็น 0 แปลว่าแจ้งเตือนจะไม่ถึงใครเลย
       let recipientCount = null;
       try {
@@ -671,7 +920,7 @@ export default {
 
       return json({
         lineApiToken: !!env.CHANNEL_ACCESS_TOKEN,
-        channelSecretSet: !!env.CHANNEL_SECRET,   // ต้องตั้งค่า ไม่งั้น /webhook รับ event ปลอมได้
+        channelSecretSet: !!env.CHANNEL_SECRET,   // ต้องตั้งค่า ไม่งั้น /webhook ใช้ไม่ได้
         roomKvBinding: !!env.ROOM_BOOKINGS_KV,
         equipmentKvBinding: !!env.EQUIPMENT_BORROWINGS_KV,
         repairKvBinding: !!env.REPAIR_REQUESTS_KV,
@@ -681,10 +930,20 @@ export default {
       });
     }
 
-    // ล็อกอิน Admin — ตรวจสอบรหัสผ่านกับ ADMIN_PASSWORD ใน env
+    // ล็อกอิน Admin — ตรวจรหัสผ่านกับ ADMIN_PASSWORD แล้วออก "ตั๋วแอดมิน" ให้
+    //
+    // ⚠️ เดิม endpoint นี้ตอบแค่ { success: true } แล้วหน้าเว็บก็จำเองว่าเป็นแอดมิน
+    //    (localStorage.isAdmin = 'true') ซึ่งใครพิมพ์เองใน DevTools ก็ได้ — รหัสผ่าน
+    //    จึงไม่ได้กันอะไรเลย ตอนนี้ตอบเป็นตั๋วที่เซ็นด้วย HMAC ฝั่ง Worker
+    //    แล้วทุก endpoint ของแอดมินจะตรวจตั๋วใบนั้นจริง ๆ ปลอมเองไม่ได้
     if (path === '/auth/login' && request.method === 'POST') {
       // จำกัดการเดารหัส: 10 ครั้งต่อ IP ต่อ 15 นาที (เดิมเดาได้ไม่จำกัด)
-      const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const clientIp = request.headers.get('CF-Connecting-IP');
+      if (!clientIp) {
+        // ไม่มี CF-Connecting-IP = ไม่ได้มาผ่านขอบของ Cloudflare ตามปกติ
+        // เดิม fallback เป็น 'unknown' ทำให้ทุกคนใช้โควตาเดียวกัน — นับไม่ได้ก็ไม่ให้ผ่าน
+        return json({ success: false, error: 'ไม่สามารถระบุที่มาของคำขอได้' }, 400);
+      }
       const attemptKey = `login_attempt:${clientIp}`;
       try {
         const attempts = parseInt(await env.ROOM_BOOKINGS_KV.get(attemptKey) || '0', 10);
@@ -693,14 +952,27 @@ export default {
           return json({ success: false, error: 'พยายามเข้าสู่ระบบบ่อยเกินไป กรุณารอ 15 นาที' }, 429);
         }
 
+        // นับก่อนตรวจ แล้วค่อยล้างทิ้งเมื่อรหัสถูก
+        // (KV อ่านค่าจากแคชที่ขอบได้นานถึง 60 วินาที ถ้านับหลังตรวจ คนที่ยิงพร้อมกัน
+        //  หลาย request จะอ่านเลขเดิมทั้งหมดแล้วเดารหัสได้เกินโควตาไปมาก)
+        await env.ROOM_BOOKINGS_KV.put(attemptKey, String(attempts + 1), { expirationTtl: LOGIN_WINDOW_SECONDS });
+
         const { password } = await request.json();
-        if (password && env.ADMIN_PASSWORD && password === env.ADMIN_PASSWORD) {
-          if (attempts > 0) await env.ROOM_BOOKINGS_KV.delete(attemptKey);
-          return json({ success: true });
+
+        // เทียบแบบเวลาคงที่ กันการเดารหัสทีละตัวอักษรจากเวลาที่ใช้เปรียบเทียบ
+        if (typeof password === 'string' && env.ADMIN_PASSWORD && timingSafeEqual(password, env.ADMIN_PASSWORD)) {
+          await env.ROOM_BOOKINGS_KV.delete(attemptKey);
+
+          const issued = await issueAdminToken(env);
+          if (!issued) {
+            console.error('[Auth] ตั้ง ADMIN_PASSWORD / ADMIN_TOKEN_SECRET ไม่ครบ — ออกตั๋วแอดมินไม่ได้');
+            return json({ success: false, error: 'ระบบยังตั้งค่าไม่ครบ' }, 500);
+          }
+          console.log(`[Auth] Admin login สำเร็จจาก ${clientIp}`);
+          return json({ success: true, token: issued.token, expiresAt: issued.expiresAt });
         }
 
-        // นับเฉพาะครั้งที่ผิด และให้ KV ลบ key ทิ้งเองเมื่อครบ 15 นาที
-        await env.ROOM_BOOKINGS_KV.put(attemptKey, String(attempts + 1), { expirationTtl: LOGIN_WINDOW_SECONDS });
+        console.warn(`[Auth] Failed login attempt ${attempts + 1} from ${clientIp}`);
         return json({ success: false }, 401);
       } catch (e) {
         return json({ success: false }, 400);
@@ -717,16 +989,23 @@ export default {
         // ต้องอ่าน body เป็นข้อความดิบก่อน เพราะลายเซ็นคำนวณจากตัวอักษรทุกตัวที่ LINE ส่งมา
         const rawBody = await request.text();
 
-        if (env.CHANNEL_SECRET) {
-          const signature = request.headers.get('x-line-signature');
-          const valid = await verifyLineSignature(rawBody, signature, env.CHANNEL_SECRET);
-          if (!valid) {
-            console.error('[Webhook] Invalid signature — request rejected.');
-            return new Response('Invalid signature', { status: 401 });
-          }
-        } else {
-          // ไม่ตั้ง CHANNEL_SECRET = ใครก็ยิง event ปลอมมาแอบเพิ่มกลุ่มตัวเองเป็นผู้รับแจ้งเตือนได้
-          console.warn('[Webhook] CHANNEL_SECRET is not set — signature check skipped. โปรดตั้งค่าใน Worker Settings');
+        // ── ต้องมีลายเซ็นที่ถูกต้องเสมอ ไม่มีข้อยกเว้น ───────────────────────
+        // ⚠️ เดิมถ้าไม่ได้ตั้ง CHANNEL_SECRET ระบบจะ "ข้ามการตรวจลายเซ็น" แล้วรับ
+        //    event ต่อไปเลย (fail-open) แปลว่าตอนที่ระบบตั้งค่าไม่ครบ — ซึ่งเป็น
+        //    ตอนที่เปราะบางที่สุด — กลับกลายเป็นตอนที่ไม่มีการป้องกันเลย
+        //    ใครรู้ URL นี้ก็ยิง {"events":[{"type":"join","source":{"groupId":"C..."}}]}
+        //    เพื่อแอบเพิ่มกลุ่มตัวเองเป็นผู้รับแจ้งเตือน แล้วดูดข้อมูลการจอง/แจ้งซ่อม
+        //    (ชื่อผู้จอง หัวข้อประชุม เบอร์โทร) ออกไปได้เรื่อย ๆ โดยไม่มีใครรู้
+        //    ตอนนี้ถ้าตั้งค่าไม่ครบ = ปฏิเสธทุก event (fail-closed)
+        if (!env.CHANNEL_SECRET) {
+          console.error('[Webhook] CHANNEL_SECRET ไม่ได้ตั้งค่า — ปฏิเสธ event ทั้งหมด โปรดตั้งค่าใน Worker Settings');
+          return new Response('Webhook not configured', { status: 503 });
+        }
+
+        const signature = request.headers.get('x-line-signature');
+        if (!(await verifyLineSignature(rawBody, signature, env.CHANNEL_SECRET))) {
+          console.error('[Webhook] Invalid signature — request rejected.');
+          return new Response('Invalid signature', { status: 401 });
         }
 
         const body = JSON.parse(rawBody);
@@ -1073,14 +1352,27 @@ export default {
     }
 
     // ── PROTECTED ROUTES (ต้องใช้ X-API-Key Header) ─────────────────────────
-
-    // ตรวจสอบ API Key ทุก request จากนี้เป็นต้นไป
-    // Key ต้องตรงกับ API_SECRET_KEY ใน Worker Settings
-    // และ VITE_API_SECRET_KEY ใน Cloudflare Pages Settings
+    //
+    // ⚠️ ขอบเขตที่ API Key ทำได้จริง — อ่านให้ครบก่อนใช้เป็นหลักประกันความปลอดภัย
+    //    หน้าเว็บนี้เป็น static site ที่ไม่มีระบบล็อกอินผู้ใช้ทั่วไป คีย์จึงถูกฝัง
+    //    อยู่ในไฟล์ JS ที่ทุกคนโหลดไปได้ (Vite แทนค่า VITE_API_SECRET_KEY ตอน build)
+    //    ใครเปิด DevTools ก็ก็อปคีย์ไปยิง API เองได้ — คีย์นี้ "กันคนเดินผ่าน"
+    //    ไม่ใช่ "กันคนตั้งใจ" ของจริงที่กันได้คือ:
+    //      1. CORS allowlist ด้านบน  → เว็บอื่นเรียกแทนผู้ใช้ในเบราว์เซอร์ไม่ได้
+    //      2. X-Admin-Token ด้านล่าง → งานของแอดมินต้องมีตั๋วที่ Worker เซ็นเท่านั้น
+    //    ถ้าวันหนึ่งต้องกันการอ่านข้อมูลด้วย ต้องมีระบบล็อกอินผู้ใช้จริง (ดู
+    //    หัวข้อ "ข้อจำกัดด้านความปลอดภัย" ใน DEVELOPER_GUIDE.md)
     const apiKey = request.headers.get('X-API-Key');
-    if (!apiKey || apiKey !== env.API_SECRET_KEY) {
+    if (!env.API_SECRET_KEY || !timingSafeEqual(apiKey || '', env.API_SECRET_KEY)) {
       return json({ error: 'Unauthorized' }, 401);
     }
+
+    // ตั๋วแอดมิน — คำนวณครั้งเดียวแล้วใช้ซ้ำในทุก route ด้านล่าง
+    const isAdmin = await isAdminRequest(request, env);
+
+    /** ปฏิเสธเมื่อไม่ใช่แอดมิน — ใช้กับงานที่มีแต่เจ้าหน้าที่เท่านั้นที่ทำได้ */
+    const requireAdmin = () =>
+      isAdmin ? null : json({ error: 'ต้องเข้าสู่โหมดเจ้าหน้าที่ก่อน' }, 403);
 
     try {
 
@@ -1133,6 +1425,30 @@ export default {
             return json({ error: 'ข้อมูลต้องเป็น array เท่านั้น' }, 400);
           }
 
+          // ── ตรวจรูปร่างข้อมูลก่อนเขียนลง KV ────────────────────────────────
+          // เดิมรับ array อะไรก็ได้ ทำให้ยัดของขยะ/ของใหญ่เกินจริงเข้ามาถมพื้นที่ KV
+          // หรือใส่ค่าแปลก ๆ ที่หน้าเว็บเอาไปแสดงต่อได้
+          if (incoming.length > MAX_RECORDS_PER_TYPE) {
+            console.error(`[Data Guard] "${type}" payload มี ${incoming.length} รายการ เกินลิมิต`);
+            return json({ error: `บันทึกได้ไม่เกิน ${MAX_RECORDS_PER_TYPE} รายการ` }, 413);
+          }
+          if (!incoming.every(item => item && typeof item === 'object' && !Array.isArray(item) && typeof item.id === 'string' && item.id !== '')) {
+            console.error(`[Data Guard] "${type}" มีรายการที่ไม่มี id เป็นสตริง`);
+            return json({ error: 'ทุกรายการต้องเป็น object และมี id เป็นข้อความ' }, 400);
+          }
+
+          const serialized = JSON.stringify(incoming);
+          if (serialized.length > MAX_PAYLOAD_BYTES) {
+            console.error(`[Data Guard] "${type}" payload ${serialized.length} bytes เกินลิมิต`);
+            return json({ error: 'ข้อมูลใหญ่เกินกำหนด' }, 413);
+          }
+
+          // ลิงก์ไฟล์แนบต้องเป็น http/https เท่านั้น — กัน javascript: ที่กลายเป็น XSS
+          // เมื่อหน้าเว็บเอาไปใส่ใน <a href> แล้วมีคนกดเปิด (ดู safeHref ฝั่งหน้าเว็บ)
+          for (const item of incoming) {
+            if ('attachmentUrl' in item) item.attachmentUrl = sanitizeUrl(item.attachmentUrl);
+          }
+
           // ── กันข้อมูลของคนอื่นหายเพราะบันทึกพร้อมกัน ────────────────────────
           // endpoint นี้เขียนทับทั้ง array เสมอ ถ้า A กับ B เปิดหน้าเดียวกันแล้วบันทึกไล่กัน
           // ของ A จะหายไปทั้งก้อนโดยไม่มีใครรู้ (last write wins)
@@ -1161,17 +1477,32 @@ export default {
           // เก็บสำเนาของเดิมไว้ก่อนเขียนทับ — /data?type=...&version=prev ดึงกลับมาได้
           // (endpoint นี้เขียนทับทั้งก้อนเสมอ ถ้าไม่มีสำเนาไว้ พลาดครั้งเดียวคือข้อมูลหายถาวร)
           const previous = await KV.get(`${type}_data`);
-          if (previous) {
-            await KV.put(`${type}_data_prev`, previous);
-            await KV.put(`${type}_data_prev_at`, new Date().toISOString());
 
-            // เตือนไว้ใน log เมื่อจำนวนรายการหายไปเกินครึ่ง — ไล่ดูย้อนหลังได้ว่าเกิดตอนไหน
+          // ── กันการลบข้อมูลยกชุด ─────────────────────────────────────────────
+          // endpoint นี้เขียนทับทั้ง array เสมอ การส่ง [] เข้ามาครั้งเดียว
+          // จึงลบข้อมูลทั้งระบบได้ในคำขอเดียว
+          // ในหน้าเว็บ ผู้ใช้ทั่วไปทำได้แค่ "เพิ่ม/แก้/ยกเลิก" รายการของตัวเอง
+          // (ยกเลิก = เปลี่ยนสถานะ ไม่ได้ลบทิ้ง) การลบจริงเป็นสิทธิ์ของแอดมินเท่านั้น
+          // ดังนั้นถ้ารายการหายไปเกินครึ่ง แต่คนส่งไม่มีตั๋วแอดมิน = ปฏิเสธไปเลย
+          // เดิมแค่เขียน log เตือนไว้แล้วเขียนทับให้ตามปกติ
+          if (previous) {
             try {
               const previousCount = JSON.parse(previous).length;
-              if (previousCount >= 10 && incoming.length < previousCount / 2) {
-                console.warn(`[Data Guard] "${type}" shrank ${previousCount} → ${incoming.length} รายการ (สำเนาเดิมอยู่ที่ ${type}_data_prev)`);
+              const shrankSharply = previousCount >= BULK_DELETE_MIN_RECORDS && incoming.length < previousCount / 2;
+
+              if (shrankSharply && !isAdmin) {
+                console.error(`[Data Guard] ปฏิเสธการลบยกชุด "${type}": ${previousCount} → ${incoming.length} รายการ (ไม่มีตั๋วแอดมิน)`);
+                return json({
+                  error: 'การลบข้อมูลจำนวนมากต้องเข้าสู่โหมดเจ้าหน้าที่ก่อน กรุณารีเฟรชหน้าแล้วลองใหม่',
+                }, 403);
+              }
+              if (shrankSharply) {
+                console.warn(`[Data Guard] "${type}" shrank ${previousCount} → ${incoming.length} รายการ โดยแอดมิน (สำเนาเดิมอยู่ที่ ${type}_data_prev)`);
               }
             } catch (e) { /* ของเดิมพัง ข้ามการเทียบไป */ }
+
+            await KV.put(`${type}_data_prev`, previous);
+            await KV.put(`${type}_data_prev_at`, new Date().toISOString());
           }
 
           await KV.put(`${type}_data`, JSON.stringify(incoming));
@@ -1188,10 +1519,40 @@ export default {
       // ไม่ระบุ target → ส่งเข้าทุก recipient ตามปกติ (ใช้กับระบบจองห้อง)
       // ใช้ ctx.waitUntil เพื่อไม่ให้ response รอ LINE ตอบกลับ (non-blocking)
       if (path === '/notify' && request.method === 'POST') {
-        const { message, target } = await request.json();
+        let notifyBody;
+        try {
+          notifyBody = await request.json();
+        } catch (e) {
+          return json({ success: false, error: 'Body ไม่ใช่ JSON ที่ถูกต้อง' }, 400);
+        }
+        const { message, target } = notifyBody;
 
         if (typeof message !== 'string' || message.trim() === '') {
           return json({ success: false, error: 'ไม่มีข้อความที่จะส่ง' }, 400);
+        }
+
+        // ── กันเอาบอทไปสแปม/หลอกลวงในกลุ่ม LINE ────────────────────────────
+        // endpoint นี้ต้องเปิดให้ผู้ใช้ทั่วไปเรียกได้ เพราะแจ้งเตือนถูกส่งตอนที่
+        // มีคนจองห้อง/แจ้งซ่อม (ซึ่งไม่ต้องล็อกอิน) แต่ข้อความเป็นอะไรก็ได้
+        // ใครถอด API Key จากไฟล์ JS ไปแล้วก็ยิงข้อความหลอกลวงเข้าทุกกลุ่มได้
+        // จำกัดทั้งความยาวและความถี่ไว้ เพื่อให้ความเสียหายอยู่ในวงจำกัด
+        if (message.length > MAX_NOTIFY_LENGTH) {
+          return json({ success: false, error: 'ข้อความยาวเกินกำหนด' }, 413);
+        }
+
+        // แอดมินไม่ติดลิมิต (ต้องกดส่งซ้ำให้กลุ่มได้เวลาแจ้งเตือนพลาด)
+        if (!isAdmin) {
+          // ต่างจาก /auth/login ตรงที่ไม่มี IP แล้ว "ไม่ปฏิเสธ" แต่ให้ไปรวมถังเดียวกัน
+          // เพราะ endpoint นี้อยู่บนเส้นทางที่ผู้ใช้จองห้องจริง ๆ การบล็อกทิ้ง
+          // แปลว่าเจ้าหน้าที่ไม่ได้รับแจ้งเตือนการจอง ซึ่งเสียหายกว่าการโดนสแปม
+          const notifyIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+          const notifyKey = `notify_count:${notifyIp}`;
+          const notifyCount = parseInt(await env.ROOM_BOOKINGS_KV.get(notifyKey) || '0', 10);
+          if (notifyCount >= NOTIFY_MAX_PER_WINDOW) {
+            console.warn(`[Notify] Rate limit hit จาก ${notifyIp}`);
+            return json({ success: false, error: 'ส่งแจ้งเตือนบ่อยเกินไป กรุณารอสักครู่' }, 429);
+          }
+          await env.ROOM_BOOKINGS_KV.put(notifyKey, String(notifyCount + 1), { expirationTtl: NOTIFY_WINDOW_SECONDS });
         }
 
         // target = "repair" → หัวข้อ repairs, ไม่ระบุ → หัวข้อ rooms
@@ -1216,7 +1577,13 @@ export default {
       // ── /recipients — ดูรายชื่อผู้รับแจ้งเตือน พร้อมชื่อกลุ่มจริงจาก LINE ──
       // ดึงชื่อสดจาก LINE API ทุกครั้งที่เรียก (ไม่ได้แคช/เก็บชื่อไว้ที่ไหน)
       // ถ้ามีคนเปลี่ยนชื่อกลุ่มใน LINE ภายหลัง เรียก endpoint นี้ใหม่จะเห็นชื่อล่าสุดทันที
+      // ⚠️ ทั้ง 3 เมธอดของ /recipients เป็นงานของแอดมินล้วน — เดิมกันด้วย API Key
+      //    อย่างเดียว ซึ่งเป็นคีย์สาธารณะ ใครก็ดูได้ว่าแจ้งเตือนวิ่งเข้ากลุ่มไหน
+      //    และ "ย้าย" ปลายทางแจ้งเตือนไปกลุ่มตัวเองได้ด้วย POST /recipients
       if (path === '/recipients' && request.method === 'GET') {
+        const denied = requireAdmin();
+        if (denied) return denied;
+
         // รวมกลุ่มที่หยุดรับแจ้งเตือนแล้วมาด้วย (active: false) เพื่อให้ยังเห็น Group ID
         // เอาไปก็อปใช้ต่อได้ เช่น ใส่ใน REPAIR_GROUP_ID หรือเปิดรับใหม่ภายหลัง
         let stored = await listRecipients(env);
@@ -1257,6 +1624,9 @@ export default {
       // Body: { id: "C...", topics: ["rooms", "repairs"] }  (ส่ง [] = ไม่รับอะไรเลย)
       // เรียกจากหน้าตรวจสอบระบบของแอดมิน (ติ๊ก/เอาติ๊กออกหน้ากลุ่ม)
       if (path === '/recipients' && request.method === 'POST') {
+        const denied = requireAdmin();
+        if (denied) return denied;
+
         let body;
         try {
           body = await request.json();
@@ -1284,6 +1654,9 @@ export default {
       // ใช้กับกลุ่มที่บอทไม่ได้อยู่แล้ว/กลุ่มที่ยุบไปแล้ว เพื่อไม่ให้รกรายการ
       // (ปกติแค่เอาติ๊กออกก็พอ — การลบทำให้ Group ID หายไปด้วย)
       if (path === '/recipients' && request.method === 'DELETE') {
+        const denied = requireAdmin();
+        if (denied) return denied;
+
         const id = url.searchParams.get('id');
         if (!id) return json({ error: 'ต้องระบุ id ของกลุ่ม' }, 400);
 
@@ -1302,21 +1675,9 @@ export default {
       return json({ error: 'Route not found' }, 404);
 
     } catch (e) {
+      // ข้อความ error จริงเก็บไว้ใน log ของ Worker เท่านั้น
+      // ไม่ส่งกลับหน้าเว็บ เพราะอาจมีชื่อ binding/โครงสร้างภายในติดไปด้วย
       console.error(`[Worker Error] ${e.message}\n${e.stack}`);
       return json({ error: 'Worker internal error' }, 500);
     }
-  },
-
-  // ───────────────────────────────────────────────────────────────────────────
-  //  scheduled(event, env, ctx) — ปิดการใช้งานแล้ว (ตามที่ผู้ใช้ระบบขอ)
-  //
-  //  เดิมส่งสรุปการจองห้องของวันนี้เข้ากลุ่ม LINE ทุกเช้า ตอนนี้เอาออกแล้ว
-  //  เพราะดูจากในเว็บ (แท็บ "ตารางการจอง") หรือพิมพ์ @ชื่อบอท จองวันนี้ ในกลุ่มก็ได้
-  //
-  //  ⚠️ ถ้ายังตั้ง Cron Trigger ค้างไว้ที่ Dashboard → Settings → Triggers
-  //     ให้ลบทิ้งด้วย ฟังก์ชันนี้เหลือไว้เฉย ๆ เพื่อไม่ให้ trigger ที่ค้างอยู่ error
-  // ───────────────────────────────────────────────────────────────────────────
-  async scheduled(event, env, ctx) {
-    console.log('[Scheduled] สรุปประจำวันถูกปิดการใช้งานแล้ว — ลบ Cron Trigger ใน Worker Settings ได้เลย');
-  }
-};
+}
