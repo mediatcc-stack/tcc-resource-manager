@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { APP_CONFIG } from '../../constants';
-import { GraduationCap, Building2, ShieldCheck, KeyRound, Settings } from 'lucide-react';
+import { GraduationCap, Building2, ShieldCheck, KeyRound, Settings, Home, DoorOpen, Wrench, Camera } from 'lucide-react';
 
 interface NavbarProps {
   isAdmin: boolean;
@@ -10,18 +10,21 @@ interface NavbarProps {
   onOpenSystemCheck?: () => void;
 }
 
-// รายการเมนูหลัก — ตรงกับ Route ใน App.tsx
-const NAV_ITEMS: { path: string; label: string }[] = [
-  { path: '/',          label: 'หน้าแรก' },
-  { path: '/room',      label: APP_CONFIG.systemTitle },
-  { path: '/equipment', label: APP_CONFIG.equipmentTitle },
-  { path: '/repair',    label: APP_CONFIG.repairTitle },
+// รายการเมนูหลัก — ตรงกับ Route ใน App.tsx และลำดับเดียวกับ SWIPE_STEPS
+// (จองห้อง → แจ้งซ่อม → ยืมของ) ⚠️ ถ้าสลับลำดับที่นี่ ต้องสลับใน
+// hooks/useSwipeNavigation.tsx, BottomNav.tsx และการ์ดหน้าแรกให้ตรงกันด้วย
+const NAV_ITEMS: { path: string; label: string; Icon: React.ComponentType<{ className?: string }> }[] = [
+  { path: '/',          label: 'หน้าแรก',                 Icon: Home },
+  { path: '/room',      label: APP_CONFIG.systemTitle,    Icon: DoorOpen },
+  { path: '/repair',    label: APP_CONFIG.repairTitle,    Icon: Wrench },
+  { path: '/equipment', label: APP_CONFIG.equipmentTitle, Icon: Camera },
 ];
 
 /**
- * แถบหัวเรื่องแบบ 2 ชั้น (fixed)
- *  ชั้นบน  — แบรนด์ระบบ + สถานะ/ปุ่มโหมดเจ้าหน้าที่
- *  ชั้นล่าง — แท็บเลือกระบบ (รวมแท็บ "หน้าแรก" ไว้แล้ว)
+ * แถบหัวเรื่อง (fixed)
+ *  ชั้นบน  — แบรนด์ระบบ + สถานะ/ปุ่มโหมดเจ้าหน้าที่ (ทุกขนาดจอ)
+ *  ชั้นล่าง — แท็บเลือกระบบ เฉพาะจอ md ขึ้นไป
+ *             บนจอเล็กเมนูย้ายลงไปอยู่แถบล่างแบบแอปโทรศัพท์ (ดู BottomNav.tsx)
  */
 const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminToggle, onOpenSystemCheck }) => {
   const location = useLocation();
@@ -44,7 +47,7 @@ const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminToggle, onOpenSystemChe
     return () => observer.disconnect();
   }, []);
 
-  // บนจอแคบแถบเมนูเลื่อนแนวนอนได้ — เลื่อนให้เห็นระบบที่กำลังใช้งานอยู่เสมอ
+  // แถบแท็บ (md ขึ้นไป) เลื่อนแนวนอนได้เมื่อจอไม่กว้างพอ — เลื่อนให้เห็นระบบที่ใช้งานอยู่เสมอ
   useEffect(() => {
     activeTabRef.current?.scrollIntoView({ block: 'nearest', inline: 'center' });
   }, [currentPath]);
@@ -103,27 +106,28 @@ const Navbar: React.FC<NavbarProps> = ({ isAdmin, onAdminToggle, onOpenSystemChe
         </div>
       </div>
 
-      {/* ── ชั้นล่าง: เมนูระบบ ── */}
-      <div className="bg-surface/90 backdrop-blur-xl">
+      {/* ── ชั้นล่าง: เมนูระบบ (จอเล็กใช้ BottomNav แทน) ── */}
+      <div className="hidden md:block bg-surface/90 backdrop-blur-xl">
         <div className="max-w-content mx-auto px-gutter-mobile md:px-gutter-tablet lg:px-gutter-desktop h-12 flex items-center justify-between gap-space-md">
           <div className="flex items-center gap-space-md overflow-x-auto py-1">
             {/* มีแท็บ "หน้าแรก" ในรายการเมนูอยู่แล้ว จึงไม่ใส่ปุ่มย้อนกลับหน้าแรกซ้ำอีกปุ่ม */}
             <nav className="flex items-center gap-space-xs shrink-0">
-              {NAV_ITEMS.map(item => {
-                const isActive = currentPath === item.path;
+              {NAV_ITEMS.map(({ path, label, Icon }) => {
+                const isActive = currentPath === path;
                 return (
                   <button
-                    key={item.path}
+                    key={path}
                     ref={isActive ? activeTabRef : undefined}
-                    onClick={() => navigate(item.path)}
+                    onClick={() => navigate(path)}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`px-space-sm py-1.5 rounded-lg font-label text-label-md whitespace-nowrap transition-colors cursor-pointer ${
+                    className={`flex items-center gap-space-xs px-space-sm py-1.5 rounded-lg font-label text-label-md whitespace-nowrap transition-colors cursor-pointer ${
                       isActive
                         ? 'bg-primary-container text-on-primary font-bold shadow-sm'
                         : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low'
                     }`}
                   >
-                    {item.label}
+                    <Icon className="w-4 h-4 shrink-0" />
+                    {label}
                   </button>
                 );
               })}

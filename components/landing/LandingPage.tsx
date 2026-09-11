@@ -9,6 +9,7 @@ interface LandingPageProps {
 }
 
 // ── ระบบบริการทั้งหมดบนพอร์ทัล ─────────────────────────────────────────────
+//  ลำดับ 1-2-3 ต้องตรงกับเมนู (Navbar.tsx, BottomNav.tsx) และลำดับการปัดเปลี่ยนหน้า
 const SYSTEMS: {
   path: string;
   title: string;
@@ -17,14 +18,6 @@ const SYSTEMS: {
   cta: string;
   icon: React.ReactNode;
 }[] = [
-  {
-    path: '/equipment',
-    title: APP_CONFIG.equipmentTitle,
-    tag: 'ยืม–คืนอุปกรณ์',
-    description: 'จัดการการยืม-คืนอุปกรณ์ กล้อง โน้ตบุ๊ก และอุปกรณ์สื่อต่างๆ',
-    cta: 'ยืมอุปกรณ์',
-    icon: <Camera className="w-7 h-7" />,
-  },
   {
     path: '/room',
     title: APP_CONFIG.systemTitle,
@@ -40,6 +33,14 @@ const SYSTEMS: {
     description: 'แจ้งเครื่องคอมพิวเตอร์เสีย โปรแกรมมีปัญหา หรือเน็ตใช้ไม่ได้ พร้อมแจ้งเตือนเจ้าหน้าที่ทันที',
     cta: 'แจ้งซ่อม',
     icon: <Wrench className="w-7 h-7" />,
+  },
+  {
+    path: '/equipment',
+    title: APP_CONFIG.equipmentTitle,
+    tag: 'ยืม–คืนอุปกรณ์',
+    description: 'จัดการการยืม-คืนอุปกรณ์ กล้อง โน้ตบุ๊ก และอุปกรณ์สื่อต่างๆ',
+    cta: 'ยืมอุปกรณ์',
+    icon: <Camera className="w-7 h-7" />,
   },
 ];
 

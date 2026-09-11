@@ -386,8 +386,8 @@ const HomePage: React.FC<HomePageProps> = ({ rooms, bookings, onSelectRoom, onQu
           </section>
         </div>
 
-        {/* ปุ่มลอยสำหรับมือถือ */}
-        <div className="md:hidden fixed bottom-6 right-5 z-30">
+        {/* ปุ่มลอยสำหรับมือถือ — ยกขึ้นพ้นแถบเมนูล่าง (--bottom-nav-height) */}
+        <div className="md:hidden fixed bottom-[calc(var(--bottom-nav-height)+1rem)] right-5 z-40">
           <button
             onClick={onQuickBook}
             className="flex items-center gap-2 bg-primary text-on-primary px-5 py-3 rounded-2xl shadow-lg font-label text-label-lg active:scale-95 hover:bg-primary-container transition-all cursor-pointer"
