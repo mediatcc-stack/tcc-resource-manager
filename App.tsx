@@ -13,9 +13,9 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  *
  *  URL "/"          → LandingPage    — หน้าแรก เลือกระบบ
- *  URL "/room"      → RoomBookingSystem — ระบบจองห้องประชุม
- *  URL "/equipment" → EquipmentSystem   — ระบบยืมอุปกรณ์
- *  URL "/repair"    → RepairSystem      — ระบบแจ้งซ่อมอุปกรณ์ไอที
+ *  URL "/room"      → RoomBookingSystem — ระบบจองห้องประชุม   (ระบบที่ 1)
+ *  URL "/repair"    → RepairSystem      — ระบบแจ้งซ่อมอุปกรณ์ไอที (ระบบที่ 2)
+ *  URL "/equipment" → EquipmentSystem   — ระบบยืมอุปกรณ์       (ระบบที่ 3)
  *  URL อื่นๆ        → redirect ไป "/"
  *
  *  ไฟล์ _redirects (root ของ project) ทำให้ Cloudflare Pages รองรับ React Router:
@@ -86,7 +86,8 @@
  *  components/
  *    landing/LandingPage.tsx              ← หน้าแรก
  *    layout/
- *      Navbar.tsx                         ← แถบหัวเรื่อง 2 ชั้น (แบรนด์ + เมนูระบบ)
+ *      Navbar.tsx                         ← แถบหัวเรื่อง (แบรนด์ + เมนูระบบเฉพาะจอ md ขึ้นไป)
+ *      BottomNav.tsx                      ← แถบเมนูล่างแบบแอปโทรศัพท์ (เฉพาะจอเล็ก)
  *      Breadcrumb.tsx                     ← แถบเส้นทางการใช้งาน
  *      PageTransition.tsx                 ← ปัดซ้าย/ขวาเปลี่ยนหน้า + โมชั่น + เลื่อนจอขึ้นบนสุด
  *      Footer.tsx                         ← ส่วนท้ายของทุกหน้า
@@ -134,6 +135,7 @@ import RoomBookingSystem from './components/room/RoomBookingSystem';
 import EquipmentSystem from './components/equipment/EquipmentSystem';
 import RepairSystem from './components/repair/RepairSystem';
 import Navbar from './components/layout/Navbar';
+import BottomNav from './components/layout/BottomNav';
 import Breadcrumb from './components/layout/Breadcrumb';
 import PageTransition from './components/layout/PageTransition';
 import { SwipeNavigationProvider } from './hooks/useSwipeNavigation';
@@ -294,7 +296,8 @@ const App: React.FC = () => {
 
   return (
     <SwipeNavigationProvider>
-      <div className="app-container flex flex-col min-h-screen bg-surface">
+      {/* เว้นที่ท้ายหน้าให้แถบเมนูล่าง (ค่าเป็น 0 บนจอ md ขึ้นไป — ดู index.css) */}
+      <div className="app-container flex flex-col min-h-screen bg-surface pb-[var(--bottom-nav-height)]">
         <Navbar isAdmin={isAdmin} onAdminToggle={handleAdminToggle} onOpenSystemCheck={handleOpenSystemCheck} />
 
         {/* เว้นที่ใต้ header ตามความสูงจริง (Navbar อัปเดต --header-height ให้เอง) */}
@@ -306,14 +309,16 @@ const App: React.FC = () => {
               <Routes>
                 <Route path="/"          element={<LandingPage onAdminLogin={handleAdminToggle} isAdmin={isAdmin} />} />
                 <Route path="/room"      element={<RoomBookingSystem showToast={showToast} isAdmin={isAdmin} />} />
-                <Route path="/equipment" element={<EquipmentSystem showToast={showToast} isAdmin={isAdmin} />} />
                 <Route path="/repair"    element={<RepairSystem showToast={showToast} isAdmin={isAdmin} />} />
+                <Route path="/equipment" element={<EquipmentSystem showToast={showToast} isAdmin={isAdmin} />} />
                 <Route path="*"          element={<Navigate to="/" replace />} />
               </Routes>
             </PageTransition>
           </div>
         </main>
         <Footer />
+        {/* เมนูระบบแบบแอปโทรศัพท์ — แสดงเฉพาะจอเล็ก */}
+        <BottomNav />
         <ToastContainer messages={toastMessages} onRemove={removeToast} />
 
         {/* ── หน้าตรวจสอบสุขภาพระบบ (เจ้าหน้าที่) ── */}

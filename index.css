@@ -59,6 +59,16 @@
   /* ── Layout ── */
   --max-width-content: 1360px;
   --header-height: 112px;
+  /* ความสูงที่ต้องกันไว้ให้แถบเมนูล่าง (BottomNav) — จอ md ขึ้นไปไม่มีแถบนี้ จึงเป็น 0 */
+  --bottom-nav-height: 0px;
+}
+
+/* แถบเมนูล่างแสดงเฉพาะจอเล็ก (ตรงกับ md: ของ Tailwind = 768px)
+   ค่าต้องเท่ากับความสูงจริงใน BottomNav.tsx = h-16 (4rem) + เส้นขอบบน 1px + safe area */
+@media (max-width: 767.9px) {
+  :root {
+    --bottom-nav-height: calc(4rem + 1px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -150,7 +160,8 @@ h1, h2, h3, h4, h5, h6 {
 .swipe-peek {
   position: fixed;
   left: 50%;
-  bottom: 1.5rem;
+  /* ยกขึ้นพ้นแถบเมนูล่าง */
+  bottom: calc(var(--bottom-nav-height) + 1.5rem);
   transform: translateX(-50%);
   z-index: 40;
   pointer-events: none;
