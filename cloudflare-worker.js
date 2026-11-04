@@ -165,7 +165,8 @@
  *    POST /webhook         → รับ event จาก LINE (เพิ่ม recipient อัตโนมัติ +
  *                            @Mention Handler: ตอบรายงานผ่าน Reply Token ไม่กิน Push
  *                            quota — พิมพ์ "@Bot ยืม" (อุปกรณ์ค้างคืน), "@Bot ซ่อม"
- *                            (แจ้งซ่อมค้าง), "@Bot รายงาน/จอง..." (จองห้อง) ในกลุ่ม)
+ *                            (แจ้งซ่อมค้าง), "@Bot รายงาน/จอง..." (จองห้อง),
+ *                            "@Bot เปิดแจ้งเตือน" / "@Bot สถานะแจ้งเตือน" ในกลุ่ม)
  *
  *  PROTECTED (ต้องใส่ Header: X-API-Key):
  *    ⚠️  API Key ถูกฝังอยู่ในไฟล์ JS ของหน้าเว็บ (Vite แทนค่าตอน build) ใครเปิด
@@ -185,9 +186,11 @@
  *                                  ตอบกลับ { success, sent, failed, total, error? }
  *                                  success = false เมื่อส่งไม่ถึงสักปลายทาง
  *    GET  /recipients           → ดูรายชื่อผู้รับแจ้งเตือน
- *                                  [{ id, name, type, active, topics }]
+ *                                  [{ id, name, type, active, topics, membership, reactivated }]
  *                                  name ดึงสดจาก LINE API ทุกครั้ง (ไม่แคช)
- *                                  active: false = บอทไม่ได้อยู่ในกลุ่มแล้ว
+ *                                  active: false = หยุดส่งให้กลุ่มนี้ (บอทไม่อยู่ในกลุ่ม)
+ *                                  membership: ผลถาม LINE ตอนนี้ in / out / unknown
+ *                                  reactivated: true = เพิ่งเปิดรับกลับ (บอทยังอยู่จริง)
  *                                  topics: หัวข้อที่กลุ่มนั้นรับ (rooms / repairs)
  *    POST /recipients           → Body: { id, topics: ["rooms","repairs"] }
  *                                  ตั้งว่ากลุ่มนี้รับแจ้งเตือนเรื่องอะไรบ้าง
@@ -204,6 +207,20 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  *  🛠️  แก้ไขล่าสุด
  * ═══════════════════════════════════════════════════════════════════════════════
+ *  v3.1 (2026-11-04) — แก้กลุ่มจองห้องถูกตีว่า "บอทไม่อยู่ในกลุ่ม" ทั้งที่บอทยังอยู่
+ *                       แล้วแจ้งเตือนไปเข้าไลน์ส่วนตัว (RECIPIENT_ID) แทนกลุ่ม
+ *                       • push ตอบ 403 → ถาม LINE ซ้ำ (group summary) ก่อน ตัดกลุ่ม
+ *                         ออกเฉพาะเมื่อ LINE ยืนยันว่าบอทไม่อยู่จริง (เดิมตัดทันที)
+ *                       • GET /recipients ("ตรวจสอบใหม่") ถาม LINE ทุกกลุ่ม ถ้าบอทยังอยู่
+ *                         เปิดรับกลับให้เอง + คืน membership: in / out / unknown
+ *                       • ไม่เหลือกลุ่มที่ใช้งานอยู่ตอนส่ง → ลองกู้กลุ่มที่ถูกตัดก่อน
+ *                       • มี event จากกลุ่มไหนเข้ามา (มีคนพิมพ์ในกลุ่ม) → เปิดรับกลับเอง
+ *                       • คำสั่งใหม่ในกลุ่ม: "@บอท เปิดแจ้งเตือน" (ลงทะเบียนกลุ่มเอง
+ *                         ไม่ต้องเตะบอทแล้วเชิญใหม่ ใช้กู้กลุ่มที่เผลอลบ) และ
+ *                         "@บอท สถานะแจ้งเตือน" (ดูหัวข้อที่รับ + Group ID)
+ *                       • ส่งไปปลายทางสำรองเมื่อส่งเข้ากลุ่มไม่ได้ จะมีหัวข้อความเตือน
+ *                         บอกว่าระบบมีปัญหา (เดิมเงียบ คนรับไม่รู้ว่าทำไมมาเข้าไลน์ตัวเอง)
+ *                       • /status คืน topicCounts จำนวนกลุ่มที่รับแต่ละหัวข้อ
  *  v2.13 (2026-09-09) — ปิดสรุปการจองประจำวันตอนเช้า (scheduled) ตามที่ผู้ใช้ขอ
  *                       เหลือ scheduled() ไว้เป็นตัวเปล่า เผื่อ Cron Trigger ค้างอยู่
  *                       จะได้ไม่ error — ลบ trigger ที่ Dashboard ได้เลย
@@ -696,6 +713,56 @@ async function removeRecipient(env, id, reason = 'left') {
   await saveRecipient(env, id, { topics: previous.topics, left: `${reason}:${new Date().toISOString()}` });
 }
 
+/**
+ * ล้างเครื่องหมาย "บอทไม่อยู่ในกลุ่ม" ของกลุ่มที่มีหลักฐานว่าบอทยังอยู่จริง
+ * (LINE ตอบข้อมูลกลุ่มกลับมา / มี event จากกลุ่มนั้นเข้ามา) — คงหัวข้อที่ติ๊กไว้เดิม
+ * ไม่สร้าง key ใหม่ให้กลุ่มที่แอดมินลบออกไปแล้ว คืน true ถ้ามีการเปิดรับกลับ
+ */
+async function reactivateRecipient(env, id) {
+  if (!id) return false;
+  const existing = await env.ROOM_BOOKINGS_KV.get(`${RECIPIENT_PREFIX}${id}`);
+  if (existing === null) return false;
+  const state = parseRecipientValue(existing);
+  if (!state.left) return false;
+  await saveRecipient(env, id, { topics: state.topics, left: null });
+  console.log(`[Recipients] ${id} — ยืนยันแล้วว่าบอทยังอยู่ในกลุ่ม เปิดรับแจ้งเตือนกลับ (เดิม: ${state.left})`);
+  return true;
+}
+
+/** ชื่อหัวข้อแจ้งเตือนที่แสดงให้คนอ่าน (ตรงกับ TOPIC_LABELS ฝั่งหน้าเว็บ) */
+const TOPIC_NAMES = { rooms: 'จองห้องประชุม', repairs: 'แจ้งซ่อม' };
+
+/**
+ * ถาม LINE ตรง ๆ ว่าบอทยังอยู่ในกลุ่มนี้ไหม (ผู้ใช้เดี่ยว = ยังเป็นเพื่อน/ไม่บล็อก)
+ * คืน { state, name, status }
+ *   'in'      = LINE ตอบข้อมูลกลุ่มกลับมา → บอทอยู่ในกลุ่มแน่นอน
+ *   'out'     = LINE ตอบ 400/403/404 → บอทไม่ได้อยู่ในกลุ่ม (หรือ ID ผิด)
+ *   'unknown' = token ผิด / LINE ล่ม / เน็ตหลุด → ตัดสินไม่ได้ ห้ามเปลี่ยนสถานะจากผลนี้
+ *
+ * ⚠️ เดิมระบบตัดกลุ่มออกทันทีที่ push ตอบ 403 ครั้งเดียว โดยไม่ได้ถาม LINE ซ้ำ
+ *    ถ้า LINE ตอบ 403 แบบชั่วคราว กลุ่มที่บอทยังอยู่จะถูกตัดออกถาวร แจ้งเตือนไปตก
+ *    ที่ RECIPIENT_ID (ไลน์ส่วนตัว) แทน และกด "ตรวจสอบใหม่" ก็ไม่กลับมา
+ */
+async function checkMembership(env, id) {
+  const isGroup = id.startsWith('C');
+  const url = isGroup
+    ? `https://api.line.me/v2/bot/group/${encodeURIComponent(id)}/summary`
+    : `https://api.line.me/v2/bot/profile/${encodeURIComponent(id)}`;
+  try {
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}` } });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { state: 'in', name: (isGroup ? data.groupName : data.displayName) || null, status: res.status };
+    }
+    if (res.status === 400 || res.status === 403 || res.status === 404) {
+      return { state: 'out', name: null, status: res.status };
+    }
+    return { state: 'unknown', name: null, status: res.status };
+  } catch (e) {
+    return { state: 'unknown', name: null, status: 0 };
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  ส่งข้อความเข้า LINE — push (ทักเอง) และ reply (ตอบกลับ)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -737,75 +804,122 @@ async function pushWithRetry(env, recipientId, messages, maxAttempts = 3) {
   return result;
 }
 
+/** หัวข้อความที่ติดไปกับแจ้งเตือนที่ต้องส่งไปปลายทางสำรอง — คนที่ได้รับจะได้รู้ว่าระบบมีปัญหา */
+const FALLBACK_NOTES = {
+  unreachable: '⚠️ ส่งเข้ากลุ่ม LINE ที่รับแจ้งเตือนเรื่องนี้ไม่สำเร็จ ระบบจึงส่งมาที่ปลายทางสำรองแทน',
+  none: '⚠️ ตอนนี้ไม่มีกลุ่ม LINE ที่รับแจ้งเตือนเรื่องนี้ ระบบจึงส่งมาที่ปลายทางสำรองแทน',
+};
+const FALLBACK_HINT = 'แก้ได้โดยพิมพ์ "@ชื่อบอท เปิดแจ้งเตือน" ในกลุ่มที่ต้องการ แล้วกด "ตรวจสอบใหม่" ในหน้าแอดมิน';
+
+/**
+ * ส่ง push ไปผู้รับหนึ่งราย ถ้า LINE ตอบ 403 จะถาม LINE ซ้ำก่อนว่าบอทยังอยู่ในกลุ่มไหม
+ * ตัดออกจากรายการ (left: unreachable) เฉพาะเมื่อ LINE ยืนยันว่าบอทไม่อยู่แล้วจริง ๆ
+ * manageState = false → ไม่แตะสถานะใน KV (ใช้กับปลายทางที่ระบุมาเอง/ปลายทางสำรอง)
+ */
+async function deliverToRecipient(env, recipientId, messages, { manageState = true } = {}) {
+  const result = await pushWithRetry(env, recipientId, messages);
+  if (result.ok) return { recipientId, ok: true };
+
+  console.error(`[LINE Push Error] To: ${recipientId}, Status: ${result.status}, Body: ${result.body}`);
+
+  // 403 = อาจถูกเตะออกจากกลุ่ม/กลุ่มถูกยุบ/ผู้ใช้บล็อก — แต่ก็อาจเป็นปัญหาชั่วคราวของ LINE
+  // (401/400 ไม่ตัด เพราะอาจเป็นปัญหาที่ token หรือรูปแบบข้อความ ไม่ใช่ตัวผู้รับ)
+  let removed = false;
+  if (result.status === 403 && manageState) {
+    const membership = await checkMembership(env, recipientId);
+    if (membership.state === 'out') {
+      try {
+        await removeRecipient(env, recipientId, 'unreachable');
+        removed = true;
+        console.log(`[LINE Push] ${recipientId} — LINE ยืนยันว่าบอทไม่อยู่ในกลุ่มแล้ว (HTTP ${membership.status}) หยุดส่งให้ (เก็บ key ไว้)`);
+      } catch (e) {
+        console.error(`[LINE Push] Failed to mark recipient ${recipientId}: ${e.message}`);
+      }
+    } else {
+      console.warn(`[LINE Push] ${recipientId} — push ตอบ 403 แต่ตรวจสมาชิกได้ "${membership.state}" (HTTP ${membership.status}) — ไม่ตัดออกจากรายการ`);
+    }
+  }
+  return { recipientId, ok: false, removed, status: result.status, body: result.body };
+}
+
 /**
  * sendNotification(message, env, { topic, recipientIds })
  * ส่งข้อความ Push เข้ากลุ่มที่สมัครรับหัวข้อนั้นไว้ (topic: 'rooms' | 'repairs')
- * ถ้ายังไม่มีกลุ่มไหนสมัครหัวข้อนั้น จะใช้ค่าสำรองใน Worker Settings
- *   rooms → RECIPIENT_ID, repairs → REPAIR_GROUP_ID
  * ใส่ recipientIds มาเองได้ ถ้าต้องการระบุปลายทางตรง ๆ
  *
- * คืนผลสรุปเสมอ { total, sent, failed, errors, removed } — ผู้เรียกจะได้รู้ว่าส่งไม่ถึงใคร
+ * ลำดับการทำงาน
+ *   1. ส่งเข้าทุกกลุ่มที่ติ๊กหัวข้อนี้และยังใช้งานอยู่
+ *   2. ถ้าไม่เหลือกลุ่มที่ใช้งานอยู่เลย → ถาม LINE ว่าบอทยังอยู่ในกลุ่มที่ถูกตัดไปไหม
+ *      ถ้ายังอยู่ ให้เปิดรับกลับแล้วส่งเข้ากลุ่มนั้นตามปกติ (กู้ตัวเองได้)
+ *   3. ถ้ายังส่งไม่ถึงกลุ่มไหนเลย → ส่งไปปลายทางสำรองใน Worker Settings
+ *      (rooms → RECIPIENT_ID, repairs → REPAIR_GROUP_ID) พร้อมหัวข้อความเตือน
+ *      ว่าส่งเข้ากลุ่มไม่ได้ — เดิมส่งไปเงียบ ๆ คนรับจึงไม่รู้ว่าระบบมีปัญหา
+ *      (ระบบเก่าที่ยังไม่มีกลุ่มใน KV เลย ส่งไปแบบเดิมไม่มีหัวข้อความเตือน)
+ *
+ * คืนผลสรุปเสมอ { total, sent, failed, errors, removed, reactivated, fallback }
  * (เดิมฟังก์ชันนี้กลืน error ทั้งหมด ทำให้หน้าเว็บขึ้น "ส่งแจ้งเตือนสำเร็จ" ทั้งที่ไม่มีใครได้รับ)
  */
 async function sendNotification(message, env, options = {}) {
   const { topic = 'rooms', recipientIds: recipientIdsOverride } = options;
-  const messages = splitMessage(message).map(text => ({ type: 'text', text }));
-  if (messages.length === 0) {
-    return { total: 0, sent: 0, failed: 0, errors: ['empty message'], removed: [] };
-  }
+  const toMessages = (text) => splitMessage(text).map(t => ({ type: 'text', text: t }));
+  const messages = toMessages(message);
+  const emptyResult = (error) => ({ total: 0, sent: 0, failed: 0, errors: [error], removed: [], reactivated: [], fallback: null });
+  if (messages.length === 0) return emptyResult('empty message');
   if (!env.CHANNEL_ACCESS_TOKEN) {
     console.error('[LINE Push Error] CHANNEL_ACCESS_TOKEN not configured.');
-    return { total: 0, sent: 0, failed: 0, errors: ['CHANNEL_ACCESS_TOKEN not configured'], removed: [] };
+    return emptyResult('CHANNEL_ACCESS_TOKEN not configured');
   }
 
-  let recipientIds = recipientIdsOverride;
-  if (!recipientIds) {
+  let results;
+  let reactivated = [];
+  let fallback = null;
+
+  if (recipientIdsOverride) {
+    results = await Promise.all(recipientIdsOverride.map(id => deliverToRecipient(env, id, messages, { manageState: false })));
+  } else {
+    let recipientIds = [];
+    let stored = [];
     try {
       recipientIds = await getRecipientIds(env, topic);
+      stored = await listRecipients(env);
+
+      // ไม่เหลือกลุ่มที่ใช้งานอยู่ → ลองกู้กลุ่มที่ถูกตัดไป (บอทอาจยังอยู่ในกลุ่ม)
+      if (recipientIds.length === 0) {
+        const candidates = stored.filter(r => !r.active && r.topics.includes(topic));
+        const checks = await Promise.all(candidates.map(async (r) => ({ r, m: await checkMembership(env, r.id) })));
+        for (const { r, m } of checks) {
+          if (m.state === 'in' && await reactivateRecipient(env, r.id)) reactivated.push(r.id);
+        }
+        recipientIds = reactivated.slice();
+      }
     } catch (e) {
       console.error(`[LINE Push Error] Cannot read recipients: ${e.message}`);
-      recipientIds = [];
     }
 
-    // ยังไม่มีกลุ่มไหนสมัครหัวข้อนี้ → ใช้ค่าใน Worker Settings เป็นตัวสำรอง
-    // (ทำให้ระบบเดิมที่ตั้ง REPAIR_GROUP_ID / RECIPIENT_ID ไว้ยังทำงานเหมือนเดิม
-    //  แต่พอเริ่มติ๊กเลือกกลุ่มในหน้าแอดมินแล้ว รายชื่อในหน้าเว็บจะเป็นตัวตัดสินแทน)
-    if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
-      const fallback = topic === 'repairs' ? env.REPAIR_GROUP_ID : env.RECIPIENT_ID;
-      if (fallback) {
-        console.log(`[LINE Push] ไม่มีกลุ่มที่สมัครหัวข้อ "${topic}" — ใช้ค่าสำรองจาก Worker Settings`);
-        recipientIds = [fallback];
-      } else {
-        console.error(`[LINE Push Error] No recipients for topic "${topic}".`);
-        const hint = topic === 'repairs'
-          ? 'ยังไม่มีกลุ่มไหนติ๊กรับ "แจ้งซ่อม" และไม่ได้ตั้ง REPAIR_GROUP_ID ใน Worker'
-          : 'ยังไม่มีกลุ่มไหนติ๊กรับ "จองห้องประชุม" และไม่ได้ตั้ง RECIPIENT_ID ใน Worker';
-        return { total: 0, sent: 0, failed: 0, errors: [hint], removed: [] };
-      }
+    results = await Promise.all(recipientIds.map(id => deliverToRecipient(env, id, messages)));
+
+    // ส่งไม่ถึงกลุ่มไหนเลย → ปลายทางสำรอง
+    const fallbackId = topic === 'repairs' ? env.REPAIR_GROUP_ID : env.RECIPIENT_ID;
+    const delivered = results.some(r => r.ok);
+    if (!delivered && fallbackId && !recipientIds.includes(fallbackId)) {
+      const hadGroups = recipientIds.length > 0 || stored.some(r => r.topics.includes(topic));
+      const reason = hadGroups ? 'unreachable' : 'none';
+      // KV ว่างทั้งหมด = ระบบเก่าที่ใช้ RECIPIENT_ID เป็นผู้รับหลัก — ส่งแบบเดิม ไม่ต้องเตือน
+      const note = stored.length > 0 ? FALLBACK_NOTES[reason] : null;
+      const fallbackText = note ? `${note}\n${FALLBACK_HINT}\n──────────────\n${message}` : message;
+      console.warn(`[LINE Push] ส่งเข้ากลุ่มหัวข้อ "${topic}" ไม่ได้ (${reason}) — ใช้ปลายทางสำรองจาก Worker Settings`);
+      const fallbackResult = await deliverToRecipient(env, fallbackId, toMessages(fallbackText), { manageState: false });
+      fallback = { reason, ok: fallbackResult.ok };
+      results.push({ ...fallbackResult, fallback: true });
+    }
+
+    if (results.length === 0) {
+      console.error(`[LINE Push Error] No recipients for topic "${topic}".`);
+      return emptyResult(topic === 'repairs'
+        ? 'ยังไม่มีกลุ่มไหนติ๊กรับ "แจ้งซ่อม" และไม่ได้ตั้ง REPAIR_GROUP_ID ใน Worker'
+        : 'ยังไม่มีกลุ่มไหนติ๊กรับ "จองห้องประชุม" และไม่ได้ตั้ง RECIPIENT_ID ใน Worker');
     }
   }
-
-  const results = await Promise.all(recipientIds.map(async (recipientId) => {
-    const result = await pushWithRetry(env, recipientId, messages);
-    if (result.ok) return { recipientId, ok: true };
-
-    console.error(`[LINE Push Error] To: ${recipientId}, Status: ${result.status}, Body: ${result.body}`);
-
-    // 403 = บอทส่งหาปลายทางนี้ไม่ได้แล้ว (ถูกเตะออกจากกลุ่ม/กลุ่มถูกยุบ/ผู้ใช้บล็อก)
-    // ลบทิ้งอัตโนมัติ เพื่อไม่ให้ค้างเป็นผู้รับที่ส่งไม่เคยสำเร็จไปตลอด
-    // (401/400 ไม่ลบ เพราะอาจเป็นปัญหาที่ token หรือรูปแบบข้อความ ไม่ใช่ตัวผู้รับ)
-    let removed = false;
-    if (result.status === 403 && !recipientIdsOverride) {
-      try {
-        await removeRecipient(env, recipientId, 'unreachable');
-        removed = true;
-        console.log(`[LINE Push] Recipient ${recipientId} marked unreachable (key kept for reference)`);
-      } catch (e) {
-        console.error(`[LINE Push] Failed to remove recipient ${recipientId}: ${e.message}`);
-      }
-    }
-    return { recipientId, ok: false, removed, status: result.status, body: result.body };
-  }));
 
   const failedResults = results.filter(r => !r.ok);
   const summary = {
@@ -814,9 +928,59 @@ async function sendNotification(message, env, options = {}) {
     failed: failedResults.length,
     errors: failedResults.map(r => `${r.recipientId}: ${r.status === 429 ? 'ส่งไม่ได้ (โควตา/ถี่เกินไป)' : `HTTP ${r.status}`}`),
     removed: failedResults.filter(r => r.removed).map(r => r.recipientId),
+    reactivated,
+    fallback,
   };
-  console.log(`[LINE Push] sent=${summary.sent} failed=${summary.failed} total=${summary.total}`);
+  console.log(`[LINE Push] sent=${summary.sent} failed=${summary.failed} total=${summary.total}${fallback ? ` fallback=${fallback.reason}` : ''}`);
   return summary;
+}
+
+/**
+ * คำสั่ง "@บอท เปิดแจ้งเตือน" / "@บอท สถานะแจ้งเตือน" ในกลุ่ม LINE
+ *   เปิดแจ้งเตือน → ลงทะเบียนกลุ่มนี้เป็นผู้รับ (เหมือนตอนเชิญบอทเข้ากลุ่ม)
+ *                   กลุ่มที่เคยติ๊กหัวข้อไว้แล้วคงหัวข้อเดิม กลุ่มใหม่ได้ "จองห้อง" ก่อน
+ *   อย่างอื่น      → ตอบสถานะของกลุ่มนี้ + Group ID
+ *
+ * ⚠️ ไม่ได้เปิดช่องโหว่ใหม่: คนที่สั่งได้ต้องอยู่ในกลุ่มที่บอทอยู่แล้ว ซึ่งเดิมก็
+ *    ได้รับแจ้งเตือนอัตโนมัติตั้งแต่ตอนเชิญบอทเข้ามา (event join) อยู่แล้ว
+ * ⚠️ ห้ามรองรับ "ปิดแจ้งเตือน" ด้วยการเช็คคำว่า "ปิด" — "เปิด" มีคำว่า "ปิด" อยู่ข้างใน
+ */
+async function handleNotificationCommand(env, event, text) {
+  const groupId = event.source?.type === 'group' ? event.source.groupId : null;
+  if (!groupId) {
+    await replyToLine(env, event.replyToken, 'คำสั่งนี้ใช้ได้ในกลุ่ม LINE เท่านั้นครับ', 'Notification command');
+    return;
+  }
+
+  const describe = (state) => state.topics.length > 0
+    ? state.topics.map(t => TOPIC_NAMES[t] || t).join(', ')
+    : 'ไม่ได้รับเรื่องไหนเลย (ติ๊กหัวข้อได้ที่หน้าแอดมิน)';
+
+  if (text.includes('เปิด')) {
+    await addRecipient(env, groupId);
+    const state = parseRecipientValue(await env.ROOM_BOOKINGS_KV.get(`${RECIPIENT_PREFIX}${groupId}`));
+    console.log(`[Mention] ${groupId} ลงทะเบียนรับแจ้งเตือนผ่านคำสั่งในกลุ่ม → [${state.topics.join(', ')}]`);
+    await replyToLine(env, event.replyToken,
+      `✅ เปิดรับแจ้งเตือนในกลุ่มนี้แล้ว\n──────────────\n` +
+      `รับเรื่อง: ${describe(state)}\n\n` +
+      `เปลี่ยนหัวข้อได้ที่หน้าแอดมิน → ปุ่มเกียร์`,
+      'Notification enable');
+    return;
+  }
+
+  const raw = await env.ROOM_BOOKINGS_KV.get(`${RECIPIENT_PREFIX}${groupId}`);
+  let body;
+  if (raw === null) {
+    body = `ยังไม่ได้ลงทะเบียนรับแจ้งเตือน\nพิมพ์ "@ชื่อบอท เปิดแจ้งเตือน" เพื่อเริ่มรับ`;
+  } else {
+    const state = parseRecipientValue(raw);
+    body = state.left
+      ? `หยุดส่งให้กลุ่มนี้อยู่ (ระบบเคยตีว่าบอทไม่อยู่ในกลุ่ม)\nพิมพ์ "@ชื่อบอท เปิดแจ้งเตือน" เพื่อเปิดรับอีกครั้ง`
+      : `รับเรื่อง: ${describe(state)}`;
+  }
+  await replyToLine(env, event.replyToken,
+    `🔔 สถานะแจ้งเตือนของกลุ่มนี้\n──────────────\n${body}\n\nGroup ID: ${groupId}`,
+    'Notification status');
 }
 
 /** ตอบกลับในแชท (ใช้ Reply Token — ไม่กิน Push quota) */
@@ -912,8 +1076,13 @@ async function handleRequest(request, env, ctx) {
 
       // นับผู้รับแจ้งเตือนจริงใน KV ด้วย — ถ้าเป็น 0 แปลว่าแจ้งเตือนจะไม่ถึงใครเลย
       let recipientCount = null;
+      // นับแยกตามหัวข้อ — ถ้าหัวข้อไหนเป็น 0 แจ้งเตือนเรื่องนั้นจะไปตกที่ปลายทางสำรอง
+      // (RECIPIENT_ID / REPAIR_GROUP_ID) แทนกลุ่ม ซึ่งมักเป็นไลน์ส่วนตัว
+      let topicCounts = null;
       try {
         recipientCount = (await getRecipientIds(env)).length;
+        const active = (await listRecipients(env)).filter(r => r.active);
+        topicCounts = Object.fromEntries(ALL_TOPICS.map(t => [t, active.filter(r => r.topics.includes(t)).length]));
       } catch (e) {
         console.error(`[Status] Cannot count recipients: ${e.message}`);
       }
@@ -927,6 +1096,7 @@ async function handleRequest(request, env, ctx) {
         recipientIdSet: !!env.RECIPIENT_ID,
         repairGroupIdSet: !!env.REPAIR_GROUP_ID,
         recipientCount,
+        topicCounts,
       });
     }
 
@@ -1012,6 +1182,14 @@ async function handleRequest(request, env, ctx) {
         const events = body.events || [];
         for (const event of events) {
 
+          // มี event จากกลุ่มไหนเข้ามา (มีคนพิมพ์/มีคนเข้า-ออก ฯลฯ) = บอทยังอยู่ในกลุ่มนั้นแน่นอน
+          // ถ้ากลุ่มนั้นถูกตีว่า "บอทไม่อยู่ในกลุ่ม" ไว้ ให้เปิดรับแจ้งเตือนกลับเอง
+          // (ไม่สร้างกลุ่มใหม่ให้ — กลุ่มที่แอดมินลบไปแล้วต้องพิมพ์ @บอท เปิดแจ้งเตือน)
+          const eventGroupId = event.source?.type === 'group' ? event.source.groupId : null;
+          if (eventGroupId && event.type !== 'join' && event.type !== 'leave') {
+            await reactivateRecipient(env, eventGroupId);
+          }
+
           if (event.type === 'join') {
             // Bot ถูกเชิญเข้ากลุ่ม → เก็บ groupId
             await addRecipient(env, event.source.groupId);
@@ -1038,8 +1216,14 @@ async function handleRequest(request, env, ctx) {
               // "ขอยืมห้องประชุม" ต้องไปเข้ารายงานการจองห้อง ไม่ใช่รายงานยืมอุปกรณ์
               const asksEquipment = text.includes('ยืม') && !text.includes('ห้อง');
 
+              // คำสั่ง: @Bot เปิดแจ้งเตือน / สถานะแจ้งเตือน → ลงทะเบียนกลุ่มนี้ / ดูว่ากลุ่มนี้รับอะไรอยู่
+              // ใช้กู้กลุ่มที่ถูกลบออกจากรายการไปแล้วทั้งที่บอทยังอยู่ในกลุ่ม (ไม่ต้องเตะบอทแล้วเชิญใหม่)
+              // ต้องเช็คก่อนคำสั่งอื่น เพราะ "เปิดแจ้งเตือนจองห้อง" มีคำว่า "ห้อง" ด้วย
+              if (text.includes('แจ้งเตือน')) {
+                await handleNotificationCommand(env, event, text);
+
               // คำสั่ง: @Bot ยืม / รายงานยืม → รายงานอุปกรณ์ที่ยังไม่คืน (เผื่อ Push token หมด เรียกดูเองได้)
-              if (asksEquipment) {
+              } else if (asksEquipment) {
                 const borrowings = await env.EQUIPMENT_BORROWINGS_KV.get('equipment_data', 'json') || [];
                 const activeBorrowStatuses = ['รออนุมัติ', 'อยู่ระหว่างการยืม', 'เกินกำหนด'];
                 const borrowPriority = { 'เกินกำหนด': 1, 'อยู่ระหว่างการยืม': 2, 'รออนุมัติ': 3 };
@@ -1337,7 +1521,10 @@ async function handleRequest(request, env, ctx) {
                   `📋 จองทั้งหมด\n` +
                   `   → การจองที่จะถึง 20 รายการถัดไป\n\n` +
                   `📷 ยืม → อุปกรณ์ที่ยังไม่ได้คืน\n` +
-                  `🛠️ ซ่อม → งานแจ้งซ่อมที่ยังค้างอยู่`;
+                  `🛠️ ซ่อม → งานแจ้งซ่อมที่ยังค้างอยู่\n\n` +
+                  `🔔 เปิดแจ้งเตือน → ให้กลุ่มนี้รับแจ้งเตือน\n` +
+                  `   (ใช้ตอนแจ้งเตือนไม่เข้ากลุ่ม ทั้งที่บอทยังอยู่)\n` +
+                  `🔎 สถานะแจ้งเตือน → ดูว่ากลุ่มนี้รับเรื่องอะไรอยู่`;
                 await replyToLine(env, event.replyToken, helpText, 'Help');
                 console.log('[Mention] Help message sent (unknown command)');
               }
@@ -1570,6 +1757,9 @@ async function handleRequest(request, env, ctx) {
           failed: result.failed,
           total: result.total,
           removed: result.removed,
+          reactivated: result.reactivated,
+          // ไม่ว่าง = ส่งเข้ากลุ่มไม่ได้ ต้องใช้ปลายทางสำรอง (มักเป็นไลน์ส่วนตัว) แทน
+          fallback: result.fallback,
           error: result.sent > 0 ? undefined : (result.errors[0] || 'ส่งแจ้งเตือนไม่สำเร็จ'),
         });
       }
@@ -1600,22 +1790,28 @@ async function handleRequest(request, env, ctx) {
           stored = await listRecipients(env);
         }
 
+        // ถาม LINE จริงทุกกลุ่มว่าบอทยังอยู่ไหม (ได้ชื่อกลุ่มล่าสุดมาด้วยในคำขอเดียวกัน)
+        //   membership: 'in' / 'out' / 'unknown' — ดู checkMembership()
+        // กลุ่มที่ถูกตีว่า "บอทไม่อยู่ในกลุ่ม" แต่ LINE ยืนยันว่ายังอยู่ → เปิดรับกลับให้เลย
+        // (เดิมปุ่ม "ตรวจสอบใหม่" แค่อ่านสถานะเดิมใน KV ไม่ได้ถาม LINE กลุ่มที่ถูกตัด
+        //  ผิด ๆ จึงไม่มีทางกลับมาเอง นอกจากเตะบอทออกแล้วเชิญเข้าใหม่)
+        // ไม่ตัดกลุ่มที่ LINE ตอบว่า 'out' ออกจากตรงนี้ — แค่แสดงให้เห็น การตัดจริงเกิด
+        // ตอนส่งไม่ผ่านเท่านั้น กันกรณี LINE ตอบผิดพลาดชั่วคราวแล้วกลุ่มดี ๆ หลุดไป
         const recipients = await Promise.all(stored.map(async ({ id, active, topics }) => {
-          const isGroup = id.startsWith('C');
-          const summaryUrl = isGroup
-            ? `https://api.line.me/v2/bot/group/${id}/summary`
-            : `https://api.line.me/v2/bot/profile/${id}`;
-          const base = { id, type: isGroup ? 'group' : 'user', active, topics };
-          try {
-            const res = await fetch(summaryUrl, {
-              headers: { 'Authorization': `Bearer ${env.CHANNEL_ACCESS_TOKEN}` },
-            });
-            if (!res.ok) return { ...base, name: null };
-            const data = await res.json();
-            return { ...base, name: isGroup ? data.groupName : data.displayName };
-          } catch (e) {
-            return { ...base, name: null };
+          const membership = await checkMembership(env, id);
+          let reactivated = false;
+          if (!active && membership.state === 'in') {
+            reactivated = await reactivateRecipient(env, id);
           }
+          return {
+            id,
+            type: id.startsWith('C') ? 'group' : 'user',
+            active: active || reactivated,
+            topics,
+            name: membership.name,
+            membership: membership.state,
+            reactivated,
+          };
         }));
         return json(recipients);
       }

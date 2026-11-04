@@ -103,6 +103,11 @@ export interface WorkerStatus {
     repairGroupIdSet: boolean;
     /** จำนวนกลุ่ม LINE ที่รับแจ้งเตือนจริงใน KV (0 = แจ้งเตือนไม่ถึงใครเลย) */
     recipientCount: number | null;
+    /**
+     * จำนวนกลุ่มที่ยังรับแต่ละหัวข้อ — 0 = แจ้งเตือนเรื่องนั้นจะไปที่ปลายทางสำรอง
+     * (RECIPIENT_ID / REPAIR_GROUP_ID) แทน (Worker รุ่นก่อน v3.1 ไม่ส่งค่านี้มา)
+     */
+    topicCounts?: Record<NotificationTopic, number> | null;
 }
 
 /** หัวข้อแจ้งเตือนที่กลุ่มหนึ่งสมัครรับได้ (ตรงกับ ALL_TOPICS ใน cloudflare-worker.js) */
@@ -118,10 +123,18 @@ export interface NotificationRecipient {
     id: string;
     name: string | null;
     type: 'group' | 'user';
-    /** false = บอทไม่ได้อยู่ในกลุ่มแล้ว (ถูกเตะออก) แต่ยังเก็บ Group ID ไว้ */
+    /** false = หยุดส่งให้กลุ่มนี้แล้ว (บอทไม่อยู่ในกลุ่ม) แต่ยังเก็บ Group ID ไว้ */
     active: boolean;
     /** หัวข้อที่กลุ่มนี้สมัครรับไว้ */
     topics: NotificationTopic[];
+    /**
+     * ผลถาม LINE ตอนเปิดหน้านี้ว่าบอทยังอยู่ในกลุ่มไหม
+     * in = อยู่แน่นอน, out = LINE ยืนยันว่าไม่อยู่, unknown = ถาม LINE ไม่สำเร็จ
+     * (Worker รุ่นก่อน v3.1 ไม่ส่งค่านี้มา)
+     */
+    membership?: 'in' | 'out' | 'unknown';
+    /** true = กลุ่มนี้เคยถูกตีว่าบอทไม่อยู่ แต่ LINE ยืนยันว่ายังอยู่ จึงเพิ่งเปิดรับกลับให้ */
+    reactivated?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
