@@ -106,6 +106,12 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({
           {isLoading && <p className="text-sm text-on-surface-variant text-center py-4">กำลังตรวจสอบ...</p>}
           {error && <StatusItem label="การเชื่อมต่อ Worker" isOk={false} failText={error} />}
 
+          {recipients && recipients.length === 0 && !isLoading && (
+            <div className="p-3 rounded-lg border border-dashed border-outline-variant bg-surface-container-low text-xs text-on-surface-variant">
+              ยังไม่มีกลุ่มไหนลงทะเบียนรับแจ้งเตือน — พิมพ์ <strong className="text-on-surface">@ชื่อบอท เปิดแจ้งเตือน</strong> ในกลุ่ม LINE ที่ต้องการ แล้วกด "ตรวจสอบใหม่"
+            </div>
+          )}
+
           {recipients && recipients.length > 0 && (
             <div>
               <h4 className="text-sm font-bold text-on-surface mb-1">กลุ่มที่รับแจ้งเตือน</h4>
@@ -125,7 +131,9 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-on-surface truncate">
-                          {r.name || '(อ่านชื่อไม่ได้ — บอทไม่ได้อยู่ในกลุ่มแล้ว)'}
+                          {r.name || (r.membership === 'unknown'
+                            ? '(อ่านชื่อจาก LINE ไม่ได้ตอนนี้)'
+                            : '(อ่านชื่อไม่ได้ — บอทไม่ได้อยู่ในกลุ่มแล้ว)')}
                         </p>
                         <button
                           type="button"
@@ -136,10 +144,20 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({
                           {r.id}
                         </button>
                       </div>
+                      {r.reactivated && (
+                        <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-green-50 text-green-700">
+                          บอทยังอยู่ — เปิดรับกลับให้แล้ว
+                        </span>
+                      )}
+                      {r.active && r.membership === 'out' && (
+                        <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-800">
+                          LINE แจ้งว่าบอทไม่อยู่ในกลุ่ม
+                        </span>
+                      )}
                       {!r.active && (
                         <div className="flex items-center gap-1.5 shrink-0">
                           <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-surface-container text-on-surface-variant">
-                            บอทไม่อยู่ในกลุ่มแล้ว
+                            {r.membership === 'unknown' ? 'หยุดส่งอยู่ — ตรวจกับ LINE ไม่ได้' : 'บอทไม่อยู่ในกลุ่มแล้ว'}
                           </span>
                           {onDeleteRecipient && (
                             confirmDeleteId === r.id ? (
@@ -226,6 +244,25 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({
                 okText: `${status.recipientCount} กลุ่ม`,
                 failText: 'ไม่มีกลุ่มไหนรับแจ้งเตือนเลย',
               },
+              // แยกตามหัวข้อ — หัวข้อไหนเป็น 0 แจ้งเตือนเรื่องนั้นไปตกที่ปลายทางสำรองแทนกลุ่ม
+              ...(status.topicCounts ? [
+                {
+                  label: 'กลุ่มรับแจ้งเตือนจองห้อง',
+                  isOk: status.topicCounts.rooms > 0,
+                  okText: `${status.topicCounts.rooms} กลุ่ม`,
+                  failText: status.recipientIdSet
+                    ? 'ไม่มีกลุ่มรับ — แจ้งเตือนจะไปที่ RECIPIENT_ID (ไลน์ส่วนตัว) แทน'
+                    : 'ไม่มีกลุ่มรับ — แจ้งเตือนจองห้องไม่ถึงใคร',
+                },
+                {
+                  label: 'กลุ่มรับแจ้งเตือนแจ้งซ่อม',
+                  isOk: status.topicCounts.repairs > 0,
+                  okText: `${status.topicCounts.repairs} กลุ่ม`,
+                  failText: status.repairGroupIdSet
+                    ? 'ไม่มีกลุ่มรับ — แจ้งเตือนจะไปที่ REPAIR_GROUP_ID แทน'
+                    : 'ไม่มีกลุ่มรับ — แจ้งเตือนแจ้งซ่อมไม่ถึงใคร',
+                },
+              ] : []),
               { label: 'LINE Recipient ID', isOk: status.recipientIdSet, failText: 'ไม่ได้ตั้งค่า ID ผู้รับใน Worker' },
               { label: 'LINE กลุ่มแจ้งซ่อม', isOk: status.repairGroupIdSet, failText: 'ไม่ได้ตั้งค่า REPAIR_GROUP_ID ใน Worker' },
               { label: 'ฐานข้อมูลห้องประชุม', isOk: status.roomKvBinding, failText: 'ไม่ได้ผูก KV Namespace' },
@@ -276,6 +313,7 @@ const ConfigurationStatusModal: React.FC<ConfigurationStatusModalProps> = ({
             <h4 className="text-sm font-bold text-on-surface mb-3">คำแนะนำเพิ่มเติม</h4>
             <div className="text-xs text-on-surface bg-surface-container-low p-4 rounded-lg space-y-2 border border-outline-variant">
                 <p>• หากการตั้งค่าทั้งหมดถูกต้อง (✅) แต่ยังไม่ได้รับการแจ้งเตือน กรุณาตรวจสอบว่ากลุ่มไลน์ของคุณได้ <strong className="text-red-600">"เชิญ"</strong> บัญชี LINE Official Account ที่ชื่อว่า <strong>TCC Notify</strong> เข้ากลุ่ม และ <strong className="text-red-600">"ยังไม่ได้เตะบอทออก"</strong> (ระบบเก็บเฉพาะกลุ่มเป็นผู้รับแจ้งเตือน ไม่รองรับการแอดเพื่อนแบบส่วนตัวแล้ว)</p>
+                <p>• ถ้าแจ้งเตือนไม่เข้ากลุ่ม <strong>ทั้งที่บอทยังอยู่ในกลุ่ม</strong> (หรือเผลอลบกลุ่มออกจากรายการ) ให้พิมพ์ <strong className="text-primary">@ชื่อบอท เปิดแจ้งเตือน</strong> ในกลุ่มนั้น ระบบจะเพิ่มกลับให้เอง ไม่ต้องเตะบอทออก — พิมพ์ <strong>@ชื่อบอท สถานะแจ้งเตือน</strong> เพื่อดูว่ากลุ่มรับเรื่องอะไรอยู่</p>
                 <p>• ตรวจสอบให้แน่ใจว่า `WORKER_BASE_URL` ในโค้ด (<code className="bg-surface-container-high p-1 rounded text-red-700 text-[10px]">{WORKER_BASE_URL}</code>) ตรงกับ URL ที่แสดงในหน้า Cloudflare Worker ทุกตัวอักษร</p>
             </div>
           </div>

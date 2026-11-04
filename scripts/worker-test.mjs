@@ -11,7 +11,8 @@
  *  และไม่แตะข้อมูลใน Cloudflare
  *
  *  ครอบคลุม: /status, /auth/login, /data (กันข้อมูลหาย + สำเนา), /notify (ผลจริง,
- *  retry, ลบผู้รับที่ตาย), ข้อความยาวเกินลิมิต, /webhook (ลายเซ็น), @mention, scheduled()
+ *  retry, ลบผู้รับที่ตาย), ข้อความยาวเกินลิมิต, /webhook (ลายเซ็น), @mention, scheduled(),
+ *  กู้กลุ่มที่ถูกตีว่าบอทไม่อยู่ทั้งที่ยังอยู่ (6e)
  *
  * ═══════════════════════════════════════════════════════════════════════════════
  */
@@ -203,15 +204,17 @@ console.log('\n[4] /notify — รายงานผลจริงจาก LIN
   const failRes = await worker.fetch(authed('/notify', { method: 'POST', body: JSON.stringify({ message: 'ทดสอบ' }) }), env, ctx);
   const failBody = await failRes.json();
   check('ทุกปลายทางพัง → success:false', failBody.success === false && failBody.sent === 0, JSON.stringify(failBody));
-  check('403 → ลบผู้รับที่ส่งไม่ได้ออกอัตโนมัติ', failBody.removed.length === 2, JSON.stringify(failBody.removed));
-  check('ไม่ retry กับ 403 (ยิงแค่ 2 ครั้ง)', lineCalls.length === 2, `calls=${lineCalls.length}`);
+  check('403 + LINE ยืนยันว่าบอทไม่อยู่ → ตัดผู้รับออก', failBody.removed.length === 2, JSON.stringify(failBody.removed));
+  const groupPushes = lineCalls.filter(c => c.url.endsWith('/message/push') && c.body.to !== 'Ufallback');
+  check('ไม่ retry กับ 403 (ยิงเข้ากลุ่มแค่ 2 ครั้ง)', groupPushes.length === 2, `calls=${groupPushes.length}`);
+  check('403 → ถาม LINE ซ้ำก่อนตัด (group summary)', lineCalls.filter(c => c.url.includes('/summary')).length === 2);
 
   // 429 = โควตาเต็ม/ถี่เกิน → ต้องลองใหม่ และไม่ลบผู้รับทิ้ง
   const env2 = baseEnv();
   await env2.ROOM_BOOKINGS_KV.put('recipient:Cg3', '1');
   lineCalls = []; lineResponder = () => new Response('{"message":"rate limit"}', { status: 429 });
   const rlBody = await (await worker.fetch(authed('/notify', { method: 'POST', body: JSON.stringify({ message: 'ทดสอบ' }) }), env2, ctx)).json();
-  check('429 → ลองใหม่ 3 ครั้ง', lineCalls.length === 3, `calls=${lineCalls.length}`);
+  check('429 → ลองใหม่ 3 ครั้ง', lineCalls.filter(c => c.body?.to === 'Cg3').length === 3, `calls=${lineCalls.length}`);
   check('429 → ไม่ลบผู้รับ', rlBody.removed.length === 0 && (await env2.ROOM_BOOKINGS_KV.get('recipient:Cg3')) === '1');
   check('429 → บอกเหตุผลว่าโควตา/ถี่เกินไป', String(rlBody.error).includes('โควตา'), rlBody.error);
 
@@ -290,9 +293,14 @@ console.log('\n[6b] บอทออกจากกลุ่ม — เก็บ 
   check('ออกจากกลุ่ม → key ยังอยู่ (ไม่ลืม Group ID)', afterLeave !== null, JSON.stringify(afterLeave));
   check('ออกจากกลุ่ม → มีเครื่องหมาย left พร้อมเวลา', String(afterLeave?.left).startsWith('left:'), JSON.stringify(afterLeave));
 
-  lineCalls = []; lineResponder = () => new Response('{}', { status: 200 });
+  // บอทออกจากกลุ่มจริง → LINE ตอบ group summary เป็น 404
+  lineCalls = []; lineResponder = (url) => new Response('{}', { status: url.includes('/summary') ? 404 : 200 });
   const notify = await (await worker.fetch(authed('/notify', { method: 'POST', body: JSON.stringify({ message: 'x' }) }), env, ctx)).json();
-  check('กลุ่มที่ออกไปแล้วไม่ได้รับแจ้งเตือนอีก', notify.total === 1 && lineCalls[0].body.to === 'Ufallback', JSON.stringify(notify));
+  const pushes = lineCalls.filter(c => c.url.endsWith('/message/push'));
+  check('กลุ่มที่ออกไปแล้วไม่ได้รับแจ้งเตือนอีก', notify.total === 1 && pushes.length === 1 && pushes[0].body.to === 'Ufallback', JSON.stringify(notify));
+  check('ส่งไปปลายทางสำรอง → มีหัวข้อความเตือนว่าส่งเข้ากลุ่มไม่ได้',
+    pushes[0]?.body.messages[0].text.startsWith('⚠️') && notify.fallback?.reason === 'unreachable', JSON.stringify(notify.fallback));
+  check('ยังจำว่าบอทออกจากกลุ่ม (ไม่เปิดรับกลับเอง)', !!(await recipientState(env, 'Cgroup9'))?.left);
 
   // เชิญกลับเข้ากลุ่มเดิม → กลับมารับแจ้งเตือนเอง
   await worker.fetch(req('/webhook', { method: 'POST', body: join, headers: { 'x-line-signature': await sign(join) } }), env, ctx);
@@ -304,10 +312,13 @@ console.log('\n[6b] บอทออกจากกลุ่ม — เก็บ 
 
   // ออกจากกลุ่มอีกครั้ง แล้ว /recipients ต้องยังเห็น เพื่อก็อป Group ID ไปใช้ต่อ
   await worker.fetch(req('/webhook', { method: 'POST', body: leave, headers: { 'x-line-signature': await sign(leave) } }), env, ctx);
-  lineResponder = () => new Response(JSON.stringify({ groupName: 'กลุ่มแจ้งซ่อม' }), { status: 200 });
+  lineResponder = (url) => url.includes('Cgroup9')
+    ? new Response('{"message":"Not found"}', { status: 404 })
+    : new Response(JSON.stringify({ groupName: 'กลุ่มแจ้งซ่อม' }), { status: 200 });
   const listed = await (await worker.fetch(await asAdmin(env, '/recipients'), env, ctx)).json();
   const gone = listed.find(r => r.id === 'Cgroup9');
   check('/recipients ยังคืนกลุ่มที่บอทออกไปแล้ว พร้อม active:false', gone && gone.active === false, JSON.stringify(listed));
+  check('/recipients บอกว่า LINE ยืนยันว่าบอทไม่อยู่ (membership: out)', gone?.membership === 'out', JSON.stringify(gone));
 }
 
 // ── 6c) เลือกหัวข้อแจ้งเตือนรายกลุ่ม (ติ๊กจากหน้าแอดมิน) ────────────────────
@@ -386,6 +397,149 @@ console.log('\n[6d] เข้ากันได้กับของเดิม
   check('/recipients ดึงกลุ่มจาก REPAIR_GROUP_ID มาให้จัดการในหน้าเว็บ', !!repairEntry, JSON.stringify(listed.map(r => r.id)));
   check('กลุ่มนั้นถูกติ๊ก "แจ้งซ่อม" ไว้ให้แล้ว', repairEntry?.topics.join(',') === 'repairs', JSON.stringify(repairEntry));
   check('กลุ่มเดิมแสดงว่าติ๊ก "จองห้อง" ไว้', listed.find(r => r.id === 'Cเดิม')?.topics.join(',') === 'rooms');
+}
+
+// ── 6e) กลุ่มถูกตีว่า "บอทไม่อยู่ในกลุ่ม" ทั้งที่บอทยังอยู่ (เหตุการณ์จริง 2026-11-04) ──
+// อาการ: กลุ่มจองห้อง 2 กลุ่มขึ้นว่าบอทไม่อยู่ แจ้งเตือนไปเข้าไลน์ส่วนตัว (RECIPIENT_ID)
+// กด "ตรวจสอบใหม่" ไม่หาย ลบออกจากหน้าเว็บแล้วก็ไม่กลับมา ทั้งที่บอทยังอยู่ในกลุ่ม
+console.log('\n[6e] กู้กลุ่มที่ถูกตัดผิด ๆ — บอทยังอยู่ในกลุ่มจริง');
+{
+  const unreachable = JSON.stringify({ topics: ['rooms'], left: 'unreachable:2026-11-04T01:00:00.000Z' });
+  const pushesOf = () => lineCalls.filter(c => c.url.endsWith('/message/push'));
+  const notifyRooms = async (env) =>
+    (await worker.fetch(authed('/notify', { method: 'POST', body: JSON.stringify({ message: 'มีการจองห้องใหม่' }) }), env, ctx)).json();
+  const webhook = async (env, events) => {
+    const body = JSON.stringify({ events });
+    return worker.fetch(req('/webhook', { method: 'POST', body, headers: { 'x-line-signature': await sign(body) } }), env, ctx);
+  };
+  const groupMention = async (env, groupId, text) => {
+    lineCalls = []; lineResponder = () => new Response(JSON.stringify({ groupName: 'กลุ่ม' }), { status: 200 });
+    await webhook(env, [{ type: 'message', replyToken: 'rt', source: { type: 'group', groupId },
+      message: { type: 'text', text, mention: { mentionees: [{ isSelf: true }] } } }]);
+    return lineCalls.find(c => c.url.endsWith('/message/reply'))?.body.messages[0].text ?? '';
+  };
+
+  // (ก) push ตอบ 403 แต่ LINE ยืนยันว่าบอทยังอยู่ → ห้ามตัดกลุ่มออก
+  {
+    const env = baseEnv();
+    await env.ROOM_BOOKINGS_KV.put('recipient:Cห้อง1', '1');
+    lineCalls = [];
+    // push ทุกปลายทางใช้ URL เดียวกัน จึงแยกด้วยลำดับ: ครั้งแรก (เข้ากลุ่ม) 403, ครั้งต่อไป (สำรอง) 200
+    let pushCount = 0;
+    lineResponder = (url) => {
+      if (url.endsWith('/message/push')) return new Response('{}', { status: ++pushCount === 1 ? 403 : 200 });
+      return new Response(JSON.stringify({ groupName: 'ห้องประชุม 1' }), { status: 200 });
+    };
+    const res = await notifyRooms(env);
+    check('403 แต่บอทยังอยู่ → ไม่ตัดกลุ่มออก', !(await recipientState(env, 'Cห้อง1'))?.left && res.removed.length === 0, JSON.stringify(res));
+    check('403 แต่บอทยังอยู่ → ส่งสำรองพร้อมคำเตือน ไม่หายเงียบ',
+      res.fallback?.reason === 'unreachable' && pushesOf().at(-1)?.body.to === 'Ufallback'
+      && pushesOf().at(-1)?.body.messages[0].text.includes('มีการจองห้องใหม่'), JSON.stringify(res));
+  }
+
+  // (ข) LINE ตอบตรวจสมาชิกไม่ได้ (5xx) → ไม่ตัดกลุ่มออกเช่นกัน
+  {
+    const env = baseEnv();
+    await env.ROOM_BOOKINGS_KV.put('recipient:Cห้อง1', '1');
+    lineCalls = [];
+    lineResponder = (url) => new Response('{}', { status: url.includes('/summary') ? 500 : 403 });
+    await notifyRooms(env);
+    check('403 + ตรวจสมาชิกไม่ได้ (500) → ไม่ตัดกลุ่มออก', !(await recipientState(env, 'Cห้อง1'))?.left);
+  }
+
+  // (ค) กลุ่มถูกตัดไว้แล้ว (สถานะที่ค้างอยู่ในระบบจริงตอนนี้) — ส่งครั้งถัดไปต้องกู้กลับเอง
+  {
+    const env = baseEnv();
+    await env.ROOM_BOOKINGS_KV.put('recipient:Cห้อง1', unreachable);
+    await env.ROOM_BOOKINGS_KV.put('recipient:Cห้อง2', unreachable);
+    await env.ROOM_BOOKINGS_KV.put('recipient:Cซ่อม', JSON.stringify({ topics: ['repairs'], left: null }));
+    lineCalls = []; lineResponder = (url) => new Response(JSON.stringify({ groupName: 'ห้องประชุม' }), { status: 200 });
+    const res = await notifyRooms(env);
+    const to = pushesOf().map(c => c.body.to).sort();
+    check('ส่งครั้งถัดไป → ถาม LINE แล้วเปิดรับกลับทั้ง 2 กลุ่ม', res.reactivated.length === 2, JSON.stringify(res));
+    check('ส่งครั้งถัดไป → เข้ากลุ่มจริง ไม่ไปไลน์ส่วนตัว', to.join(',') === 'Cห้อง1,Cห้อง2', to.join(','));
+    check('กลุ่มแจ้งซ่อมไม่ได้รับเรื่องจองห้อง', !to.includes('Cซ่อม'));
+    check('สถานะใน KV ถูกล้างแล้ว', !(await recipientState(env, 'Cห้อง1')).left && !(await recipientState(env, 'Cห้อง2')).left);
+  }
+
+  // (ง) กด "ตรวจสอบใหม่" (GET /recipients) → ถาม LINE จริงแล้วกู้กลับ
+  {
+    const env = baseEnv();
+    await env.ROOM_BOOKINGS_KV.put('recipient:Cห้อง1', unreachable);
+    await env.ROOM_BOOKINGS_KV.put('recipient:Cหาย', unreachable);
+    await env.ROOM_BOOKINGS_KV.put('recipient:Cล่ม', unreachable);
+    lineResponder = (url) => {
+      if (url.includes(encodeURIComponent('Cหาย'))) return new Response('{"message":"Not found"}', { status: 404 });
+      if (url.includes(encodeURIComponent('Cล่ม'))) return new Response('oops', { status: 503 });
+      return new Response(JSON.stringify({ groupName: 'ห้องประชุม 1' }), { status: 200 });
+    };
+    const listed = await (await worker.fetch(await asAdmin(env, '/recipients'), env, ctx)).json();
+    const byId = Object.fromEntries(listed.map(r => [r.id, r]));
+    check('ตรวจสอบใหม่ → บอทยังอยู่ = เปิดรับกลับ', byId['Cห้อง1']?.active === true && byId['Cห้อง1']?.reactivated === true, JSON.stringify(byId['Cห้อง1']));
+    check('ตรวจสอบใหม่ → ได้ชื่อกลุ่มจริง', byId['Cห้อง1']?.name === 'ห้องประชุม 1');
+    check('ตรวจสอบใหม่ → บันทึกลง KV จริง', !(await recipientState(env, 'Cห้อง1')).left);
+    check('ตรวจสอบใหม่ → บอทไม่อยู่จริง = คงสถานะเดิม (out)', byId['Cหาย']?.active === false && byId['Cหาย']?.membership === 'out', JSON.stringify(byId['Cหาย']));
+    check('ตรวจสอบใหม่ → LINE ล่ม = ไม่เปลี่ยนอะไร (unknown)', byId['Cล่ม']?.active === false && byId['Cล่ม']?.membership === 'unknown', JSON.stringify(byId['Cล่ม']));
+  }
+
+  // (จ) มีคนพิมพ์อะไรก็ได้ในกลุ่ม → พิสูจน์ว่าบอทยังอยู่ เปิดรับกลับเอง
+  {
+    const env = baseEnv();
+    await env.ROOM_BOOKINGS_KV.put('recipient:Cห้อง1', unreachable);
+    lineCalls = []; lineResponder = () => new Response('{}', { status: 200 });
+    await webhook(env, [{ type: 'message', replyToken: 'rt', source: { type: 'group', groupId: 'Cห้อง1' }, message: { type: 'text', text: 'สวัสดี' } }]);
+    check('มีข้อความในกลุ่ม → เปิดรับกลับ', !(await recipientState(env, 'Cห้อง1')).left);
+    check('มีข้อความในกลุ่ม → บอทไม่ตอบอะไร (ไม่ได้ @)', !lineCalls.some(c => c.url.endsWith('/message/reply')));
+    await webhook(env, [{ type: 'message', replyToken: 'rt', source: { type: 'group', groupId: 'Cแปลกหน้า' }, message: { type: 'text', text: 'hi' } }]);
+    check('ข้อความจากกลุ่มที่ไม่ได้ลงทะเบียน → ไม่ถูกเพิ่มเอง', (await recipientState(env, 'Cแปลกหน้า')) === null);
+  }
+
+  // (ฉ) กลุ่มที่เผลอลบออกจากหน้าเว็บ — พิมพ์ "@บอท เปิดแจ้งเตือน" ในกลุ่มเพื่อเพิ่มกลับ
+  {
+    const env = baseEnv();
+    const status = await groupMention(env, 'Cห้อง1', '@bot สถานะแจ้งเตือน');
+    check('สถานะแจ้งเตือน (ยังไม่ลงทะเบียน) → บอกวิธีเปิด + Group ID', status.includes('ยังไม่ได้ลงทะเบียน') && status.includes('Cห้อง1'), status);
+    check('สถานะแจ้งเตือน → ไม่สร้างกลุ่มให้เอง', (await recipientState(env, 'Cห้อง1')) === null);
+
+    const on = await groupMention(env, 'Cห้อง1', '@bot เปิดแจ้งเตือน');
+    check('เปิดแจ้งเตือน → ลงทะเบียนรับจองห้อง', (await recipientState(env, 'Cห้อง1'))?.topics.join() === 'rooms' && on.includes('เปิดรับแจ้งเตือน'), on);
+    const status2 = await groupMention(env, 'Cห้อง1', '@bot สถานะแจ้งเตือน');
+    check('สถานะแจ้งเตือน → บอกหัวข้อที่รับ', status2.includes('จองห้องประชุม'), status2);
+
+    await env.ROOM_BOOKINGS_KV.put('recipient:Cซ่อม', JSON.stringify({ topics: ['repairs'], left: 'unreachable:x' }));
+    await groupMention(env, 'Cซ่อม', '@bot เปิดแจ้งเตือน');
+    check('เปิดแจ้งเตือนในกลุ่มที่เคยตั้งหัวข้อไว้ → คงหัวข้อเดิม', (await recipientState(env, 'Cซ่อม'))?.topics.join() === 'repairs' && !(await recipientState(env, 'Cซ่อม')).left);
+
+    const roomCmd = await groupMention(env, 'Cห้อง2', '@bot เปิดแจ้งเตือนจองห้อง');
+    check('"เปิดแจ้งเตือนจองห้อง" → เป็นคำสั่งเปิดแจ้งเตือน ไม่ใช่รายงานจอง', roomCmd.includes('เปิดรับแจ้งเตือน'), roomCmd);
+
+    lineCalls = []; lineResponder = () => new Response('{}', { status: 200 });
+    const dm = JSON.stringify({ events: [{ type: 'message', replyToken: 'rt', source: { type: 'user', userId: 'Uคน' }, message: { type: 'text', text: '@bot เปิดแจ้งเตือน', mention: { mentionees: [{ isSelf: true }] } } }] });
+    await worker.fetch(req('/webhook', { method: 'POST', body: dm, headers: { 'x-line-signature': await sign(dm) } }), env, ctx);
+    check('เปิดแจ้งเตือนจากแชทส่วนตัว → ไม่เพิ่มผู้ใช้เป็นผู้รับ', (await recipientState(env, 'Uคน')) === null);
+
+    const help = await groupMention(env, 'Cห้อง1', '@bot สวัสดี');
+    check('วิธีใช้มีคำสั่งเปิดแจ้งเตือน', help.includes('เปิดแจ้งเตือน'), help);
+  }
+
+  // (ช) /status บอกจำนวนกลุ่มแยกตามหัวข้อ — เห็นทันทีว่าหัวข้อไหนไม่มีกลุ่มรับ
+  {
+    const env = baseEnv();
+    await env.ROOM_BOOKINGS_KV.put('recipient:Cห้อง1', unreachable);
+    await env.ROOM_BOOKINGS_KV.put('recipient:Cซ่อม', JSON.stringify({ topics: ['repairs'], left: null }));
+    const st = await getStatus(env);
+    check('/status topicCounts แยกหัวข้อ', st.topicCounts?.rooms === 0 && st.topicCounts?.repairs === 1, JSON.stringify(st.topicCounts));
+  }
+
+  // (ซ) ระบบเก่าที่ยังไม่มีกลุ่มใน KV เลย → ส่ง RECIPIENT_ID แบบเดิม ไม่มีหัวข้อความเตือน
+  {
+    const env = baseEnv();
+    await env.ROOM_BOOKINGS_KV.put('recipient_ids_migrated', 'x');
+    lineCalls = []; lineResponder = () => new Response('{}', { status: 200 });
+    const res = await notifyRooms(env);
+    const push = pushesOf()[0];
+    check('KV ว่าง → ส่ง RECIPIENT_ID ข้อความเดิมเป๊ะ', res.sent === 1 && push?.body.to === 'Ufallback' && push.body.messages[0].text === 'มีการจองห้องใหม่', JSON.stringify(push?.body));
+  }
 }
 
 // ── 7) @mention routing ─────────────────────────────────────────────────────
